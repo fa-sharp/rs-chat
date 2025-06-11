@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  web:
+    build:
+      context: .
+    env_file: server/.env
+    ports:
+      - "8080:8080"
+    environment:
+      CHAT_RS_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
+      CHAT_RS_SECRET_KEY: NWk8wRQsR3r20r1KsAkzi/akBJ1TeZDBT9gB26DnSRsI
+
+volumes:
+  postgres_data:

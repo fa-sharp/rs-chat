@@ -1,0 +1,8 @@
+[default]
+address = "127.0.0.1"
+port = 8000
+log_level = "normal"  # can set to "debug" for more logs
+
+[debug]
+database_url = "postgres://postgres:postgres@localhost/postgres"
+secret_key = "NWk8wRQsR3r20r1KsAkzi/akBJ1TeZDBT9gB26DnSRsI"
