@@ -7,7 +7,7 @@ use rocket::{
     futures::{stream, TryStreamExt},
 };
 
-use crate::provider::{ChatError, ChatProvider, ChatStream};
+use crate::provider::{ChatRsProvider, ChatRsStream};
 
 /// LLM API chat provider via the `llm` crate
 pub struct LlmApiProvider<'a> {
@@ -40,7 +40,7 @@ impl<'a> LlmApiProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> ChatProvider for LlmApiProvider<'a> {
+impl<'a> ChatRsProvider for LlmApiProvider<'a> {
     fn name(&self) -> &'static str {
         "llm_api"
     }
@@ -49,7 +49,7 @@ impl<'a> ChatProvider for LlmApiProvider<'a> {
         "LLM API"
     }
 
-    async fn chat_stream(&self, input: &str, _context: Option<String>) -> ChatStream {
+    async fn chat_stream(&self, input: &str, _context: Option<String>) -> ChatRsStream {
         let mut llm_builder = LLMBuilder::new()
             .backend(self.backend.to_owned())
             .api_key(self.api_key)
@@ -68,13 +68,12 @@ impl<'a> ChatProvider for LlmApiProvider<'a> {
 
         let llm = match llm_builder.build() {
             Ok(llm) => llm,
-            Err(e) => return Box::pin(stream::once(async { Err(ChatError::LlmError(e)) })),
+            Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
         };
         let messages = vec![ChatMessage::user().content(input).build()];
-
         let stream = match llm.chat_stream(&messages).await {
-            Ok(stream) => stream.map_err(|e| ChatError::LlmError(e)),
-            Err(e) => return Box::pin(stream::once(async { Err(ChatError::LlmError(e)) })),
+            Ok(stream) => stream.map_err(|e| e.into()),
+            Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
         };
 
         Box::pin(stream)

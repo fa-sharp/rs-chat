@@ -5,10 +5,10 @@ use rocket::futures::Stream;
 use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
-use crate::provider::{ChatError, ChatProvider, ChatStream};
+use crate::provider::{ChatRsError, ChatRsProvider, ChatRsStream};
 
 /// A test/dummy provider that streams 'lorem ipsum...'
-pub struct LoremChatProvider {
+pub struct LoremProvider {
     pub config: LoremConfig,
 }
 
@@ -23,7 +23,7 @@ struct LoremStream {
     interval: Interval,
 }
 impl Stream for LoremStream {
-    type Item = Result<String, ChatError>;
+    type Item = Result<String, ChatRsError>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -40,7 +40,7 @@ impl Stream for LoremStream {
                 if self.index == 0 || self.index % 10 != 0 {
                     std::task::Poll::Ready(Some(Ok(word.to_owned())))
                 } else {
-                    std::task::Poll::Ready(Some(Err(ChatError::ChatError(
+                    std::task::Poll::Ready(Some(Err(ChatRsError::ChatError(
                         "Test error".to_string(),
                     ))))
                 }
@@ -51,7 +51,7 @@ impl Stream for LoremStream {
 }
 
 #[rocket::async_trait]
-impl ChatProvider for LoremChatProvider {
+impl ChatRsProvider for LoremProvider {
     fn name(&self) -> &'static str {
         "lorem"
     }
@@ -60,37 +60,37 @@ impl ChatProvider for LoremChatProvider {
         "Lorem ipsum (for testing)"
     }
 
-    async fn chat_stream(&self, _input: &str, _context: Option<String>) -> ChatStream {
+    async fn chat_stream(&self, _input: &str, _context: Option<String>) -> ChatRsStream {
         let lorem_words = vec![
-            "Lorem ipsum",
-            "dolor sit",
-            "amet, consectetur",
-            "adipiscing elit,",
-            "sed do",
-            "eiusmod tempor",
-            "incididunt ut",
-            "labore et",
-            "dolore magna",
-            "aliqua. Ut",
-            "enim ad",
-            "minim veniam,",
-            "quis nostrud",
-            "exercitation ullamco",
-            "laboris nisi",
-            "ut aliquip",
-            "ex ea",
-            "commodo consequat.",
-            "Duis aute",
-            "irure dolor",
-            "in reprehenderit",
-            "in voluptate",
-            "velit esse",
-            "cillum dolore",
-            "eu fugiat",
+            "Lorem ipsum ",
+            "dolor sit ",
+            "amet, consectetur ",
+            "adipiscing elit, ",
+            "sed do ",
+            "eiusmod tempor ",
+            "incididunt ut ",
+            "labore et ",
+            "dolore magna ",
+            "aliqua. Ut ",
+            "enim ad ",
+            "minim veniam, ",
+            "quis nostrud ",
+            "exercitation ullamco ",
+            "laboris nisi ",
+            "ut aliquip ",
+            "ex ea ",
+            "commodo consequat. ",
+            "Duis aute ",
+            "irure dolor ",
+            "in reprehenderit ",
+            "in voluptate ",
+            "velit esse ",
+            "cillum dolore ",
+            "eu fugiat ",
             "nulla pariatur.",
         ];
 
-        let stream: ChatStream = Box::pin(LoremStream {
+        let stream: ChatRsStream = Box::pin(LoremStream {
             words: lorem_words,
             index: 0,
             interval: interval(Duration::from_millis(self.config.interval.into())),

@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/app/target \
 FROM debian:${DEBIAN_VERSION}-slim
 
 # Install required dependencies
-RUN apt-get update -qq && apt-get install -y -qq ca-certificates libssl3 && apt-get clean
+RUN apt-get update -qq && apt-get install -y -qq ca-certificates && apt-get clean
 
 # Use non-root user
 ARG UID=10001
@@ -45,6 +45,5 @@ COPY --from=backend-build /app/run-server /usr/local/bin/
 # Run
 ENV CHAT_RS_ADDRESS=0.0.0.0
 ENV CHAT_RS_PORT=8080
-ENV CHAT_RS_SHUTDOWN='{grace=5,mercy=5}'
 EXPOSE 8080
 CMD ["run-server"]

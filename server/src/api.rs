@@ -16,8 +16,8 @@ use crate::{
     config::AppConfig,
     provider::{
         llm::LlmApiProvider,
-        lorem::{LoremChatProvider, LoremConfig},
-        ChatProvider,
+        lorem::{LoremConfig, LoremProvider},
+        ChatRsProvider,
     },
     redis::RedisClient,
 };
@@ -41,8 +41,8 @@ async fn chat(
     provider: ProviderInput,
     session_id: Option<String>,
 ) -> EventStream<impl Stream<Item = Event>> {
-    let provider: Box<dyn ChatProvider + Send> = match provider {
-        ProviderInput::Lorem => Box::new(LoremChatProvider {
+    let provider: Box<dyn ChatRsProvider + Send> = match provider {
+        ProviderInput::Lorem => Box::new(LoremProvider {
             config: LoremConfig { interval: 400 },
         }),
         ProviderInput::Anthropic => Box::new(LlmApiProvider::new(

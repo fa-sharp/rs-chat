@@ -7,7 +7,7 @@ use ::llm::error::LLMError;
 use rocket::{async_trait, futures::Stream};
 
 #[derive(Debug, thiserror::Error)]
-pub enum ChatError {
+pub enum ChatRsError {
     #[error("Provider error: {0}")]
     ChatError(String),
     #[error("Configuration error: {0}")]
@@ -16,11 +16,11 @@ pub enum ChatError {
     LlmError(#[from] LLMError),
 }
 
-pub type ChatStream = Pin<Box<dyn Stream<Item = Result<String, ChatError>> + Send>>;
+pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<String, ChatRsError>> + Send>>;
 
 /// Interface for all chat providers
 #[async_trait]
-pub trait ChatProvider {
+pub trait ChatRsProvider {
     /// Provider name
     fn name(&self) -> &'static str;
 
@@ -30,5 +30,5 @@ pub trait ChatProvider {
     }
 
     /// Stream a chat response given the input and context
-    async fn chat_stream(&self, input: &str, context: Option<String>) -> ChatStream;
+    async fn chat_stream(&self, input: &str, context: Option<String>) -> ChatRsStream;
 }

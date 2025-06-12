@@ -18,7 +18,7 @@ pub struct CachedStream<S> {
 
 impl<S> CachedStream<S>
 where
-    S: Stream<Item = Result<String, crate::provider::ChatError>>,
+    S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
     pub fn new(stream: S, redis_client: Client, session_id: Option<String>) -> Self {
         Self {
@@ -65,9 +65,9 @@ where
 
 impl<S> Stream for CachedStream<S>
 where
-    S: Stream<Item = Result<String, crate::provider::ChatError>>,
+    S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
-    type Item = Result<String, crate::provider::ChatError>;
+    type Item = Result<String, crate::provider::ChatRsError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.inner.as_mut().poll_next(cx) {
