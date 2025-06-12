@@ -16,13 +16,15 @@ pub struct AppConfig {
     pub github_client_id: String,
     /// GitHub OAuth Client Secret
     pub github_client_secret: String,
+    /// Anthropic API Key
+    pub anthropic_api_key: String,
 }
 
 /// Get the server configuration variables from Rocket
 pub fn get_app_config(rocket: &Rocket<Build>) -> &AppConfig {
     rocket
         .state::<AppConfig>()
-        .expect("Server configuration not loaded")
+        .expect("Environment variables missing!")
 }
 
 /// Builds and returns a Figment configuration provider that merges settings from:

@@ -22,21 +22,20 @@ use crate::config::get_app_config;
 /// it will retrieve a connection from the managed Postgres pool.
 #[derive(OpenApiFromRequest)]
 pub struct DbConnection(Object<AsyncPgConnection>);
-
 impl Deref for DbConnection {
     type Target = Object<AsyncPgConnection>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-
 impl DerefMut for DbConnection {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-/// Retrieve a connection from the managed Postgres pool.
+/// Retrieve a connection from the managed Postgres pool. Responds with an
+/// internal server error if a connection couldn't be retrieved.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for DbConnection {
     type Error = String;

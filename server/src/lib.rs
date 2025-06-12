@@ -1,3 +1,8 @@
+pub mod api;
+pub mod config;
+pub mod db;
+pub mod provider;
+
 use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{
     mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec,
@@ -10,9 +15,6 @@ use crate::{
     db::setup_db,
 };
 
-pub mod config;
-pub mod db;
-
 /// Build the rocket server, load configuration and routes, prepare for launch
 pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
     let mut server = rocket::custom(get_config_provider())
@@ -23,7 +25,8 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
     let openapi_settings = OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
         server, "/api", openapi_settings,
-        "/" => openapi_get_routes_spec![health]
+        "/" => openapi_get_routes_spec![health],
+        "/" => api::get_routes(&openapi_settings)
     };
 
     server

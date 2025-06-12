@@ -1,0 +1,34 @@
+pub mod llm;
+pub mod lorem;
+
+use std::pin::Pin;
+
+use ::llm::error::LLMError;
+use rocket::{async_trait, futures::Stream};
+
+#[derive(Debug, thiserror::Error)]
+pub enum ChatError {
+    #[error("Provider error: {0}")]
+    ChatError(String),
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+    #[error(transparent)]
+    LlmError(#[from] LLMError),
+}
+
+pub type ChatStream = Pin<Box<dyn Stream<Item = Result<String, ChatError>> + Send>>;
+
+/// Interface for all chat providers
+#[async_trait]
+pub trait ChatProvider {
+    /// Provider name
+    fn name(&self) -> &'static str;
+
+    /// Provider display name for UI
+    fn display_name(&self) -> &'static str {
+        self.name()
+    }
+
+    /// Stream a chat response given the input and context
+    async fn chat_stream(&self, input: &str, context: Option<String>) -> ChatStream;
+}

@@ -7,7 +7,7 @@ pub fn rocket() -> _ {
     build_rocket()
 }
 
-/// Setup tracing and logging (JSON logs in release mode)
+/// Setup tracing and logging (using JSON logs in release mode)
 fn setup_logging() {
     if cfg!(not(debug_assertions)) {
         tracing_subscriber::fmt()
