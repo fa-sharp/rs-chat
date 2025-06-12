@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 pub struct AppConfig {
     /// Postgres Database URL
     pub database_url: String,
+    /// Redis connection URL
+    pub redis_url: String,
     /// GitHub OAuth Client ID
     pub github_client_id: String,
     /// GitHub OAuth Client Secret

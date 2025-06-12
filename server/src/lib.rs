@@ -1,7 +1,9 @@
 pub mod api;
+pub mod cached_stream;
 pub mod config;
 pub mod db;
 pub mod provider;
+pub mod redis;
 
 use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{
@@ -13,6 +15,7 @@ use rocket_okapi::{
 use crate::{
     config::{get_config_provider, AppConfig},
     db::setup_db,
+    redis::setup_redis,
 };
 
 /// Build the rocket server, load configuration and routes, prepare for launch
@@ -20,6 +23,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
     let mut server = rocket::custom(get_config_provider())
         .attach(AdHoc::config::<AppConfig>())
         .attach(setup_db())
+        .attach(setup_redis())
         .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = OpenApiSettings::default();

@@ -88,8 +88,8 @@ pub fn setup_db() -> AdHoc {
                 |rocket| {
                     Box::pin(async {
                         if let Some(pool) = rocket.state::<DbPool>() {
+                            rocket::info!("Shutting down database connection");
                             pool.close();
-                            rocket::info!("Shutdown database connection");
                         }
                     })
                 },

@@ -12,7 +12,7 @@ COPY ./server/Cargo.toml ./server/Cargo.lock ./
 
 ARG pkg=chat-rs-api
 
-RUN apt-get update -qq && apt-get install -y -qq libpq-dev && apt-get clean
+RUN apt-get update -qq && apt-get install -y -qq pkg-config libpq-dev && apt-get clean
 RUN --mount=type=cache,target=/app/target \
     --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
@@ -22,6 +22,9 @@ RUN --mount=type=cache,target=/app/target \
 
 ### Final image ###
 FROM debian:${DEBIAN_VERSION}-slim
+
+# Install required dependencies
+RUN apt-get update -qq && apt-get install -y -qq ca-certificates libssl3 && apt-get clean
 
 # Use non-root user
 ARG UID=10001
@@ -44,4 +47,4 @@ ENV CHAT_RS_ADDRESS=0.0.0.0
 ENV CHAT_RS_PORT=8080
 ENV CHAT_RS_SHUTDOWN='{grace=5,mercy=5}'
 EXPOSE 8080
-CMD run-server
+CMD ["run-server"]
