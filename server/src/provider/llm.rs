@@ -70,7 +70,9 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
             Ok(llm) => llm,
             Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
         };
+
         let messages = vec![ChatMessage::user().content(input).build()];
+
         let stream = match llm.chat_stream(&messages).await {
             Ok(stream) => stream.map_err(|e| e.into()),
             Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),

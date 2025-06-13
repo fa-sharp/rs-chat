@@ -1,3 +1,7 @@
+pub mod models;
+pub mod schema;
+pub mod services;
+
 use std::ops::{Deref, DerefMut};
 
 use diesel_async::{

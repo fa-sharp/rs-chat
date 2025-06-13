@@ -7,6 +7,7 @@ use fred::types::Expiration;
 use rocket::futures::Stream;
 use uuid::Uuid;
 
+/// A wrapper around a stream that caches its output in Redis.
 pub struct CachedStream<S> {
     inner: Pin<Box<S>>,
     redis_client: Client,
