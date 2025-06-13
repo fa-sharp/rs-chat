@@ -12,14 +12,19 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-    name: Build server on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ./server
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust toolchain
         run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update
       - name: Setup rust-cache
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./server
       # - name: Install nextest
       #   uses: taiki-e/install-action@v2
       #   with:
