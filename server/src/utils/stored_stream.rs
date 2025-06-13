@@ -13,17 +13,19 @@ use crate::db::{DbConnection, DbPool};
 
 /// A wrapper around the chat assistant stream that intermittently caches output in Redis, and
 /// saves the assistant's response to the database at the end of the stream.
-pub struct CachedStream<S: Stream<Item = Result<String, crate::provider::ChatRsError>>> {
+pub struct StoredChatRsStream<S: Stream<Item = Result<String, crate::provider::ChatRsError>>> {
     inner: Pin<Box<S>>,
     redis_client: Client,
     db_pool: DbPool,
     session_id: Uuid,
     buffer: Vec<String>,
     last_cache_time: Instant,
-    cache_interval: Duration,
 }
 
-impl<S> CachedStream<S>
+const CACHE_KEY_PREFIX: &str = "chat_session:";
+const CACHE_INTERVAL: Duration = Duration::from_secs(4);
+
+impl<S> StoredChatRsStream<S>
 where
     S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
@@ -35,7 +37,6 @@ where
             session_id: session_id.unwrap_or_else(|| Uuid::new_v4()),
             buffer: Vec::new(),
             last_cache_time: Instant::now(),
-            cache_interval: Duration::from_secs(4),
         }
     }
 
@@ -52,7 +53,7 @@ where
 
         tokio::spawn(async move {
             let Ok(db) = pool.get().await else {
-                eprintln!("Couldn't get connection while saving chat response");
+                rocket::error!("Couldn't get connection while saving chat response");
                 return;
             };
             if let Err(e) = ChatDbService::new(&mut DbConnection(db))
@@ -63,22 +64,22 @@ where
                 })
                 .await
             {
-                rocket::error!("Couldn't save chat response: {}", e);
+                rocket::error!("Failed saving chat response, session {}: {}", session_id, e);
             } else {
-                rocket::info!("Saved chat response for session {}", session_id);
+                rocket::info!("Saved chat response, session {}", session_id);
             }
 
-            let key = format!("chat_session:{}", session_id);
+            let key = format!("{}{}", CACHE_KEY_PREFIX, session_id);
             let _ = redis_client.del::<(), _>(&key).await;
         });
     }
 
     fn should_cache(&self) -> bool {
-        self.last_cache_time.elapsed() >= self.cache_interval
+        self.last_cache_time.elapsed() >= CACHE_INTERVAL
     }
 }
 
-impl<S> Stream for CachedStream<S>
+impl<S> Stream for StoredChatRsStream<S>
 where
     S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
@@ -98,7 +99,7 @@ where
 
                     // Spawn async task to cache
                     tokio::spawn(async move {
-                        let key = format!("chat_session:{}", session_id);
+                        let key = format!("{}{}", CACHE_KEY_PREFIX, session_id);
                         rocket::info!("Caching chat session {}", session_id);
                         if let Err(e) = redis_client
                             .set::<(), _, _>(
@@ -110,7 +111,7 @@ where
                             )
                             .await
                         {
-                            eprintln!("Redis cache error: {}", e);
+                            rocket::error!("Redis cache error: {}", e);
                         }
                     });
 
@@ -132,7 +133,7 @@ where
     }
 }
 
-impl<S> Drop for CachedStream<S>
+impl<S> Drop for StoredChatRsStream<S>
 where
     S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {

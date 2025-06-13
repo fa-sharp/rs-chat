@@ -67,7 +67,7 @@ impl ChatRsProvider for LoremProvider {
         &self,
         _input: &str,
         _context: Option<Vec<ChatRsMessage>>,
-    ) -> ChatRsStream {
+    ) -> Result<ChatRsStream, ChatRsError> {
         let lorem_words = vec![
             "Lorem ipsum ",
             "dolor sit ",
@@ -105,6 +105,6 @@ impl ChatRsProvider for LoremProvider {
 
         tokio::time::sleep(Duration::from_millis(1000)).await;
 
-        stream
+        Ok(stream)
     }
 }

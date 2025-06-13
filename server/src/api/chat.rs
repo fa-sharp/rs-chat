@@ -1,15 +1,20 @@
+use std::pin::Pin;
+
 use llm::builder::LLMBackend;
 use rocket::{
     futures::{Stream, StreamExt},
     post,
     response::stream::{Event, EventStream},
-    routes, FromFormField, State,
+    serde::json::Json,
+    FromFormField, Route, State,
+};
+use rocket_okapi::{
+    okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
 use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
-    cached_stream::CachedStream,
     config::AppConfig,
     db::{
         models::{ChatRsMessageRole, NewChatRsMessage},
@@ -23,41 +28,46 @@ use crate::{
         ChatRsProvider,
     },
     redis::RedisClient,
+    utils::stored_stream::StoredChatRsStream,
 };
 
-/// These are normal Rocket routes, not OpenAPI (`rocket_okapi` crate not working well with streams)
-pub fn get_routes() -> impl Into<Vec<rocket::Route>> {
-    routes![send_chat_stream]
+pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
+    openapi_get_routes_spec![settings: send_chat_stream]
 }
 
-#[derive(FromFormField, JsonSchema)]
+#[derive(FromFormField, JsonSchema, serde::Deserialize)]
 pub enum ProviderInput {
     Lorem,
     Anthropic,
 }
 
-// #[openapi] // TODO this doesn't work with rocket_okapi macro - doesn't like EventStream wrapped in Result :(
-#[post("/<session_id>?<message>&<provider>")]
+#[derive(JsonSchema, serde::Deserialize)]
+pub struct SendChatInput<'a> {
+    message: &'a str,
+    provider: ProviderInput,
+}
+
+#[openapi]
+#[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
     config: &State<AppConfig>,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
     redis: RedisClient,
     session_id: Uuid,
-    message: &str,
-    provider: ProviderInput,
-) -> Result<EventStream<impl Stream<Item = Event>>, ApiError> {
+    input: Json<SendChatInput<'_>>,
+) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     let mut db_service = ChatDbService::new(&mut db);
     let (_current_session, current_messages) = db_service.get_session(&session_id).await?;
     let _ = db_service
         .save_message(NewChatRsMessage {
-            content: message,
+            content: input.message,
             session_id: &session_id,
             role: ChatRsMessageRole::User,
         })
         .await?;
 
-    let provider: Box<dyn ChatRsProvider + Send> = match provider {
+    let provider: Box<dyn ChatRsProvider + Send> = match input.provider {
         ProviderInput::Lorem => Box::new(LoremProvider {
             config: LoremConfig { interval: 400 },
         }),
@@ -70,17 +80,19 @@ pub async fn send_chat_stream(
         )),
     };
 
-    let stream = provider.chat_stream(message, Some(current_messages)).await;
-    let stream_with_caching = CachedStream::new(
-        stream,
+    let stream = StoredChatRsStream::new(
+        provider
+            .chat_stream(input.message, Some(current_messages))
+            .await?,
         db_pool.inner().clone(),
         redis.clone(),
         Some(session_id),
     );
-    let event_stream = stream_with_caching.map(|result| match result {
-        Ok(message) => Event::data(message).event("chat"),
-        Err(err) => Event::data(err.to_string()).event("error"),
-    });
+    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
+        Box::pin(stream.map(|result| match result {
+            Ok(message) => Event::data(message).event("chat"),
+            Err(err) => Event::data(err.to_string()).event("error"),
+        }));
 
     Ok(EventStream::from(event_stream))
 }

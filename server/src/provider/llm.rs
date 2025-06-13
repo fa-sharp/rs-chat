@@ -2,14 +2,11 @@ use llm::{
     builder::{LLMBackend, LLMBuilder},
     chat::ChatMessage,
 };
-use rocket::{
-    async_trait,
-    futures::{stream, TryStreamExt},
-};
+use rocket::{async_trait, futures::TryStreamExt};
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsProvider, ChatRsStream},
+    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
 };
 
 /// LLM API chat provider via the `llm` crate
@@ -52,13 +49,16 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
         "LLM API"
     }
 
-    async fn chat_stream(&self, input: &str, context: Option<Vec<ChatRsMessage>>) -> ChatRsStream {
+    async fn chat_stream(
+        &self,
+        input: &str,
+        context: Option<Vec<ChatRsMessage>>,
+    ) -> Result<ChatRsStream, ChatRsError> {
         let mut llm_builder = LLMBuilder::new()
             .backend(self.backend.to_owned())
             .api_key(self.api_key)
             .model(self.model)
             .stream(true);
-
         if let Some(max_tokens) = self.max_tokens {
             llm_builder = llm_builder.max_tokens(max_tokens);
         }
@@ -68,11 +68,7 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
         if let Some(base_url) = self.base_url {
             llm_builder = llm_builder.base_url(base_url);
         }
-
-        let llm = match llm_builder.build() {
-            Ok(llm) => llm,
-            Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
-        };
+        let llm = llm_builder.build()?;
 
         let mut messages: Vec<ChatMessage> = match context {
             None => vec![],
@@ -91,11 +87,8 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
         };
         messages.push(ChatMessage::user().content(input).build());
 
-        let stream = match llm.chat_stream(&messages).await {
-            Ok(stream) => stream.map_err(|e| e.into()),
-            Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
-        };
+        let stream = llm.chat_stream(&messages).await?.map_err(|e| e.into());
 
-        Box::pin(stream)
+        Ok(Box::pin(stream))
     }
 }
