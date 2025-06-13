@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[profile.ci]
+inherits = "dev"
+lto = false
+codegen-units = 256
+opt-level = 1
+
 [profile.release]
 opt-level = 2
 lto = true
@@ -18,7 +24,10 @@ diesel-async = { version = "0.5.2", features = ["deadpool", "postgres"] }
 diesel-derive-enum = { version = "3.0.0-beta.1", features = ["postgres"] }
 diesel_async_migrations = "0.15.0"
 dotenvy = "0.15.7"
-fred = "10.1.0"
+fred = { version = "10.1.0", default-features = false, features = [
+    "i-keys",
+    "i-lists",
+] }
 llm = { version = "1.3.1", default-features = false, features = [
     "default-tls",
     "openai",
