@@ -7,7 +7,10 @@ use rocket::{
     futures::{stream, TryStreamExt},
 };
 
-use crate::provider::{ChatRsProvider, ChatRsStream};
+use crate::{
+    db::models::{ChatRsMessage, ChatRsMessageRole},
+    provider::{ChatRsProvider, ChatRsStream},
+};
 
 /// LLM API chat provider via the `llm` crate
 pub struct LlmApiProvider<'a> {
@@ -49,7 +52,7 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
         "LLM API"
     }
 
-    async fn chat_stream(&self, input: &str, _context: Option<String>) -> ChatRsStream {
+    async fn chat_stream(&self, input: &str, context: Option<Vec<ChatRsMessage>>) -> ChatRsStream {
         let mut llm_builder = LLMBuilder::new()
             .backend(self.backend.to_owned())
             .api_key(self.api_key)
@@ -71,7 +74,22 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
             Err(e) => return Box::pin(stream::once(async { Err(e.into()) })),
         };
 
-        let messages = vec![ChatMessage::user().content(input).build()];
+        let mut messages: Vec<ChatMessage> = match context {
+            None => vec![],
+            Some(message_history) => message_history
+                .into_iter()
+                .filter_map(|message| match message.role {
+                    ChatRsMessageRole::User => {
+                        Some(ChatMessage::user().content(message.content).build())
+                    }
+                    ChatRsMessageRole::Assistant => {
+                        Some(ChatMessage::assistant().content(message.content).build())
+                    }
+                    ChatRsMessageRole::System => None,
+                })
+                .collect(),
+        };
+        messages.push(ChatMessage::user().content(input).build());
 
         let stream = match llm.chat_stream(&messages).await {
             Ok(stream) => stream.map_err(|e| e.into()),

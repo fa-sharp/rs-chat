@@ -25,7 +25,7 @@ use crate::config::get_app_config;
 /// Database connection, available as a request guard. When used as a request parameter,
 /// it will retrieve a connection from the managed Postgres pool.
 #[derive(OpenApiFromRequest)]
-pub struct DbConnection(Object<AsyncPgConnection>);
+pub struct DbConnection(pub Object<AsyncPgConnection>);
 impl Deref for DbConnection {
     type Target = Object<AsyncPgConnection>;
     fn deref(&self) -> &Self::Target {
@@ -62,7 +62,7 @@ impl<'r> FromRequest<'r> for DbConnection {
 }
 
 /** The database pool stored in Rocket's managed state */
-type DbPool = Pool<AsyncPgConnection>;
+pub type DbPool = Pool<AsyncPgConnection>;
 
 /// Fairing that sets up and initializes the Postgres database
 pub fn setup_db() -> AdHoc {

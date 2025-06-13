@@ -2,6 +2,7 @@ pub mod api;
 pub mod cached_stream;
 pub mod config;
 pub mod db;
+pub mod errors;
 pub mod provider;
 pub mod redis;
 
@@ -24,13 +25,14 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(AdHoc::config::<AppConfig>())
         .attach(setup_db())
         .attach(setup_redis())
-        .mount("/api/docs", get_doc_routes());
+        .mount("/api/docs", get_doc_routes())
+        .mount("/api/chat", api::chat_routes());
 
     let openapi_settings = OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
-        "/" => api::get_routes(&openapi_settings)
+        "/session" => api::session_routes(&openapi_settings)
     };
 
     server

@@ -5,7 +5,10 @@ use rocket::futures::Stream;
 use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
-use crate::provider::{ChatRsError, ChatRsProvider, ChatRsStream};
+use crate::{
+    db::models::ChatRsMessage,
+    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+};
 
 /// A test/dummy provider that streams 'lorem ipsum...'
 pub struct LoremProvider {
@@ -60,7 +63,11 @@ impl ChatRsProvider for LoremProvider {
         "Lorem ipsum (for testing)"
     }
 
-    async fn chat_stream(&self, _input: &str, _context: Option<String>) -> ChatRsStream {
+    async fn chat_stream(
+        &self,
+        _input: &str,
+        _context: Option<Vec<ChatRsMessage>>,
+    ) -> ChatRsStream {
         let lorem_words = vec![
             "Lorem ipsum ",
             "dolor sit ",

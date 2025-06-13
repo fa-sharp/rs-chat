@@ -6,6 +6,8 @@ use std::pin::Pin;
 use ::llm::error::LLMError;
 use rocket::{async_trait, futures::Stream};
 
+use crate::db::models::ChatRsMessage;
+
 #[derive(Debug, thiserror::Error)]
 pub enum ChatRsError {
     #[error("Provider error: {0}")]
@@ -30,5 +32,5 @@ pub trait ChatRsProvider {
     }
 
     /// Stream a chat response given the input and context
-    async fn chat_stream(&self, input: &str, context: Option<String>) -> ChatRsStream;
+    async fn chat_stream(&self, input: &str, context: Option<Vec<ChatRsMessage>>) -> ChatRsStream;
 }

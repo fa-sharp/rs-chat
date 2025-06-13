@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::chat_sessions)]
-pub struct ChatSession {
+pub struct ChatRsSession {
     pub id: Uuid,
     pub title: String,
     pub created_at: DateTime<Utc>,
@@ -17,35 +17,35 @@ pub struct ChatSession {
 
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::chat_sessions)]
-pub struct NewChatSession<'r> {
+pub struct NewChatRsSession<'r> {
     pub title: &'r str,
 }
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::ChatMessageRole")]
 #[derive(Debug, JsonSchema, serde::Serialize)]
-pub enum ChatMessageRole {
+pub enum ChatRsMessageRole {
     User,
     Assistant,
     System,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
-#[diesel(belongs_to(ChatSession, foreign_key = session_id))]
+#[diesel(belongs_to(ChatRsSession, foreign_key = session_id))]
 #[diesel(table_name = super::schema::chat_messages)]
-pub struct ChatMessage {
+pub struct ChatRsMessage {
     pub id: Uuid,
+    #[serde(skip_serializing)]
     pub session_id: Uuid,
-    pub role: ChatMessageRole,
+    pub role: ChatRsMessageRole,
     pub content: String,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::chat_messages)]
-pub struct NewChatMessage<'r> {
-    pub session_id: Uuid,
-    pub role: ChatMessageRole,
+pub struct NewChatRsMessage<'r> {
+    pub session_id: &'r Uuid,
+    pub role: ChatRsMessageRole,
     pub content: &'r str,
 }

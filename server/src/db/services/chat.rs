@@ -1,10 +1,9 @@
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use rocket::futures::try_join;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatMessage, ChatSession, NewChatMessage, NewChatSession},
+    models::{ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession},
     schema::{chat_messages, chat_sessions},
     DbConnection,
 };
@@ -13,10 +12,14 @@ pub struct ChatDbService<'a> {
     pub db: &'a mut DbConnection,
 }
 
-impl ChatDbService<'_> {
+impl<'a> ChatDbService<'a> {
+    pub fn new(db: &'a mut DbConnection) -> Self {
+        ChatDbService { db }
+    }
+
     pub async fn create_session(
         &mut self,
-        session: NewChatSession<'_>,
+        session: NewChatRsSession<'_>,
     ) -> Result<String, diesel::result::Error> {
         let id: Uuid = diesel::insert_into(chat_sessions::table)
             .values(session)
@@ -28,7 +31,7 @@ impl ChatDbService<'_> {
 
     pub async fn save_message(
         &mut self,
-        message: NewChatMessage<'_>,
+        message: NewChatRsMessage<'_>,
     ) -> Result<String, diesel::result::Error> {
         let id: Uuid = diesel::insert_into(chat_messages::table)
             .values(message)
@@ -38,20 +41,31 @@ impl ChatDbService<'_> {
         Ok(id.to_string())
     }
 
+    pub async fn get_all_sessions(&mut self) -> Result<Vec<ChatRsSession>, diesel::result::Error> {
+        let sessions = chat_sessions::table
+            .select(ChatRsSession::as_select())
+            .order_by(chat_sessions::created_at.desc())
+            .limit(100)
+            .load(self.db)
+            .await?;
+
+        Ok(sessions)
+    }
+
     pub async fn get_session(
         &mut self,
         session_id: &Uuid,
-    ) -> Result<(ChatSession, Vec<ChatMessage>), diesel::result::Error> {
-        let session_query = chat_sessions::table
+    ) -> Result<(ChatRsSession, Vec<ChatRsMessage>), diesel::result::Error> {
+        let session = chat_sessions::table
             .filter(chat_sessions::id.eq(session_id))
-            .select(ChatSession::as_select())
-            .get_result(self.db);
-        let messages_query = chat_messages::table
-            .filter(chat_messages::session_id.eq(session_id))
-            .select(ChatMessage::as_select())
-            .load(self.db);
-
-        let (session, messages) = try_join!(session_query, messages_query)?;
+            .select(ChatRsSession::as_select())
+            .first(self.db)
+            .await?;
+        let messages = ChatRsMessage::belonging_to(&session)
+            .select(ChatRsMessage::as_select())
+            .order_by(chat_messages::created_at.asc())
+            .load(self.db)
+            .await?;
 
         Ok((session, messages))
     }
