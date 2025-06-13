@@ -23,7 +23,7 @@ jobs:
         run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update
       - name: Install build dependencies
         if: startsWith(runner.os, 'macOS')
-        run: brew install openssl libpq
+        run: brew install openssl libpq && brew link --force libpq
       - name: Setup rust-cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -34,7 +34,7 @@ jobs:
       #     tool: nextest@0.9
 
       - name: Run cargo build
-        run: cargo build --profile ci
+        run: PQ_LIB_DIR="$(brew --prefix libpq)/lib" cargo build --profile ci
 
       # - name: Test crate
       #   run: cargo nextest run --all-features --profile ci
