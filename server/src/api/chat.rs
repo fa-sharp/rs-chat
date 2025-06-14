@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{borrow::Cow, pin::Pin};
 
 use llm::builder::LLMBackend;
 use rocket::{
@@ -43,7 +43,7 @@ pub enum ProviderInput {
 
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
-    message: &'a str,
+    message: Cow<'a, str>,
     provider: ProviderInput,
 }
 
@@ -61,7 +61,7 @@ pub async fn send_chat_stream(
     let (_current_session, current_messages) = db_service.get_session(&session_id).await?;
     let _ = db_service
         .save_message(NewChatRsMessage {
-            content: input.message,
+            content: &input.message,
             session_id: &session_id,
             role: ChatRsMessageRole::User,
         })
@@ -82,7 +82,7 @@ pub async fn send_chat_stream(
 
     let stream = StoredChatRsStream::new(
         provider
-            .chat_stream(input.message, Some(current_messages))
+            .chat_stream(&input.message, Some(current_messages))
             .await?,
         db_pool.inner().clone(),
         redis.clone(),
@@ -90,7 +90,7 @@ pub async fn send_chat_stream(
     );
     let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
         Box::pin(stream.map(|result| match result {
-            Ok(message) => Event::data(message).event("chat"),
+            Ok(message) => Event::data(format!(" {message}")).event("chat"),
             Err(err) => Event::data(err.to_string()).event("error"),
         }));
 

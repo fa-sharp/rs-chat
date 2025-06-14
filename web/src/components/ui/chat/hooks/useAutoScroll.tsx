@@ -1,5 +1,6 @@
 // @hidden
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
 
 interface ScrollState {
   isAtBottom: boolean;
@@ -27,11 +28,11 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     (element: HTMLElement) => {
       const { scrollTop, scrollHeight, clientHeight } = element;
       const distanceToBottom = Math.abs(
-        scrollHeight - scrollTop - clientHeight
+        scrollHeight - scrollTop - clientHeight,
       );
       return distanceToBottom <= offset;
     },
-    [offset]
+    [offset],
   );
 
   const scrollToBottom = useCallback(
@@ -56,7 +57,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
       });
       userHasScrolled.current = false;
     },
-    [smooth]
+    [smooth],
   );
 
   const handleScroll = useCallback(() => {
@@ -71,13 +72,17 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     }));
   }, [checkIsAtBottom]);
 
+  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 150);
+
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
 
-    element.addEventListener("scroll", handleScroll, { passive: true });
-    return () => element.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
+    element.addEventListener("scroll", debouncedHandleScroll, {
+      passive: true,
+    });
+    return () => element.removeEventListener("scroll", debouncedHandleScroll);
+  }, [debouncedHandleScroll]);
 
   useEffect(() => {
     const scrollElement = scrollRef.current;

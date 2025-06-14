@@ -74,7 +74,7 @@ export default function ChatMessageInput({ isGenerating, onSubmit }: Props) {
         </Button>
 
         <Button
-          // disabled={!input || isLoading}
+          disabled={isGenerating}
           type="submit"
           size="sm"
           className="ml-auto gap-1.5 flex items-center"

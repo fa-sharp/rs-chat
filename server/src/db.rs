@@ -74,8 +74,10 @@ pub fn setup_db() -> AdHoc {
                     let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
                         &get_app_config(&rocket).database_url,
                     );
-                    let pool: DbPool = Pool::builder(config).build().expect("Should build pool");
-                    let mut conn = pool.get().await.expect("Should get connection");
+                    let pool: DbPool = Pool::builder(config)
+                        .build()
+                        .expect("Failed to parse database URL");
+                    let mut conn = pool.get().await.expect("Failed to connect to database");
 
                     static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
                     MIGRATIONS
