@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { client } from "./client";
 
-export const useChatSession = (sessionId: string) =>
+export const useGetChatSession = (sessionId: string) =>
   useQuery({
     queryKey: ["chatSession", { sessionId }],
     queryFn: async () => {

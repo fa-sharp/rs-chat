@@ -1,8 +1,85 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { SSE } from "sse.js";
 import type { components } from "./types";
 
-export const useStreamedChatResponse = (input?: string, sessionId?: string) => {
+export const useStreamingChat = (sessionId: string) => {
+  const queryClient = useQueryClient();
+  const [streamInput, setStreamInput] = useState("");
+  const streamedChatResponse = useStreamedResponse(streamInput, sessionId);
+
+  useEffect(() => {
+    if (streamedChatResponse.status === "complete") {
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+
+      const updateChatSession = async (retryCount = 0) => {
+        try {
+          // Refetch chat session
+          await queryClient.invalidateQueries({
+            queryKey: ["chatSession", { sessionId }],
+          });
+
+          // Check if the chat session has been updated
+          const updatedData = queryClient.getQueryData<{
+            messages: components["schemas"]["ChatRsMessage"][];
+          }>(["chatSession", { sessionId }]);
+          const hasNewAssistantMessage = updatedData?.messages?.some(
+            (msg) =>
+              msg.role === "Assistant" &&
+              new Date(msg.created_at).getTime() > Date.now() - 10000, // Within last 10 seconds
+          );
+          if (!hasNewAssistantMessage && retryCount < maxRetries) {
+            setTimeout(() => updateChatSession(retryCount + 1), retryDelay);
+            return;
+          }
+          setStreamInput("");
+        } catch (error) {
+          if (retryCount < maxRetries) {
+            setTimeout(() => updateChatSession(retryCount + 1), retryDelay);
+          } else {
+            setStreamInput("");
+          }
+        }
+      };
+
+      updateChatSession();
+    }
+  }, [streamedChatResponse.status]);
+
+  const onUserSubmit = useCallback((message: string) => {
+    setStreamInput(message);
+    queryClient.setQueryData<{
+      messages: components["schemas"]["ChatRsMessage"][];
+    }>(["chatSession", { sessionId }], (oldData: any) => {
+      if (!oldData) return {};
+      return {
+        ...oldData,
+        messages: [
+          ...oldData.messages,
+          {
+            id: crypto.randomUUID(),
+            content: message,
+            role: "User",
+            timestamp: new Date(),
+          },
+        ],
+      };
+    });
+  }, []);
+
+  return {
+    onUserSubmit,
+    streamingStatus: streamedChatResponse.status,
+    streamingMessage: streamedChatResponse.message,
+    streamingErrors: streamedChatResponse.errors,
+    isGenerating:
+      streamedChatResponse.status === "pending" ||
+      streamedChatResponse.status === "streaming",
+  };
+};
+
+const useStreamedResponse = (input?: string, sessionId?: string) => {
   const [message, setMessage] = useState<string>("");
   const [errors, setErrors] = useState<string[]>([]);
   const [status, setStatus] = useState<
@@ -23,7 +100,7 @@ export const useStreamedChatResponse = (input?: string, sessionId?: string) => {
 
     const body: components["schemas"]["SendChatInput"] = {
       message: input,
-      provider: "Anthropic",
+      provider: "Lorem",
     };
     const source = new SSE(`/api/chat/${sessionId}`, {
       method: "POST",
