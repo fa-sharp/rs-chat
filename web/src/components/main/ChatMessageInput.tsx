@@ -1,10 +1,5 @@
 import { CornerDownLeft, Mic } from "lucide-react";
-import {
-  useCallback,
-  useState,
-  type ChangeEventHandler,
-  type FormEventHandler,
-} from "react";
+import { useCallback, useRef, useState, type FormEventHandler } from "react";
 import { Button } from "../ui/button";
 import { ChatInput } from "../ui/chat/chat-input";
 
@@ -14,45 +9,47 @@ interface Props {
 }
 
 export default function ChatMessageInput({ isGenerating, onSubmit }: Props) {
-  const [inputValue, setInputValue] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   const [enterKeyShouldSubmit, setEnterKeyShouldSubmit] = useState(true);
 
-  const handleInputChange: ChangeEventHandler<HTMLTextAreaElement> =
-    useCallback((ev) => {
-      setInputValue(ev.target.value);
-    }, []);
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (
+        (enterKeyShouldSubmit && e.key === "Enter" && !e.shiftKey) ||
+        (!enterKeyShouldSubmit && e.key === "Enter" && e.shiftKey)
+      ) {
+        e.preventDefault();
+        if (isGenerating || !inputRef.current?.value) return;
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (
-      (enterKeyShouldSubmit && e.key === "Enter" && !e.shiftKey) ||
-      (!enterKeyShouldSubmit && e.key === "Enter" && e.shiftKey)
-    ) {
-      e.preventDefault();
-      if (isGenerating || !inputValue) return;
-      onSubmit(e.currentTarget.value);
-      setInputValue("");
-    }
-  };
+        onSubmit(inputRef.current?.value);
+        formRef.current?.reset();
+      }
+    },
+    [isGenerating, onSubmit, enterKeyShouldSubmit],
+  );
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
     (ev) => {
       ev.preventDefault();
-      if (!inputValue) return;
-      onSubmit(inputValue);
-      setInputValue("");
+      if (!inputRef.current?.value) return;
+
+      onSubmit(inputRef.current?.value);
+      formRef.current?.reset();
     },
-    [inputValue],
+    [onSubmit],
   );
+
   return (
     <form
-      // ref={formRef}
+      ref={formRef}
       onSubmit={handleSubmit}
       className="flex flex-col gap-2 relative rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring"
     >
       <ChatInput
-        value={inputValue}
+        ref={inputRef}
         onKeyDown={onKeyDown}
-        onChange={handleInputChange}
         placeholder="Type your message here..."
         className="rounded-lg bg-background border-0 shadow-none focus-visible:ring-0"
       />

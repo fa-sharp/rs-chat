@@ -9,12 +9,15 @@ import {
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 import type { components } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
 interface Props {
   isGenerating: boolean;
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   streamedResponse?: string;
 }
+
+const proseClasses = "prose prose-sm md:prose-base";
 
 export default function ChatMessages({
   messages,
@@ -32,7 +35,12 @@ export default function ChatMessages({
             src=""
             fallback={message.role == "User" ? "🧑🏽‍💻" : "🤖"}
           />
-          <ChatBubbleMessage className="prose prose-sm md:prose-base">
+          <ChatBubbleMessage
+            className={cn(
+              proseClasses,
+              message.role == "User" && "prose-code:text-primary-foreground",
+            )}
+          >
             <Markdown
               key={message.id}
               remarkPlugins={[remarkGfm]}
@@ -80,7 +88,9 @@ export default function ChatMessages({
       {streamedResponse && (
         <ChatBubble variant="received">
           <ChatBubbleAvatar fallback="🤖" />
-          <ChatBubbleMessage className="prose outline-2 outline-ring">
+          <ChatBubbleMessage
+            className={cn(proseClasses, "outline-2 outline-ring")}
+          >
             <Markdown
               key="streaming"
               // remarkPlugins={[remarkGfm]}
