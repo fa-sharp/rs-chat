@@ -1,5 +1,5 @@
 import * as React from "react";
-import { BotMessageSquare, Minus, Plus } from "lucide-react";
+import { MessageCircleHeart, Minus, Plus } from "lucide-react";
 
 import { SearchForm } from "@/components/SearchForm";
 import {
@@ -171,7 +171,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild>
               <a href="#">
                 <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <BotMessageSquare className="size-6" />
+                  <MessageCircleHeart className="size-6" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-medium">RsChat</span>

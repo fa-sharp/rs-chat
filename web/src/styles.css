@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@plugin "@tailwindcss/typography";
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
@@ -135,4 +135,17 @@ code {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Rehype code line numbers */
+.numbered-code-line::before {
+  content: attr(data-line-number);
+
+  margin-left: -8px;
+  margin-right: 16px;
+  width: 1rem;
+  color: var(--muted-foreground);
+  text-align: right;
+
+  display: inline-block;
 }
