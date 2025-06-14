@@ -33,7 +33,7 @@ const ChatMessageList = React.forwardRef<HTMLDivElement, ChatMessageListProps>(
               scrollToBottom();
             }}
             size="icon"
-            variant="outline"
+            variant="default"
             className="absolute bottom-2 left-1/2 transform -translate-x-1/2 inline-flex rounded-full shadow-md"
             aria-label="Scroll to bottom"
           >

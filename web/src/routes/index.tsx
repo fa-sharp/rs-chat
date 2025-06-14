@@ -23,13 +23,43 @@ function App() {
   const streamedChatResponse = useStreamedChatResponse(streamInput, sessionId);
   useEffect(() => {
     if (streamedChatResponse.status === "complete") {
-      queryClient
-        .invalidateQueries({ queryKey: ["chatSession", { sessionId }] })
-        .then(() => {
+      const maxRetries = 3;
+      const retryDelay = 1000; // 1 second
+
+      const updateChatSession = async (retryCount = 0) => {
+        try {
+          await queryClient.cancelQueries({
+            queryKey: ["chatSession", { sessionId }],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ["chatSession", { sessionId }],
+          });
+          // Check if the chat session has been updated
+          const updatedData = queryClient.getQueryData<{
+            messages: components["schemas"]["ChatRsMessage"][];
+          }>(["chatSession", { sessionId }]);
+          const hasNewAssistantMessage = updatedData?.messages?.some(
+            (msg) =>
+              msg.role === "Assistant" &&
+              new Date(msg.created_at).getTime() > Date.now() - 10000, // Within last 10 seconds
+          );
+          if (!hasNewAssistantMessage && retryCount < maxRetries) {
+            setTimeout(() => updateChatSession(retryCount + 1), retryDelay);
+            return;
+          }
           setStreamInput("");
-        });
+        } catch (error) {
+          if (retryCount < maxRetries) {
+            setTimeout(() => updateChatSession(retryCount + 1), retryDelay);
+          } else {
+            setStreamInput("");
+          }
+        }
+      };
+
+      updateChatSession();
     }
-  }, [streamedChatResponse, streamInput]);
+  }, [streamedChatResponse]);
 
   const onSubmit = useCallback((message: string) => {
     setStreamInput(message);

@@ -39,6 +39,8 @@ export default function ChatMessages({
             className={cn(
               proseClasses,
               message.role == "User" && "prose-code:text-primary-foreground",
+              message.role == "Assistant" &&
+                "prose-code:text-secondary-foreground",
             )}
           >
             <Markdown

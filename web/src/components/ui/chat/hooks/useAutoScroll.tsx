@@ -17,6 +17,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
   const { offset = 20, smooth = false, content } = options;
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastContentHeight = useRef(0);
+  const initialContentHeight = useRef(0);
   const userHasScrolled = useRef(false);
 
   const [scrollState, setScrollState] = useState<ScrollState>({
@@ -92,28 +93,35 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     const hasNewContent = currentHeight !== lastContentHeight.current;
 
     if (hasNewContent) {
+      if (initialContentHeight.current === 0) {
+        initialContentHeight.current = currentHeight;
+      }
       if (scrollState.autoScrollEnabled) {
+        const instant =
+          lastContentHeight.current === 0 ||
+          lastContentHeight.current === initialContentHeight.current;
         requestAnimationFrame(() => {
-          scrollToBottom(lastContentHeight.current === 0);
+          scrollToBottom(instant);
         });
       }
       lastContentHeight.current = currentHeight;
     }
   }, [content, scrollState.autoScrollEnabled, scrollToBottom]);
 
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
+  // TODO ResizeObserver is causing issues with smooth scrolling
+  // useEffect(() => {
+  //   const element = scrollRef.current;
+  //   if (!element) return;
 
-    const resizeObserver = new ResizeObserver(() => {
-      if (scrollState.autoScrollEnabled) {
-        scrollToBottom(true);
-      }
-    });
+  //   const resizeObserver = new ResizeObserver(() => {
+  //     if (scrollState.autoScrollEnabled && lastContentHeight.current !== 0) {
+  //       scrollToBottom(true);
+  //     }
+  //   });
 
-    resizeObserver.observe(element);
-    return () => resizeObserver.disconnect();
-  }, [scrollState.autoScrollEnabled, scrollToBottom]);
+  //   resizeObserver.observe(element);
+  //   return () => resizeObserver.disconnect();
+  // }, [scrollState.autoScrollEnabled, scrollToBottom]);
 
   const disableAutoScroll = useCallback(() => {
     const atBottom = scrollRef.current
