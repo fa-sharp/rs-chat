@@ -65,7 +65,7 @@ impl ChatRsProvider for LoremProvider {
 
     async fn chat_stream(
         &self,
-        _input: &str,
+        _input: Option<&str>,
         _context: Option<Vec<ChatRsMessage>>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let lorem_words = vec![

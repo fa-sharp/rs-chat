@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        models::{ChatRsMessage, ChatRsSession, NewChatRsSession},
+        models::{ChatRsMessage, ChatRsSession, ChatRsUser, NewChatRsSession},
         services::chat::ChatDbService,
         DbConnection,
     },
@@ -25,17 +25,28 @@ struct CreateSessionResponse {
 
 #[openapi]
 #[get("/")]
-async fn get_all_sessions(mut db: DbConnection) -> Result<Json<Vec<ChatRsSession>>, ApiError> {
-    let sessions = ChatDbService::new(&mut db).get_all_sessions().await?;
+async fn get_all_sessions(
+    user: ChatRsUser,
+    mut db: DbConnection,
+) -> Result<Json<Vec<ChatRsSession>>, ApiError> {
+    let sessions = ChatDbService::new(&mut db)
+        .get_all_sessions(&user.id)
+        .await?;
 
     Ok(Json(sessions))
 }
 
 #[openapi]
 #[post("/")]
-async fn create_session(mut db: DbConnection) -> Result<Json<CreateSessionResponse>, ApiError> {
+async fn create_session(
+    user: ChatRsUser,
+    mut db: DbConnection,
+) -> Result<Json<CreateSessionResponse>, ApiError> {
     let id = ChatDbService::new(&mut db)
-        .create_session(NewChatRsSession { title: "New Chat" })
+        .create_session(NewChatRsSession {
+            user_id: &user.id,
+            title: "New Chat",
+        })
         .await?;
 
     Ok(Json(CreateSessionResponse { session_id: id }))
@@ -50,10 +61,13 @@ struct GetSessionResponse {
 #[openapi]
 #[get("/<session_id>")]
 async fn get_session(
+    user: ChatRsUser,
     mut db: DbConnection,
     session_id: Uuid,
 ) -> Result<Json<GetSessionResponse>, ApiError> {
-    let (session, messages) = ChatDbService::new(&mut db).get_session(&session_id).await?;
+    let (session, messages) = ChatDbService::new(&mut db)
+        .get_session(&user.id, &session_id)
+        .await?;
 
     Ok(Json(GetSessionResponse { session, messages }))
 }

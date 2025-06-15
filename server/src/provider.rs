@@ -34,7 +34,7 @@ pub trait ChatRsProvider {
     /// Stream a chat response given the input and context
     async fn chat_stream(
         &self,
-        input: &str,
+        input: Option<&str>,
         context: Option<Vec<ChatRsMessage>>,
     ) -> Result<ChatRsStream, ChatRsError>;
 }

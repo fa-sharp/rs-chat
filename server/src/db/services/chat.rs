@@ -41,8 +41,12 @@ impl<'a> ChatDbService<'a> {
         Ok(id.to_string())
     }
 
-    pub async fn get_all_sessions(&mut self) -> Result<Vec<ChatRsSession>, diesel::result::Error> {
+    pub async fn get_all_sessions(
+        &mut self,
+        user_id: &Uuid,
+    ) -> Result<Vec<ChatRsSession>, diesel::result::Error> {
         let sessions = chat_sessions::table
+            .filter(chat_sessions::user_id.eq(user_id))
             .select(ChatRsSession::as_select())
             .order_by(chat_sessions::created_at.desc())
             .limit(100)
@@ -54,9 +58,11 @@ impl<'a> ChatDbService<'a> {
 
     pub async fn get_session(
         &mut self,
+        user_id: &Uuid,
         session_id: &Uuid,
     ) -> Result<(ChatRsSession, Vec<ChatRsMessage>), diesel::result::Error> {
         let session = chat_sessions::table
+            .filter(chat_sessions::user_id.eq(user_id))
             .filter(chat_sessions::id.eq(session_id))
             .select(ChatRsSession::as_select())
             .first(self.db)

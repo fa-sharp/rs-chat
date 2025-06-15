@@ -39,6 +39,7 @@ pub struct ChatRsSession {
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::chat_sessions)]
 pub struct NewChatRsSession<'r> {
+    pub user_id: &'r Uuid,
     pub title: &'r str,
 }
 

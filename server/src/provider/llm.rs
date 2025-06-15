@@ -51,7 +51,7 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
 
     async fn chat_stream(
         &self,
-        input: &str,
+        input: Option<&str>,
         context: Option<Vec<ChatRsMessage>>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let mut llm_builder = LLMBuilder::new()
@@ -85,7 +85,9 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
                 })
                 .collect(),
         };
-        messages.push(ChatMessage::user().content(input).build());
+        if let Some(user_message) = input {
+            messages.push(ChatMessage::user().content(user_message).build());
+        }
 
         let stream = llm.chat_stream(&messages).await?.map_err(|e| e.into());
 

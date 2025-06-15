@@ -17,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     config::AppConfig,
     db::{
-        models::{ChatRsMessageRole, NewChatRsMessage},
+        models::{ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
         services::chat::ChatDbService,
         DbConnection, DbPool,
     },
@@ -43,13 +43,14 @@ pub enum ProviderInput {
 
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
-    message: Cow<'a, str>,
+    message: Option<Cow<'a, str>>,
     provider: ProviderInput,
 }
 
 #[openapi]
 #[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
+    user: ChatRsUser,
     config: &State<AppConfig>,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
@@ -58,15 +59,22 @@ pub async fn send_chat_stream(
     input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     let mut db_service = ChatDbService::new(&mut db);
-    let (_current_session, current_messages) = db_service.get_session(&session_id).await?;
-    let _ = db_service
-        .save_message(NewChatRsMessage {
-            content: &input.message,
-            session_id: &session_id,
-            role: ChatRsMessageRole::User,
-        })
-        .await?;
 
+    // Check session exists and user is owner, get message history
+    let (_, current_messages) = db_service.get_session(&user.id, &session_id).await?;
+
+    // Save user message to session
+    if let Some(user_message) = &input.message {
+        let _ = db_service
+            .save_message(NewChatRsMessage {
+                content: user_message,
+                session_id: &session_id,
+                role: ChatRsMessageRole::User,
+            })
+            .await?;
+    }
+
+    // Get the chat provider
     let provider: Box<dyn ChatRsProvider + Send> = match input.provider {
         ProviderInput::Lorem => Box::new(LoremProvider {
             config: LoremConfig { interval: 400 },
@@ -80,9 +88,10 @@ pub async fn send_chat_stream(
         )),
     };
 
+    // Stream the provider's response
     let stream = StoredChatRsStream::new(
         provider
-            .chat_stream(&input.message, Some(current_messages))
+            .chat_stream(input.message.as_deref(), Some(current_messages))
             .await?,
         db_pool.inner().clone(),
         redis.clone(),
