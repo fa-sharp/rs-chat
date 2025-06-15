@@ -1,4 +1,5 @@
 pub mod api;
+pub mod auth;
 pub mod config;
 pub mod db;
 pub mod errors;
@@ -14,6 +15,7 @@ use rocket_okapi::{
 };
 
 use crate::{
+    auth::setup_session,
     config::{get_config_provider, AppConfig},
     db::setup_db,
     redis::setup_redis,
@@ -25,12 +27,14 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(AdHoc::config::<AppConfig>())
         .attach(setup_db())
         .attach(setup_redis())
+        .attach(setup_session())
         .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
+        "/auth" => api::auth_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
     };

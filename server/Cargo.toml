@@ -33,6 +33,10 @@ llm = { version = "1.3.1", default-features = false, features = [
     "anthropic",
 ] }
 rocket = { version = "0.5.1", features = ["json", "uuid"] }
+rocket_flex_session = { version = "0.1.1", git = "https://github.com/fa-sharp/rocket-flex-session", features = [
+    "redis_fred",
+    "rocket_okapi",
+] }
 rocket_okapi = { version = "0.9.0", features = ["rapidoc"] }
 schemars = { version = "0.8.22", features = ["chrono", "uuid1"] }
 serde = { version = "1.0.219" }
