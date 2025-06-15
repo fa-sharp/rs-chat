@@ -20,164 +20,58 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import type { components } from "@/lib/api/types";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
+import { Link, useLocation } from "@tanstack/react-router";
 
-// This is sample data.
-const data = {
-  navMain: [
-    {
-      title: "Getting Started",
-      url: "#",
-      items: [
-        {
-          title: "Installation",
-          url: "#",
-        },
-        {
-          title: "Project Structure",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Building Your Application",
-      url: "#",
-      items: [
-        {
-          title: "Routing",
-          url: "#",
-        },
-        {
-          title: "Data Fetching",
-          url: "#",
-          isActive: true,
-        },
-        {
-          title: "Rendering",
-          url: "#",
-        },
-        {
-          title: "Caching",
-          url: "#",
-        },
-        {
-          title: "Styling",
-          url: "#",
-        },
-        {
-          title: "Optimizing",
-          url: "#",
-        },
-        {
-          title: "Configuring",
-          url: "#",
-        },
-        {
-          title: "Testing",
-          url: "#",
-        },
-        {
-          title: "Authentication",
-          url: "#",
-        },
-        {
-          title: "Deploying",
-          url: "#",
-        },
-        {
-          title: "Upgrading",
-          url: "#",
-        },
-        {
-          title: "Examples",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "API Reference",
-      url: "#",
-      items: [
-        {
-          title: "Components",
-          url: "#",
-        },
-        {
-          title: "File Conventions",
-          url: "#",
-        },
-        {
-          title: "Functions",
-          url: "#",
-        },
-        {
-          title: "next.config.js Options",
-          url: "#",
-        },
-        {
-          title: "CLI",
-          url: "#",
-        },
-        {
-          title: "Edge Runtime",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Architecture",
-      url: "#",
-      items: [
-        {
-          title: "Accessibility",
-          url: "#",
-        },
-        {
-          title: "Fast Refresh",
-          url: "#",
-        },
-        {
-          title: "Next.js Compiler",
-          url: "#",
-        },
-        {
-          title: "Supported Browsers",
-          url: "#",
-        },
-        {
-          title: "Turbopack",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Community",
-      url: "#",
-      items: [
-        {
-          title: "Contribution Guide",
-          url: "#",
-        },
-      ],
-    },
-  ],
-};
+export function AppSidebar({
+  sessions,
+  user,
+  ...props
+}: {
+  sessions?: components["schemas"]["ChatRsSession"][];
+  user?: components["schemas"]["ChatRsUser"];
+} & React.ComponentProps<typeof Sidebar>) {
+  const groupedSessions = React.useMemo(
+    () => groupSessionsByDate(sessions || []),
+    [sessions],
+  );
+  const location = useLocation();
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="#">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <MessageCircleHeart className="size-6" />
+            <SidebarMenuButton size="lg" tooltip="Open app menu" asChild>
+              <Button type="button" variant="ghost">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                  <Avatar>
+                    <AvatarImage
+                      src={
+                        !user
+                          ? ""
+                          : `https://avatars.githubusercontent.com/u/${user.github_id}`
+                      }
+                      alt="Avatar"
+                    />
+                    <AvatarFallback>
+                      <MessageCircleHeart className="size-6" />
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-medium">RsChat</span>
-                  <span className="">v1.0.0</span>
-                </div>
-              </a>
+                {user ? (
+                  <div className="flex flex-col gap-0.5 leading-none">
+                    <span className="font-medium">{user.name}</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-0.5 leading-none">
+                    <span className="font-medium">RsChat</span>
+                    <span className="">v1.0.0</span>
+                  </div>
+                )}
+              </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -186,36 +80,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
-            {data.navMain.map((item, index) => (
+            {groupedSessions.map(([group, chats], index) => (
               <Collapsible
-                key={item.title}
-                defaultOpen={index === 1}
+                key={group}
+                defaultOpen={index < 2}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton>
-                      {item.title}{" "}
+                      {DateGroups[group]}{" "}
                       <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
                       <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
-                  {item.items?.length ? (
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {item.items.map((item) => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={item.isActive}
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {chats.map((session) => (
+                        <SidebarMenuSubItem key={session.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={
+                              location.pathname === `/app/session/${session.id}`
+                            }
+                          >
+                            <Link
+                              to="/app/session/$sessionId"
+                              params={{ sessionId: session.id }}
                             >
-                              <a href={item.url}>{item.title}</a>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  ) : null}
+                              {session.title}
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
               </Collapsible>
             ))}
@@ -225,4 +124,60 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarRail />
     </Sidebar>
   );
+}
+
+const DateGroups: Record<string, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  thisWeek: "This Week",
+  lastWeek: "Last Week",
+  older: "Older",
+};
+
+function groupSessionsByDate(
+  sessions: components["schemas"]["ChatRsSession"][],
+) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(today.getDate() - today.getDay());
+
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+  const lastWeekEnd = new Date(thisWeekStart);
+  lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
+
+  const groups: Record<string, components["schemas"]["ChatRsSession"][]> = {
+    today: [],
+    yesterday: [],
+    thisWeek: [],
+    lastWeek: [],
+    older: [],
+  };
+
+  sessions?.forEach((session) => {
+    const sessionDate = new Date(session.created_at);
+    const sessionDateOnly = new Date(
+      sessionDate.getFullYear(),
+      sessionDate.getMonth(),
+      sessionDate.getDate(),
+    );
+
+    if (sessionDateOnly.getTime() === today.getTime()) {
+      groups.today.push(session);
+    } else if (sessionDateOnly.getTime() === yesterday.getTime()) {
+      groups.yesterday.push(session);
+    } else if (sessionDate >= thisWeekStart && sessionDate < today) {
+      groups.thisWeek.push(session);
+    } else if (sessionDate >= lastWeekStart && sessionDate <= lastWeekEnd) {
+      groups.lastWeek.push(session);
+    } else {
+      groups.older.push(session);
+    }
+  });
+
+  return Object.entries(groups).filter(([, chats]) => chats.length > 0);
 }

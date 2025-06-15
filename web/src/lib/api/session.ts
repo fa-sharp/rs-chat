@@ -21,3 +21,17 @@ export const useGetChatSession = (sessionId: string) =>
     queryKey: chatSessionQueryKey(sessionId),
     queryFn: () => getChatSession(sessionId),
   });
+
+export async function getRecentChatSessions() {
+  const response = await client.GET("/session/");
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+  return response.data;
+}
+
+export const useGetRecentChatSessions = () =>
+  useQuery({
+    queryKey: ["recentChatSessions"],
+    queryFn: () => getRecentChatSessions(),
+  });
