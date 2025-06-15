@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 /// Main server config (settings are merged with Rocket's default config)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppConfig {
+    /// Server address (e.g. "http://localhost:8000" or "https://example.com")
+    pub server_address: String,
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL

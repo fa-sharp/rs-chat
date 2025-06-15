@@ -1,7 +1,8 @@
 use rocket::{
+    catch, catchers,
     response::{self, Responder},
     serde::json::Json,
-    Request,
+    Catcher, Request,
 };
 use rocket_okapi::response::OpenApiResponderInner;
 use schemars::JsonSchema;
@@ -44,6 +45,7 @@ enum ApiErrorResponse {
     Server(Json<Message>),
 }
 
+/// API error response handling
 impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
     fn respond_to(self, req: &'r Request<'_>) -> response::Result<'o> {
         rocket::info!("API error: {:?}", self);
@@ -70,6 +72,38 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
     }
 }
 
+/// Default JSON catchers for request errors.
+pub fn get_catchers() -> Vec<Catcher> {
+    catchers![
+        bad_request,
+        unauthorized,
+        unprocessable_entity,
+        not_found,
+        server_error
+    ]
+}
+#[catch(400)]
+fn bad_request(_req: &Request) -> ApiErrorResponse {
+    ApiErrorResponse::BadRequest(Json(Message::new("Bad request")))
+}
+#[catch(401)]
+fn unauthorized(_req: &Request) -> ApiErrorResponse {
+    ApiErrorResponse::Unauthorized(Json(Message::new("Unauthorized!")))
+}
+#[catch(404)]
+fn not_found(_req: &Request) -> ApiErrorResponse {
+    ApiErrorResponse::NotFound(Json(Message::new("Not found!")))
+}
+#[catch(422)]
+fn unprocessable_entity(_req: &Request) -> ApiErrorResponse {
+    ApiErrorResponse::BadRequest(Json(Message::new("Incorrectly formatted")))
+}
+#[catch(500)]
+fn server_error(_req: &Request) -> ApiErrorResponse {
+    ApiErrorResponse::Server(Json(Message::new("Server error!")))
+}
+
+/// OpenAPI specification for API error responses
 impl OpenApiResponderInner for ApiError {
     fn responses(
         gen: &mut rocket_okapi::r#gen::OpenApiGenerator,

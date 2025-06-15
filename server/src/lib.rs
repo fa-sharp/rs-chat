@@ -15,9 +15,10 @@ use rocket_okapi::{
 };
 
 use crate::{
-    auth::setup_session,
+    auth::{setup_oauth, setup_session},
     config::{get_config_provider, AppConfig},
     db::setup_db,
+    errors::get_catchers,
     redis::setup_redis,
 };
 
@@ -28,7 +29,10 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_db())
         .attach(setup_redis())
         .attach(setup_session())
-        .mount("/api/docs", get_doc_routes());
+        .attach(setup_oauth())
+        .register("/", get_catchers())
+        .mount("/api/docs", get_doc_routes())
+        .mount("/api/oauth", api::oauth_routes());
 
     let openapi_settings = OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {

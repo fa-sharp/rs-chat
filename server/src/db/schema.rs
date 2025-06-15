@@ -26,12 +26,25 @@ diesel::table! {
         title -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        user_id -> Uuid,
+    }
+}
+
+diesel::table! {
+    users (id) {
+        id -> Uuid,
+        github_id -> Varchar,
+        name -> Varchar,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
+diesel::joinable!(chat_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     chat_messages,
     chat_sessions,
+    users,
 );

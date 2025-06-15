@@ -1,36 +1,99 @@
-use rocket::{get, Route};
+use rocket::{get, http::CookieJar, post, response::Redirect, routes, serde::json::Json, Route};
 use rocket_flex_session::Session;
+use rocket_oauth2::{OAuth2, TokenResponse};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
-use uuid::Uuid;
 
-use crate::{auth::ChatRsAuthSession, errors::ApiError};
+use crate::{
+    auth::ChatRsAuthSession,
+    db::{
+        models::{ChatRsUser, NewChatRsUser},
+        services::user::UserDbService,
+        DbConnection,
+    },
+    errors::ApiError,
+};
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: login, user, logout]
+    openapi_get_routes_spec![settings: user, logout]
 }
 
-#[openapi]
-#[get("/login")]
-async fn login(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
-    session.set(ChatRsAuthSession::new(Uuid::new_v4()));
+/// OAuth routes for GitHub authentication - not included in OpenAPI spec.
+pub fn get_oauth_routes() -> Vec<Route> {
+    routes![login, login_callback]
+}
 
-    Ok("Login successful".to_string())
+/// User information to be retrieved from the GitHub API.
+#[derive(serde::Deserialize)]
+pub struct GitHubUserInfo {
+    id: u64,
+    #[serde(default)]
+    name: String,
+}
+
+#[get("/login/github")]
+async fn login(
+    oauth2: OAuth2<GitHubUserInfo>,
+    cookies: &CookieJar<'_>,
+) -> Result<Redirect, ApiError> {
+    oauth2
+        .get_redirect(cookies, &["user:read"])
+        .map_err(|e| ApiError::Authentication(format!("Failed to get redirect: {}", e)))
+}
+
+#[get("/login/github/callback")]
+async fn login_callback(
+    mut db: DbConnection,
+    token: TokenResponse<GitHubUserInfo>,
+    mut session: Session<'_, ChatRsAuthSession>,
+) -> Result<Redirect, ApiError> {
+    let user_info_res = reqwest::Client::builder()
+        .build()
+        .map_err(|e| ApiError::Authentication(format!("Failed to build reqwest client: {}", e)))?
+        .get("https://api.github.com/user")
+        .header("Authorization", format!("Bearer {}", token.access_token()))
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "fa-sharp/chat-rs")
+        .send()
+        .await
+        .map_err(|e| ApiError::Authentication(format!("Failed to get GitHub user: {}", e)))?;
+    let user_info: GitHubUserInfo = user_info_res
+        .json()
+        .await
+        .map_err(|e| ApiError::Authentication(format!("Failed to deserialize response: {}", e)))?;
+
+    let mut db_service = UserDbService::new(&mut db);
+    match db_service.find_by_github_id(user_info.id).await? {
+        Some(existing_user) => {
+            session.set(ChatRsAuthSession {
+                user_id: existing_user.id,
+            });
+        }
+        None => {
+            let new_user = db_service
+                .create(NewChatRsUser {
+                    github_id: &user_info.id.to_string(),
+                    name: &user_info.name,
+                })
+                .await?;
+            session.set(ChatRsAuthSession {
+                user_id: new_user.id,
+            });
+        }
+    }
+
+    Ok(Redirect::to("/"))
 }
 
 #[openapi]
 #[get("/user")]
-async fn user(session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
-    let user_id = session
-        .tap(|session| session.map(|s| s.user_id))
-        .ok_or(ApiError::Authentication("No session found".into()))?;
-
-    Ok(format!("User ID: {}", user_id))
+async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
+    Ok(Json(user))
 }
 
 #[openapi]
-#[get("/logout")]
+#[post("/logout")]
 async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
     session.delete();
 
