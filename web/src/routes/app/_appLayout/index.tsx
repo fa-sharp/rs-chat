@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/")({
@@ -6,8 +7,8 @@ export const Route = createFileRoute("/app/_appLayout/")({
 
 function RouteComponent() {
   return (
-    <div className="flex-1 items-center justify-center">
-      This is the app index page
+    <div className="flex-1 flex items-center justify-center">
+      <Button>New Chat</Button>
     </div>
   );
 }

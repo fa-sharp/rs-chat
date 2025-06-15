@@ -18,6 +18,7 @@ export const chatSessionQueryKey = (sessionId: string) => [
 
 export const useGetChatSession = (sessionId: string) =>
   useQuery({
+    enabled: !!sessionId,
     queryKey: chatSessionQueryKey(sessionId),
     queryFn: () => getChatSession(sessionId),
   });

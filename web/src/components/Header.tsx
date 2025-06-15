@@ -8,8 +8,18 @@ import {
   BreadcrumbPage,
 } from "./ui/breadcrumb";
 import { SidebarTrigger } from "./ui/sidebar";
+import { createLink, Link, useMatchRoute } from "@tanstack/react-router";
+import { useGetChatSession } from "@/lib/api/session";
+
+const RouterBreadcrumbLink = createLink(BreadcrumbLink);
 
 export default function Header() {
+  const matchRoute = useMatchRoute();
+  const sessionRouteMatch = matchRoute({ to: "/app/session/$sessionId" });
+  const { data: session } = useGetChatSession(
+    sessionRouteMatch ? sessionRouteMatch.sessionId : "",
+  );
+
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
@@ -20,12 +30,16 @@ export default function Header() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem className="hidden md:block">
-            <BreadcrumbLink href="#">Building Your Application</BreadcrumbLink>
+            <RouterBreadcrumbLink to="/app">Chats</RouterBreadcrumbLink>
           </BreadcrumbItem>
-          <BreadcrumbSeparator className="hidden md:block" />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-          </BreadcrumbItem>
+          {sessionRouteMatch && (
+            <>
+              <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{session?.session.title}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          )}
         </BreadcrumbList>
       </Breadcrumb>
     </header>

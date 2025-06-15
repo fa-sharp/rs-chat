@@ -10,6 +10,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,
+  pendingComponent: () => <div>Loading...</div>,
   loader: async ({ params, context }) => {
     await context.queryClient.ensureQueryData({
       queryKey: chatSessionQueryKey(params.sessionId),
@@ -25,7 +26,7 @@ function RouteComponent() {
   const { streamedChats, onUserSubmit } = useStreamingChats();
 
   return (
-    <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 overflow-hidden">
+    <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 md:pt-0 overflow-hidden">
       <ChatMessages
         user={user}
         messages={data?.messages || []}

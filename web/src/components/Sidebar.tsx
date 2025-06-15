@@ -43,11 +43,29 @@ export function AppSidebar({
   user?: components["schemas"]["ChatRsUser"];
   streamedChats?: Record<string, StreamedChat | undefined>;
 } & React.ComponentProps<typeof Sidebar>) {
+  const location = useLocation();
   const groupedSessions = React.useMemo(
     () => groupSessionsByDate(sessions || []),
     [sessions],
   );
-  const location = useLocation();
+
+  const formatTime = React.useCallback((date: string) => {
+    const dateObj = new Date(date);
+    const options: Intl.DateTimeFormatOptions = {
+      hour: "numeric",
+      minute: "numeric",
+    };
+    return dateObj.toLocaleTimeString(undefined, options);
+  }, []);
+
+  const formatDate = React.useCallback((date: string) => {
+    const dateObj = new Date(date);
+    const options: Intl.DateTimeFormatOptions = {
+      month: "short",
+      day: "numeric",
+    };
+    return dateObj.toLocaleDateString(undefined, options);
+  }, []);
 
   return (
     <Sidebar {...props}>
@@ -129,7 +147,14 @@ export function AppSidebar({
                               to="/app/session/$sessionId"
                               params={{ sessionId: session.id }}
                             >
-                              {session.title}
+                              <span className="overflow-hidden text-nowrap text-ellipsis">
+                                {session.title}
+                              </span>
+                              <span className="shrink-0 text-muted-foreground ml-auto">
+                                {group === "today" || group === "yesterday"
+                                  ? formatTime(session.created_at)
+                                  : formatDate(session.created_at)}
+                              </span>
                               {streamedChats?.[session.id]?.status ===
                                 "streaming" && (
                                 <RefreshCwIcon className="ml-auto animate-spin" />

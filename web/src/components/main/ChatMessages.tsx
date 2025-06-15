@@ -4,12 +4,15 @@ import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import {
   ChatBubble,
+  ChatBubbleAction,
+  ChatBubbleActionWrapper,
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { Copy, Delete, Trash2 } from "lucide-react";
 
 interface Props {
   isGenerating: boolean;
@@ -61,30 +64,31 @@ export default function ChatMessages({
             >
               {message.content}
             </Markdown>
-            {/* {message.role === "Assistant" && messages.length - 1 === index && (
-              <div className="flex items-center mt-1.5 gap-1">
-                {!isGenerating && (
-                      <>
-                        {ChatAiIcons.map((icon, iconIndex) => {
-                          const Icon = icon.icon;
-                          return (
-                            <ChatBubbleAction
-                              variant="outline"
-                              className="size-5"
-                              key={iconIndex}
-                              icon={<Icon className="size-3" />}
-                              onClick={
-                                () => {}
-                                // handleActionClick(icon.label, index)
-                              }
-                            />
-                          );
-                        })}
-                      </>
-                    )}
+            {/* {message.role === "Assistant" && (
+              <div className="flex items-center gap-1">
+                <ChatBubbleAction
+                  variant="outline"
+                  className="size-6"
+                  icon={<Copy className="size-3" />}
+                  onClick={() => navigator.clipboard.writeText(message.content)}
+                />
               </div>
             )} */}
           </ChatBubbleMessage>
+          <ChatBubbleActionWrapper className="flex gap-1">
+            <ChatBubbleAction
+              variant="outline"
+              className="size-6"
+              icon={<Copy className="size-3" />}
+              onClick={() => navigator.clipboard.writeText(message.content)}
+            />
+            <ChatBubbleAction
+              variant="destructive"
+              className="size-6"
+              icon={<Trash2 className="size-3" />}
+              onClick={() => {}} // TODO Delete
+            />
+          </ChatBubbleActionWrapper>
         </ChatBubble>
       ))}
 
@@ -101,16 +105,7 @@ export default function ChatMessages({
           <ChatBubbleMessage
             className={cn(proseClasses, "outline-2 outline-ring")}
           >
-            <Markdown
-              key="streaming"
-              // remarkPlugins={[remarkGfm]}
-              // rehypePlugins={[
-              //   rehypeHighlight,
-              //   [rehypeHighlightCodeLines, { showLineNumbers: true }],
-              // ]}
-            >
-              {streamedResponse}
-            </Markdown>
+            <Markdown key="streaming">{streamedResponse}</Markdown>
           </ChatBubbleMessage>
         </ChatBubble>
       )}
