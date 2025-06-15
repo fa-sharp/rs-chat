@@ -8,39 +8,89 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
+import { createFileRoute } from '@tanstack/react-router'
+
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppAppLayoutRouteImport } from './routes/app/_appLayout'
+import { Route as AppAppLayoutIndexRouteImport } from './routes/app/_appLayout/index'
+import { Route as AppAppLayoutSessionSessionIdRouteImport } from './routes/app/_appLayout/session/$sessionId'
 
+const AppRouteImport = createFileRoute('/app')()
+
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAppLayoutRoute = AppAppLayoutRouteImport.update({
+  id: '/_appLayout',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAppLayoutIndexRoute = AppAppLayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAppLayoutRoute,
+} as any)
+const AppAppLayoutSessionSessionIdRoute =
+  AppAppLayoutSessionSessionIdRouteImport.update({
+    id: '/session/$sessionId',
+    path: '/session/$sessionId',
+    getParentRoute: () => AppAppLayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppAppLayoutRouteWithChildren
+  '/app/': typeof AppAppLayoutIndexRoute
+  '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppAppLayoutIndexRoute
+  '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/_appLayout': typeof AppAppLayoutRouteWithChildren
+  '/app/_appLayout/': typeof AppAppLayoutIndexRoute
+  '/app/_appLayout/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/app' | '/app/' | '/app/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/app' | '/app/session/$sessionId'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/app/_appLayout'
+    | '/app/_appLayout/'
+    | '/app/_appLayout/session/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +98,57 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/_appLayout': {
+      id: '/app/_appLayout'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppAppLayoutRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/_appLayout/': {
+      id: '/app/_appLayout/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppAppLayoutIndexRouteImport
+      parentRoute: typeof AppAppLayoutRoute
+    }
+    '/app/_appLayout/session/$sessionId': {
+      id: '/app/_appLayout/session/$sessionId'
+      path: '/session/$sessionId'
+      fullPath: '/app/session/$sessionId'
+      preLoaderRoute: typeof AppAppLayoutSessionSessionIdRouteImport
+      parentRoute: typeof AppAppLayoutRoute
+    }
   }
 }
 
+interface AppAppLayoutRouteChildren {
+  AppAppLayoutIndexRoute: typeof AppAppLayoutIndexRoute
+  AppAppLayoutSessionSessionIdRoute: typeof AppAppLayoutSessionSessionIdRoute
+}
+
+const AppAppLayoutRouteChildren: AppAppLayoutRouteChildren = {
+  AppAppLayoutIndexRoute: AppAppLayoutIndexRoute,
+  AppAppLayoutSessionSessionIdRoute: AppAppLayoutSessionSessionIdRoute,
+}
+
+const AppAppLayoutRouteWithChildren = AppAppLayoutRoute._addFileChildren(
+  AppAppLayoutRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppAppLayoutRoute: typeof AppAppLayoutRouteWithChildren
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAppLayoutRoute: AppAppLayoutRouteWithChildren,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
