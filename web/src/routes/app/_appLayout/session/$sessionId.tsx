@@ -1,11 +1,11 @@
 import ChatMessageInput from "@/components/main/ChatMessageInput";
 import ChatMessages from "@/components/main/ChatMessages";
-import { useStreamingChat } from "@/lib/api/chat";
 import {
   chatSessionQueryKey,
   getChatSession,
   useGetChatSession,
 } from "@/lib/api/session";
+import { useStreamingChats } from "@/lib/context/StreamingContext";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
@@ -19,20 +19,28 @@ export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
 });
 
 function RouteComponent() {
+  const { user } = Route.useRouteContext();
   const { sessionId } = Route.useParams();
   const { data } = useGetChatSession(sessionId);
-  const { streamingMessage, onUserSubmit, isGenerating } =
-    useStreamingChat(sessionId);
+  const { streamedChats, onUserSubmit } = useStreamingChats();
 
   return (
     <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 overflow-hidden">
       <ChatMessages
+        user={user}
         messages={data?.messages || []}
-        streamedResponse={streamingMessage}
-        isGenerating={isGenerating && streamingMessage === ""}
+        streamedResponse={streamedChats[sessionId]?.content}
+        error={streamedChats[sessionId]?.error}
+        isGenerating={
+          streamedChats[sessionId]?.status === "streaming" &&
+          streamedChats[sessionId]?.content === ""
+        }
       />
       <div className="w-full px-4 pb-4">
-        <ChatMessageInput onSubmit={onUserSubmit} isGenerating={isGenerating} />
+        <ChatMessageInput
+          onSubmit={(input) => onUserSubmit(sessionId, input)}
+          isGenerating={streamedChats[sessionId]?.status === "streaming"}
+        />
       </div>
     </div>
   );

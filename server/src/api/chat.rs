@@ -2,7 +2,7 @@ use std::{borrow::Cow, pin::Pin};
 
 use llm::builder::LLMBackend;
 use rocket::{
-    futures::{Stream, StreamExt},
+    futures::{stream::once, Stream, StreamExt},
     post,
     response::stream::{Event, EventStream},
     serde::json::Json,
@@ -97,11 +97,14 @@ pub async fn send_chat_stream(
         redis.clone(),
         Some(session_id),
     );
-    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
-        Box::pin(stream.map(|result| match result {
-            Ok(message) => Event::data(format!(" {message}")).event("chat"),
-            Err(err) => Event::data(err.to_string()).event("error"),
-        }));
+    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> = Box::pin(
+        stream
+            .map(|result| match result {
+                Ok(message) => Event::data(format!(" {message}")).event("chat"),
+                Err(err) => Event::data(err.to_string()).event("error"),
+            })
+            .chain(once(async { Event::empty().event("end") })),
+    );
 
     Ok(EventStream::from(event_stream))
 }

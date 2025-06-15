@@ -13,16 +13,20 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   isGenerating: boolean;
+  user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   streamedResponse?: string;
+  error?: string;
 }
 
 const proseClasses = "prose prose-sm md:prose-base";
 
 export default function ChatMessages({
+  user,
   messages,
   isGenerating,
   streamedResponse,
+  error,
 }: Props) {
   return (
     <ChatMessageList>
@@ -32,7 +36,11 @@ export default function ChatMessages({
           variant={message.role == "User" ? "sent" : "received"}
         >
           <ChatBubbleAvatar
-            src=""
+            src={
+              message.role === "User" && user
+                ? `https://avatars.githubusercontent.com/u/${user.github_id}`
+                : ""
+            }
             fallback={message.role == "User" ? "🧑🏽‍💻" : "🤖"}
           />
           <ChatBubbleMessage
@@ -103,6 +111,15 @@ export default function ChatMessages({
             >
               {streamedResponse}
             </Markdown>
+          </ChatBubbleMessage>
+        </ChatBubble>
+      )}
+
+      {error && (
+        <ChatBubble variant="received">
+          <ChatBubbleAvatar fallback="🤖" />
+          <ChatBubbleMessage className="text-destructive">
+            {error}
           </ChatBubbleMessage>
         </ChatBubble>
       )}

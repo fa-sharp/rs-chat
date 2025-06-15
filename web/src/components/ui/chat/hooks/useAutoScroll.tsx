@@ -37,13 +37,13 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
   );
 
   const scrollToBottom = useCallback(
-    (instant?: boolean) => {
+    (smooth?: boolean) => {
       if (!scrollRef.current) return;
 
       const targetScrollTop =
         scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
 
-      if (instant) {
+      if (!smooth) {
         scrollRef.current.scrollTop = targetScrollTop;
       } else {
         scrollRef.current.scrollTo({
@@ -97,11 +97,8 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
         initialContentHeight.current = currentHeight;
       }
       if (scrollState.autoScrollEnabled) {
-        const instant =
-          lastContentHeight.current === 0 ||
-          lastContentHeight.current === initialContentHeight.current;
         requestAnimationFrame(() => {
-          scrollToBottom(instant);
+          scrollToBottom();
         });
       }
       lastContentHeight.current = currentHeight;
@@ -142,7 +139,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     scrollRef,
     isAtBottom: scrollState.isAtBottom,
     autoScrollEnabled: scrollState.autoScrollEnabled,
-    scrollToBottom: () => scrollToBottom(false),
+    scrollToBottom: () => scrollToBottom(true),
     disableAutoScroll,
   };
 }

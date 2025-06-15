@@ -1,5 +1,11 @@
 import * as React from "react";
-import { MessageCircleHeart, Minus, Plus } from "lucide-react";
+import {
+  ChevronsUpDown,
+  MessageCircleHeart,
+  Minus,
+  Plus,
+  RefreshCwIcon,
+} from "lucide-react";
 
 import { SearchForm } from "@/components/SearchForm";
 import {
@@ -24,14 +30,18 @@ import type { components } from "@/lib/api/types";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Link, useLocation } from "@tanstack/react-router";
+import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import type { StreamedChat } from "@/lib/context/StreamingContext";
 
 export function AppSidebar({
   sessions,
   user,
+  streamedChats,
   ...props
 }: {
   sessions?: components["schemas"]["ChatRsSession"][];
   user?: components["schemas"]["ChatRsUser"];
+  streamedChats?: Record<string, StreamedChat | undefined>;
 } & React.ComponentProps<typeof Sidebar>) {
   const groupedSessions = React.useMemo(
     () => groupSessionsByDate(sessions || []),
@@ -44,35 +54,46 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" tooltip="Open app menu" asChild>
-              <Button type="button" variant="ghost">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Avatar>
-                    <AvatarImage
-                      src={
-                        !user
-                          ? ""
-                          : `https://avatars.githubusercontent.com/u/${user.github_id}`
-                      }
-                      alt="Avatar"
-                    />
-                    <AvatarFallback>
-                      <MessageCircleHeart className="size-6" />
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                {user ? (
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-medium">{user.name}</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-0.5 leading-none">
-                    <span className="font-medium">RsChat</span>
-                    <span className="">v1.0.0</span>
-                  </div>
-                )}
-              </Button>
-            </SidebarMenuButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton size="lg" tooltip="Open app menu" asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                        <Avatar>
+                          <AvatarImage
+                            src={
+                              !user
+                                ? ""
+                                : `https://avatars.githubusercontent.com/u/${user.github_id}`
+                            }
+                            alt="Avatar"
+                          />
+                          <AvatarFallback>
+                            <MessageCircleHeart className="size-6" />
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      {user ? (
+                        <div className="flex flex-col gap-0.5 leading-none">
+                          <span className="font-medium">{user.name}</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-0.5 leading-none">
+                          <span className="font-medium">RsChat</span>
+                          <span className="">v1.0.0</span>
+                        </div>
+                      )}
+                    </div>
+                    <ChevronsUpDown />
+                  </Button>
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+            </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
         <SearchForm />
@@ -83,7 +104,7 @@ export function AppSidebar({
             {groupedSessions.map(([group, chats], index) => (
               <Collapsible
                 key={group}
-                defaultOpen={index < 2}
+                defaultOpen={index < 3}
                 className="group/collapsible"
               >
                 <SidebarMenuItem>
@@ -109,6 +130,10 @@ export function AppSidebar({
                               params={{ sessionId: session.id }}
                             >
                               {session.title}
+                              {streamedChats?.[session.id]?.status ===
+                                "streaming" && (
+                                <RefreshCwIcon className="ml-auto animate-spin" />
+                              )}
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
