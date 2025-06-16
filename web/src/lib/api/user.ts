@@ -6,6 +6,9 @@ export async function getUser() {
   if (response.error) {
     throw new Error(response.error.message);
   }
+  if (!response.response.ok) {
+    throw new Error("Failed to fetch user");
+  }
   return response.data;
 }
 

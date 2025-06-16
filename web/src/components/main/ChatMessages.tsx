@@ -12,7 +12,8 @@ import {
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { Copy, Delete, Trash2 } from "lucide-react";
+import { Check, Copy, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   isGenerating: boolean;
@@ -76,15 +77,10 @@ export default function ChatMessages({
             )} */}
           </ChatBubbleMessage>
           <ChatBubbleActionWrapper className="flex gap-1">
-            <ChatBubbleAction
-              variant="outline"
-              className="size-6"
-              icon={<Copy className="size-3" />}
-              onClick={() => navigator.clipboard.writeText(message.content)}
-            />
+            <ChatMessageCopyButton message={message.content} />
             <ChatBubbleAction
               variant="destructive"
-              className="size-6"
+              className="size-6 bg-red-400"
               icon={<Trash2 className="size-3" />}
               onClick={() => {}} // TODO Delete
             />
@@ -119,5 +115,35 @@ export default function ChatMessages({
         </ChatBubble>
       )}
     </ChatMessageList>
+  );
+}
+
+function ChatMessageCopyButton({ message }: { message: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleClick = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy text: ", error);
+    }
+  };
+
+  return (
+    <ChatBubbleAction
+      variant="outline"
+      className="size-6"
+      disabled={copied}
+      icon={
+        copied ? (
+          <Check className="size-4 text-green-800" />
+        ) : (
+          <Copy className="size-3" />
+        )
+      }
+      onClick={handleClick}
+    />
   );
 }

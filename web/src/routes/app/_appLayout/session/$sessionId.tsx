@@ -1,5 +1,6 @@
 import ChatMessageInput from "@/components/main/ChatMessageInput";
 import ChatMessages from "@/components/main/ChatMessages";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   chatSessionQueryKey,
   getChatSession,
@@ -10,7 +11,16 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,
-  pendingComponent: () => <div>Loading...</div>,
+  pendingComponent: () => (
+    <div className="flex-1">
+      <div className="flex flex-col space-y-10 p-48">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </div>
+  ),
   loader: async ({ params, context }) => {
     await context.queryClient.ensureQueryData({
       queryKey: chatSessionQueryKey(params.sessionId),

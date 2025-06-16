@@ -7,20 +7,14 @@ import {
   getRecentChatSessions,
   useGetRecentChatSessions,
 } from "@/lib/api/session";
-import { getUser } from "@/lib/api/user";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
 
 export const Route = createFileRoute("/app/_appLayout")({
   beforeLoad: async ({ context }) => {
-    try {
-      const user = await context.queryClient.ensureQueryData({
-        queryKey: ["user"],
-        queryFn: getUser,
-      });
-      return { user };
-    } catch (error) {
+    if (!context.user) {
       throw redirect({ to: "/" });
     }
+    return { user: context.user };
   },
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({

@@ -1,11 +1,14 @@
 import * as React from "react";
 import {
   ChevronsUpDown,
+  KeyRound,
+  LogOut,
   MessageCircleHeart,
   Minus,
   Plus,
   RefreshCwIcon,
 } from "lucide-react";
+import { Link, useLocation, useRouter } from "@tanstack/react-router";
 
 import { SearchForm } from "@/components/SearchForm";
 import {
@@ -29,9 +32,15 @@ import {
 import type { components } from "@/lib/api/types";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Link, useLocation } from "@tanstack/react-router";
-import { DropdownMenu, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import type { StreamedChat } from "@/lib/context/StreamingContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function AppSidebar({
   sessions,
@@ -44,27 +53,20 @@ export function AppSidebar({
   streamedChats?: Record<string, StreamedChat | undefined>;
 } & React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
   const groupedSessions = React.useMemo(
     () => groupSessionsByDate(sessions || []),
     [sessions],
   );
 
-  const formatTime = React.useCallback((date: string) => {
-    const dateObj = new Date(date);
-    const options: Intl.DateTimeFormatOptions = {
-      hour: "numeric",
-      minute: "numeric",
-    };
-    return dateObj.toLocaleTimeString(undefined, options);
-  }, []);
-
-  const formatDate = React.useCallback((date: string) => {
-    const dateObj = new Date(date);
-    const options: Intl.DateTimeFormatOptions = {
-      month: "short",
-      day: "numeric",
-    };
-    return dateObj.toLocaleDateString(undefined, options);
+  const onLogout = React.useCallback(async () => {
+    await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/logout`, {
+      method: "POST",
+    });
+    queryClient.invalidateQueries({ queryKey: ["user"] });
+    router.invalidate();
   }, []);
 
   return (
@@ -111,6 +113,18 @@ export function AppSidebar({
                   </Button>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-48" align="start">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem>
+                    <KeyRound />
+                    API Keys
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={onLogout}>
+                    <LogOut />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -231,3 +245,21 @@ function groupSessionsByDate(
 
   return Object.entries(groups).filter(([, chats]) => chats.length > 0);
 }
+
+const formatTime = (date: string) => {
+  const dateObj = new Date(date);
+  const options: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "numeric",
+  };
+  return dateObj.toLocaleTimeString(undefined, options);
+};
+
+const formatDate = (date: string) => {
+  const dateObj = new Date(date);
+  const options: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+  };
+  return dateObj.toLocaleDateString(undefined, options);
+};
