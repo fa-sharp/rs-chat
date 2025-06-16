@@ -66,7 +66,7 @@ pub type DbPool = Pool<AsyncPgConnection>;
 
 /// Fairing that sets up and initializes the Postgres database
 pub fn setup_db() -> AdHoc {
-    AdHoc::on_ignite("Database setup", |rocket| async {
+    AdHoc::on_ignite("Database", |rocket| async {
         rocket
             .attach(AdHoc::on_ignite(
                 "Initialize database connection",

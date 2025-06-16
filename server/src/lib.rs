@@ -6,6 +6,7 @@ pub mod errors;
 pub mod provider;
 pub mod redis;
 pub mod utils;
+pub mod web;
 
 use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{
@@ -20,6 +21,7 @@ use crate::{
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    web::setup_static_files,
 };
 
 /// Build the rocket server, load configuration and routes, prepare for launch
@@ -30,6 +32,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_session())
         .attach(setup_oauth())
+        .attach(setup_static_files())
         .register("/", get_catchers())
         .mount("/api/docs", get_doc_routes())
         .mount("/api/oauth", api::oauth_routes());

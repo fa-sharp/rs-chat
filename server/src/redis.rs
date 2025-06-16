@@ -40,7 +40,7 @@ impl<'r> FromRequest<'r> for RedisClient {
 
 /// Fairing that sets up and initializes the Redis database
 pub fn setup_redis() -> AdHoc {
-    AdHoc::on_ignite("Redis setup", |rocket| async {
+    AdHoc::on_ignite("Redis", |rocket| async {
         rocket
             .attach(AdHoc::on_ignite(
                 "Initialize Redis connection",

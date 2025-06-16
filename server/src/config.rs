@@ -14,6 +14,8 @@ pub struct AppConfig {
     pub secret_key: String,
     /// Server address, used for OAuth redirects(e.g. "http://localhost:8000" or "https://example.com")
     pub server_address: String,
+    /// Static files directory
+    pub static_path: Option<String>,
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL

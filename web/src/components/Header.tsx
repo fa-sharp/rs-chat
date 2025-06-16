@@ -8,7 +8,7 @@ import {
   BreadcrumbPage,
 } from "./ui/breadcrumb";
 import { SidebarTrigger } from "./ui/sidebar";
-import { createLink, Link, useMatchRoute } from "@tanstack/react-router";
+import { createLink, useMatchRoute } from "@tanstack/react-router";
 import { useGetChatSession } from "@/lib/api/session";
 
 const RouterBreadcrumbLink = createLink(BreadcrumbLink);

@@ -104,7 +104,7 @@ impl<'r> FromRequest<'r> for ChatRsUser {
 
 /// Fairing that sets up OAuth login
 pub fn setup_oauth() -> AdHoc {
-    AdHoc::on_ignite("OAuth setup", |rocket| async {
+    AdHoc::on_ignite("OAuth", |rocket| async {
         let app_config = get_app_config(&rocket);
         let oauth_config = OAuthConfig::new(
             StaticProvider::GitHub,
