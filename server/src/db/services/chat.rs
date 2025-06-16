@@ -3,7 +3,9 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession},
+    models::{
+        ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession, UpdateChatRsSession,
+    },
     schema::{chat_messages, chat_sessions},
     DbConnection,
 };
@@ -103,5 +105,21 @@ impl<'a> ChatDbService<'a> {
             .await?;
 
         Ok((session, messages))
+    }
+
+    pub async fn update_session(
+        &mut self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+        data: UpdateChatRsSession<'_>,
+    ) -> Result<Uuid, diesel::result::Error> {
+        let updated_id: Uuid = diesel::update(chat_sessions::table.find(session_id))
+            .set(data)
+            .filter(chat_sessions::user_id.eq(user_id))
+            .returning(chat_sessions::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(updated_id)
     }
 }

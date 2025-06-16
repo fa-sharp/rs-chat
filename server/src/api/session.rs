@@ -23,7 +23,8 @@ struct CreateSessionResponse {
     session_id: String,
 }
 
-#[openapi]
+/// List chat sessions
+#[openapi(tag = "Chat Session")]
 #[get("/")]
 async fn get_all_sessions(
     user: ChatRsUser,
@@ -36,7 +37,8 @@ async fn get_all_sessions(
     Ok(Json(sessions))
 }
 
-#[openapi]
+/// Create a new chat session
+#[openapi(tag = "Chat Session")]
 #[post("/")]
 async fn create_session(
     user: ChatRsUser,
@@ -58,7 +60,8 @@ struct GetSessionResponse {
     messages: Vec<ChatRsMessage>,
 }
 
-#[openapi]
+/// Get a chat session and its messages
+#[openapi(tag = "Chat Session")]
 #[get("/<session_id>")]
 async fn get_session(
     user: ChatRsUser,
@@ -72,7 +75,8 @@ async fn get_session(
     Ok(Json(GetSessionResponse { session, messages }))
 }
 
-#[openapi]
+/// Delete a chat message
+#[openapi(tag = "Chat Session")]
 #[delete("/<session_id>/<message_id>")]
 async fn delete_message(
     user: ChatRsUser,

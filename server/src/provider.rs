@@ -14,8 +14,16 @@ pub enum ChatRsError {
     ChatError(String),
     #[error("Configuration error: {0}")]
     ConfigurationError(String),
+    #[error("Unexpected database error: {0}")]
+    DatabaseError(String),
+    #[error("Missing API key")]
+    MissingApiKey,
     #[error(transparent)]
     LlmError(#[from] LLMError),
+    #[error("Encryption error")]
+    EncryptionError,
+    #[error("Decryption error")]
+    DecryptionError,
 }
 
 pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<String, ChatRsError>> + Send>>;
@@ -37,4 +45,7 @@ pub trait ChatRsProvider {
         input: Option<&str>,
         context: Option<Vec<ChatRsMessage>>,
     ) -> Result<ChatRsStream, ChatRsError>;
+
+    /// Submit a prompt to the provider (not streamed)
+    async fn prompt(&self, message: &str) -> Result<String, ChatRsError>;
 }

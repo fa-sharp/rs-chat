@@ -10,7 +10,7 @@ pub mod utils;
 use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{
     mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec,
-    rapidoc::{make_rapidoc, GeneralConfig, RapiDocConfig},
+    rapidoc::{make_rapidoc, GeneralConfig, Layout, LayoutConfig, RapiDocConfig, RenderStyle},
     settings::{OpenApiSettings, UrlObject},
 };
 
@@ -41,6 +41,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/auth" => api::auth_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
+        "/api_key" => api::api_key_routes(&openapi_settings),
     };
 
     server
@@ -58,6 +59,11 @@ fn get_doc_routes() -> impl Into<Vec<rocket::Route>> {
     make_rapidoc(&RapiDocConfig {
         general: GeneralConfig {
             spec_urls: vec![UrlObject::new("OpenAPI Schema", "/api/openapi.json")],
+            ..Default::default()
+        },
+        layout: LayoutConfig {
+            layout: Layout::Column,
+            render_style: RenderStyle::View,
             ..Default::default()
         },
         ..Default::default()

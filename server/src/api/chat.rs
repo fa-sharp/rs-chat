@@ -1,12 +1,11 @@
 use std::{borrow::Cow, pin::Pin};
 
-use llm::builder::LLMBackend;
 use rocket::{
     futures::{Stream, StreamExt},
     post,
     response::stream::{Event, EventStream},
     serde::json::Json,
-    FromFormField, Route, State,
+    Route, State,
 };
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
@@ -18,79 +17,56 @@ use crate::{
     config::AppConfig,
     db::{
         models::{ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
-        services::chat::ChatDbService,
+        services::{api_key::ApiKeyDbService, chat::ChatDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
-    provider::{
-        llm::LlmApiProvider,
-        lorem::{LoremConfig, LoremProvider},
-        ChatRsProvider,
-    },
     redis::RedisClient,
-    utils::stored_stream::StoredChatRsStream,
+    utils::{
+        create_provider::{create_provider, ProviderConfigInput},
+        generate_title::generate_title,
+        stored_stream::StoredChatRsStream,
+    },
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![settings: send_chat_stream]
 }
 
-#[derive(FromFormField, JsonSchema, serde::Deserialize)]
-pub enum ProviderInput {
-    Lorem,
-    Anthropic,
-}
-
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
     message: Option<Cow<'a, str>>,
-    provider: ProviderInput,
+    provider: ProviderConfigInput,
 }
 
-#[openapi]
+/// Send a chat message and stream the response
+#[openapi(tag = "Chat")]
 #[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
     user: ChatRsUser,
-    config: &State<AppConfig>,
+    app_config: &State<AppConfig>,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
     redis: RedisClient,
     session_id: Uuid,
     input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
-    let mut db_service = ChatDbService::new(&mut db);
-
     // Check session exists and user is owner, get message history
-    let (_, current_messages) = db_service
+    let (_, current_messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user.id, &session_id)
         .await?;
-
-    // Save user message to session
-    if let Some(user_message) = &input.message {
-        let _ = db_service
-            .save_message(NewChatRsMessage {
-                content: user_message,
-                session_id: &session_id,
-                role: ChatRsMessageRole::User,
-            })
-            .await?;
-    }
+    let is_first_message = current_messages.is_empty();
 
     // Get the chat provider
-    let provider: Box<dyn ChatRsProvider + Send> = match input.provider {
-        ProviderInput::Lorem => Box::new(LoremProvider {
-            config: LoremConfig { interval: 400 },
-        }),
-        ProviderInput::Anthropic => Box::new(LlmApiProvider::new(
-            LLMBackend::Anthropic,
-            &config.anthropic_api_key,
-            "claude-3-7-sonnet-20250219",
-            None,
-            None,
-        )),
-    };
+    let provider = create_provider(
+        &user.id,
+        &input.provider,
+        &mut ApiKeyDbService::new(&mut db),
+        &app_config.secret_key,
+    )
+    .await?;
 
-    // Stream the provider's response
+    // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
         provider
             .chat_stream(input.message.as_deref(), Some(current_messages))
@@ -99,11 +75,33 @@ pub async fn send_chat_stream(
         redis.clone(),
         Some(session_id),
     );
+
+    // Save user message to session, and generate title if needed
+    if let Some(user_message) = &input.message {
+        let _ = ChatDbService::new(&mut db)
+            .save_message(NewChatRsMessage {
+                content: user_message,
+                session_id: &session_id,
+                role: ChatRsMessageRole::User,
+            })
+            .await?;
+        if is_first_message {
+            generate_title(
+                &user.id,
+                &session_id,
+                user_message,
+                &input.provider,
+                &app_config.secret_key,
+                db_pool,
+            );
+        }
+    }
+
+    // Start streaming
     let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
         Box::pin(stream.map(|result| match result {
             Ok(message) => Event::data(format!(" {message}")).event("chat"),
             Err(err) => Event::data(err.to_string()).event("error"),
         }));
-
     Ok(EventStream::from(event_stream))
 }

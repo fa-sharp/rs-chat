@@ -17,6 +17,7 @@ panic = "abort"
 strip = true
 
 [dependencies]
+aes-gcm = "0.10.3"
 chrono = { version = "0.4.41", features = ["serde"] }
 diesel = { version = "2.2.10", features = ["postgres", "chrono", "uuid"] }
 diesel-async = { version = "0.5.2", features = ["deadpool", "postgres"] }
@@ -32,6 +33,7 @@ llm = { version = "1.3.1", default-features = false, features = [
     "openai",
     "anthropic",
 ] }
+rand = "0.9.1"
 reqwest = { version = "0.12.20", default-features = false }
 rocket = { version = "0.5.1", features = ["json", "uuid"] }
 rocket_flex_session = { version = "0.1.1", git = "https://github.com/fa-sharp/rocket-flex-session", features = [

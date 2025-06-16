@@ -107,4 +107,8 @@ impl ChatRsProvider for LoremProvider {
 
         Ok(stream)
     }
+
+    async fn prompt(&self, _request: &str) -> Result<String, ChatRsError> {
+        Ok("Lorem ipsum".to_string())
+    }
 }

@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 /// Main server config (settings are merged with Rocket's default config)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppConfig {
+    /// 32-byte hex string (64 characters) used for encrypting cookies and API keys
+    pub secret_key: String,
     /// Server address, used for OAuth redirects(e.g. "http://localhost:8000" or "https://example.com")
     pub server_address: String,
     /// Postgres Database URL

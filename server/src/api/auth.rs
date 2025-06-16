@@ -86,13 +86,15 @@ async fn login_callback(
     Ok(Redirect::to("/"))
 }
 
-#[openapi]
+/// Get the current user info
+#[openapi(tag = "User")]
 #[get("/user")]
 async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
     Ok(Json(user))
 }
 
-#[openapi]
+/// Log out
+#[openapi(tag = "User")]
 #[post("/logout")]
 async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
     session.delete();

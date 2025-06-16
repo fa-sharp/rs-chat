@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::{
-    prelude::{Associations, Identifiable, Insertable, Queryable},
+    prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
     Selectable,
 };
 use rocket_okapi::OpenApiFromRequest;
@@ -43,6 +43,12 @@ pub struct NewChatRsSession<'r> {
     pub title: &'r str,
 }
 
+#[derive(AsChangeset)]
+#[diesel(table_name = super::schema::chat_sessions)]
+pub struct UpdateChatRsSession<'r> {
+    pub title: &'r str,
+}
+
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::ChatMessageRole")]
 #[derive(Debug, JsonSchema, serde::Serialize)]
@@ -70,4 +76,39 @@ pub struct NewChatRsMessage<'r> {
     pub session_id: &'r Uuid,
     pub role: ChatRsMessageRole,
     pub content: &'r str,
+}
+
+#[derive(diesel_derive_enum::DbEnum)]
+#[db_enum(existing_type_path = "crate::db::schema::sql_types::LlmProvider")]
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub enum ChatRsApiKeyProviderType {
+    Anthropic,
+    Openai,
+    Ollama,
+    Deepseek,
+    Google,
+    Openrouter,
+}
+
+#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::api_keys)]
+pub struct ChatRsApiKey {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub provider: ChatRsApiKeyProviderType,
+    #[serde(skip_serializing)]
+    pub ciphertext: Vec<u8>,
+    #[serde(skip_serializing)]
+    pub nonce: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::api_keys)]
+pub struct NewChatRsApiKey<'r> {
+    pub user_id: &'r Uuid,
+    pub provider: &'r ChatRsApiKeyProviderType,
+    pub ciphertext: &'r Vec<u8>,
+    pub nonce: &'r Vec<u8>,
 }

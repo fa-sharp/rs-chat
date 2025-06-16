@@ -12,7 +12,7 @@ CREATE TYPE chat_message_role AS ENUM ('user', 'assistant', 'system');
 
 CREATE TABLE chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-    session_id UUID NOT NULL REFERENCES chat_sessions (id),
+    session_id UUID NOT NULL REFERENCES chat_sessions (id) ON UPDATE CASCADE ON DELETE CASCADE,
     role chat_message_role NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW (),

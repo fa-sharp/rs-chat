@@ -33,6 +33,9 @@ jobs:
       #   with:
       #     tool: nextest@0.9
 
+      - name: Run cargo check
+        run: cargo check --profile ci
+
       - name: Run cargo build
         run: PQ_LIB_DIR="$(brew --prefix libpq)/lib" cargo build --profile ci
 

@@ -64,7 +64,7 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
                 _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),
             },
             ApiError::Chat(error) => {
-                ApiErrorResponse::BadRequest(Json(Message::new(&format!("Chat error: {}", error))))
+                ApiErrorResponse::BadRequest(Json(Message::new(&format!("Error: {}", error))))
                     .respond_to(req)
             }
             _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),
