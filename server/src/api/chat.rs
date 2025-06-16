@@ -2,7 +2,7 @@ use std::{borrow::Cow, pin::Pin};
 
 use llm::builder::LLMBackend;
 use rocket::{
-    futures::{stream::once, Stream, StreamExt},
+    futures::{Stream, StreamExt},
     post,
     response::stream::{Event, EventStream},
     serde::json::Json,
@@ -61,7 +61,9 @@ pub async fn send_chat_stream(
     let mut db_service = ChatDbService::new(&mut db);
 
     // Check session exists and user is owner, get message history
-    let (_, current_messages) = db_service.get_session(&user.id, &session_id).await?;
+    let (_, current_messages) = db_service
+        .get_session_with_messages(&user.id, &session_id)
+        .await?;
 
     // Save user message to session
     if let Some(user_message) = &input.message {
@@ -97,14 +99,11 @@ pub async fn send_chat_stream(
         redis.clone(),
         Some(session_id),
     );
-    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> = Box::pin(
-        stream
-            .map(|result| match result {
-                Ok(message) => Event::data(format!(" {message}")).event("chat"),
-                Err(err) => Event::data(err.to_string()).event("error"),
-            })
-            .chain(once(async { Event::empty().event("end") })),
-    );
+    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
+        Box::pin(stream.map(|result| match result {
+            Ok(message) => Event::data(format!(" {message}")).event("chat"),
+            Err(err) => Event::data(err.to_string()).event("error"),
+        }));
 
     Ok(EventStream::from(event_stream))
 }

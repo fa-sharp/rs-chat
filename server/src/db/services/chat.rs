@@ -41,6 +41,20 @@ impl<'a> ChatDbService<'a> {
         Ok(id.to_string())
     }
 
+    pub async fn delete_message(
+        &mut self,
+        session_id: &Uuid,
+        message_id: &Uuid,
+    ) -> Result<String, diesel::result::Error> {
+        let id: Uuid = diesel::delete(chat_messages::table)
+            .filter(chat_messages::session_id.eq(session_id))
+            .filter(chat_messages::id.eq(message_id))
+            .returning(chat_messages::id)
+            .get_result(self.db)
+            .await?;
+        Ok(id.to_string())
+    }
+
     pub async fn get_all_sessions(
         &mut self,
         user_id: &Uuid,
@@ -57,6 +71,21 @@ impl<'a> ChatDbService<'a> {
     }
 
     pub async fn get_session(
+        &mut self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Result<ChatRsSession, diesel::result::Error> {
+        let session = chat_sessions::table
+            .filter(chat_sessions::user_id.eq(user_id))
+            .filter(chat_sessions::id.eq(session_id))
+            .select(ChatRsSession::as_select())
+            .first(self.db)
+            .await?;
+
+        Ok(session)
+    }
+
+    pub async fn get_session_with_messages(
         &mut self,
         user_id: &Uuid,
         session_id: &Uuid,
