@@ -12,6 +12,8 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LegalTermsRouteImport } from './routes/legal/terms'
+import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as AppAppLayoutRouteImport } from './routes/app/_appLayout'
 import { Route as AppAppLayoutIndexRouteImport } from './routes/app/_appLayout/index'
 import { Route as AppAppLayoutApiKeysRouteImport } from './routes/app/_appLayout/api-keys'
@@ -27,6 +29,16 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalTermsRoute = LegalTermsRouteImport.update({
+  id: '/legal/terms',
+  path: '/legal/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
+  id: '/legal/privacy',
+  path: '/legal/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAppLayoutRoute = AppAppLayoutRouteImport.update({
@@ -53,6 +65,8 @@ const AppAppLayoutSessionSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppAppLayoutRouteWithChildren
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/': typeof AppAppLayoutIndexRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
@@ -60,6 +74,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppAppLayoutIndexRoute
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
@@ -68,6 +84,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/app/_appLayout': typeof AppAppLayoutRouteWithChildren
+  '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/terms': typeof LegalTermsRoute
   '/app/_appLayout/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/_appLayout/': typeof AppAppLayoutIndexRoute
   '/app/_appLayout/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
@@ -77,16 +95,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/app/api-keys'
     | '/app/'
     | '/app/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/app/api-keys' | '/app/session/$sessionId'
+  to:
+    | '/'
+    | '/app'
+    | '/legal/privacy'
+    | '/legal/terms'
+    | '/app/api-keys'
+    | '/app/session/$sessionId'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/app/_appLayout'
+    | '/legal/privacy'
+    | '/legal/terms'
     | '/app/_appLayout/api-keys'
     | '/app/_appLayout/'
     | '/app/_appLayout/session/$sessionId'
@@ -95,6 +123,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalTermsRoute: typeof LegalTermsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -111,6 +141,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/terms': {
+      id: '/legal/terms'
+      path: '/legal/terms'
+      fullPath: '/legal/terms'
+      preLoaderRoute: typeof LegalTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/privacy': {
+      id: '/legal/privacy'
+      path: '/legal/privacy'
+      fullPath: '/legal/privacy'
+      preLoaderRoute: typeof LegalPrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/_appLayout': {
@@ -173,6 +217,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalTermsRoute: LegalTermsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

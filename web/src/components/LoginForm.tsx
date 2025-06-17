@@ -2,6 +2,7 @@ import { Github, MessageCircleHeart } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Link } from "@tanstack/react-router";
 
 export function LoginForm({
   className,
@@ -59,8 +60,9 @@ export function LoginForm({
         </div>
       </form>
       <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By continuing, you agree to our <a href="#">Terms of Service</a> and{" "}
-        <a href="#">Privacy Policy</a>.
+        By continuing, you agree to our{" "}
+        <Link to="/legal/terms">Terms of Service</Link> and{" "}
+        <Link to="/legal/privacy">Privacy Policy</Link>.
       </div>
     </div>
   );
