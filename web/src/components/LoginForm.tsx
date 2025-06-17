@@ -13,7 +13,7 @@ export function LoginForm({
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-2">
             <div className="flex flex-col items-center gap-2 font-medium">
-              <MessageCircleHeart className="size-6" />
+              <img src="/logo512.png" alt="RsChat Logo" className="size-20" />
               <span className="sr-only">RsChat</span>
             </div>
             <h1 className="text-xl font-bold">Welcome to RsChat</h1>
@@ -59,8 +59,8 @@ export function LoginForm({
         </div>
       </form>
       <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+        By continuing, you agree to our <a href="#">Terms of Service</a> and{" "}
+        <a href="#">Privacy Policy</a>.
       </div>
     </div>
   );
