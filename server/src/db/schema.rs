@@ -35,6 +35,7 @@ diesel::table! {
         content -> Text,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        meta -> Jsonb,
     }
 }
 

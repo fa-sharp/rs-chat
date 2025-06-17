@@ -1,0 +1,2 @@
+ALTER TABLE chat_messages
+ADD COLUMN meta JSONB NOT NULL DEFAULT '{}';

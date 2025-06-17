@@ -3,9 +3,12 @@ use diesel::{
     prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
     Selectable,
 };
+use diesel_as_jsonb::AsJsonb;
 use rocket_okapi::OpenApiFromRequest;
 use schemars::JsonSchema;
 use uuid::Uuid;
+
+use crate::utils::create_provider::ProviderConfigInput;
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, OpenApiFromRequest, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
@@ -66,7 +69,14 @@ pub struct ChatRsMessage {
     pub session_id: Uuid,
     pub role: ChatRsMessageRole,
     pub content: String,
+    pub meta: ChatRsMessageMeta,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize, AsJsonb)]
+pub struct ChatRsMessageMeta {
+    pub provider_config: Option<ProviderConfigInput>,
+    pub interrupted: Option<bool>,
 }
 
 #[derive(Insertable)]
@@ -75,6 +85,7 @@ pub struct NewChatRsMessage<'r> {
     pub session_id: &'r Uuid,
     pub role: ChatRsMessageRole,
     pub content: &'r str,
+    pub meta: &'r ChatRsMessageMeta,
 }
 
 #[derive(diesel_derive_enum::DbEnum)]

@@ -14,14 +14,16 @@ use crate::{
 };
 
 /// Provider configuration input from API
-#[derive(Clone, JsonSchema, serde::Deserialize)]
+// WARNING: This enum is also used to store metadata for chat messages in the database.
+// Changes should be made carefully.
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub enum ProviderConfigInput {
     Lorem,
     Llm(LLMConfig),
     OpenRouter(OpenRouterConfig),
 }
 
-#[derive(Clone, JsonSchema, serde::Deserialize)]
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
     pub backend: LLMBackendInput,
     pub model: String,
@@ -29,7 +31,7 @@ pub struct LLMConfig {
     pub max_tokens: Option<u32>,
 }
 
-#[derive(Clone, JsonSchema, serde::Deserialize)]
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct OpenRouterConfig {
     pub model: String,
     pub temperature: Option<f32>,
@@ -84,7 +86,7 @@ pub async fn create_provider<'a>(
     Ok(provider)
 }
 
-#[derive(Clone, JsonSchema, serde::Deserialize)]
+#[derive(Clone, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub enum LLMBackendInput {
     OpenAI,
     Anthropic,

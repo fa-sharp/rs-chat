@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        models::{ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
+        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
         services::{api_key::ApiKeyDbService, chat::ChatDbService},
         DbConnection, DbPool,
     },
@@ -71,6 +71,7 @@ pub async fn send_chat_stream(
         provider
             .chat_stream(input.message.as_deref(), Some(current_messages))
             .await?,
+        input.provider.clone(),
         db_pool.inner().clone(),
         redis.clone(),
         Some(session_id),
@@ -83,6 +84,7 @@ pub async fn send_chat_stream(
                 content: user_message,
                 session_id: &session_id,
                 role: ChatRsMessageRole::User,
+                meta: &ChatRsMessageMeta::default(),
             })
             .await?;
         if is_first_message {

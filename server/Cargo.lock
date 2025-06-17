@@ -482,6 +482,7 @@ dependencies = [
  "diesel",
  "diesel-async",
  "diesel-derive-enum",
+ "diesel_as_jsonb",
  "diesel_async_migrations",
  "dotenvy",
  "fred",
@@ -879,6 +880,7 @@ dependencies = [
  "diesel_derives",
  "itoa",
  "pq-sys",
+ "serde_json",
  "uuid",
 ]
 
@@ -902,6 +904,18 @@ name = "diesel-derive-enum"
 version = "3.0.0-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50a8c082045d01debc8589f8a0db9f2855a37c99c9b031325c856b5b98e1625f"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.102",
+]
+
+[[package]]
+name = "diesel_as_jsonb"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fed12da7b323154e8119a5d0359158da61436ce6150f8322863de7d774104d8"
 dependencies = [
  "heck 0.4.1",
  "proc-macro2",

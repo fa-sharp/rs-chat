@@ -53,9 +53,13 @@ const providers: Array<{
     models: [
       "openrouter/auto",
       "openai/gpt-4.1",
+      "openai/gpt-4o-mini",
       "openai/o4-mini",
       "openai/o3-pro",
       "openai/o3-mini",
+      "deepseek/deepseek-chat-v3-0324:free",
+      "deepseek/deepseek-chat-v3-0324",
+      "anthropic/claude-sonnet-4",
       "anthropic/claude-3.7-sonnet",
       "anthropic/claude-opus-4",
       "perplexity/sonar",

@@ -19,9 +19,15 @@ strip = true
 [dependencies]
 aes-gcm = "0.10.3"
 chrono = { version = "0.4.41", features = ["serde"] }
-diesel = { version = "2.2.10", features = ["postgres", "chrono", "uuid"] }
+diesel = { version = "2.2.10", features = [
+    "postgres",
+    "chrono",
+    "uuid",
+    "serde_json",
+] }
 diesel-async = { version = "0.5.2", features = ["deadpool", "postgres"] }
 diesel-derive-enum = { version = "3.0.0-beta.1", features = ["postgres"] }
+diesel_as_jsonb = "1.0.1"
 diesel_async_migrations = "0.15.0"
 dotenvy = "0.15.7"
 fred = { version = "10.1.0", default-features = false, features = [

@@ -7,14 +7,16 @@ use fred::types::Expiration;
 use rocket::futures::Stream;
 use uuid::Uuid;
 
-use crate::db::models::{ChatRsMessageRole, NewChatRsMessage};
+use crate::db::models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage};
 use crate::db::services::chat::ChatDbService;
 use crate::db::{DbConnection, DbPool};
+use crate::utils::create_provider::ProviderConfigInput;
 
 /// A wrapper around the chat assistant stream that intermittently caches output in Redis, and
 /// saves the assistant's response to the database at the end of the stream.
 pub struct StoredChatRsStream<S: Stream<Item = Result<String, crate::provider::ChatRsError>>> {
     inner: Pin<Box<S>>,
+    provider_config: Option<ProviderConfigInput>,
     redis_client: Client,
     db_pool: DbPool,
     session_id: Uuid,
@@ -29,9 +31,16 @@ impl<S> StoredChatRsStream<S>
 where
     S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
-    pub fn new(stream: S, db_pool: DbPool, redis_client: Client, session_id: Option<Uuid>) -> Self {
+    pub fn new(
+        stream: S,
+        provider_config: ProviderConfigInput,
+        db_pool: DbPool,
+        redis_client: Client,
+        session_id: Option<Uuid>,
+    ) -> Self {
         Self {
             inner: Box::pin(stream),
+            provider_config: Some(provider_config),
             db_pool,
             redis_client,
             session_id: session_id.unwrap_or_else(|| Uuid::new_v4()),
@@ -44,10 +53,11 @@ where
         &self.session_id
     }
 
-    fn save_response(&mut self) {
+    fn save_response(&mut self, interrupted: Option<bool>) {
         let redis_client = self.redis_client.clone();
         let pool = self.db_pool.clone();
         let session_id = self.session_id.clone();
+        let config = self.provider_config.take();
         let content = self.buffer.join("");
         self.buffer.clear();
 
@@ -61,6 +71,10 @@ where
                     role: ChatRsMessageRole::Assistant,
                     content: &content,
                     session_id: &session_id,
+                    meta: &ChatRsMessageMeta {
+                        provider_config: config,
+                        interrupted,
+                    },
                 })
                 .await
             {
@@ -124,7 +138,7 @@ where
             Poll::Ready(None) => {
                 // Stream ended, flush final buffer
                 if !self.buffer.is_empty() {
-                    self.save_response();
+                    self.save_response(None);
                 }
                 Poll::Ready(None)
             }
@@ -137,9 +151,10 @@ impl<S> Drop for StoredChatRsStream<S>
 where
     S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
 {
+    /// Stream was interrupted. Save response and mark as interrupted
     fn drop(&mut self) {
         if !self.buffer.is_empty() {
-            self.save_response();
+            self.save_response(Some(true));
         }
     }
 }
