@@ -14,7 +14,6 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
-    config::AppConfig,
     db::{
         models::{ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
         services::{api_key::ApiKeyDbService, chat::ChatDbService},
@@ -24,6 +23,7 @@ use crate::{
     redis::RedisClient,
     utils::{
         create_provider::{create_provider, ProviderConfigInput},
+        encryption::Encryptor,
         generate_title::generate_title,
         stored_stream::StoredChatRsStream,
     },
@@ -44,10 +44,10 @@ pub struct SendChatInput<'a> {
 #[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
     user: ChatRsUser,
-    app_config: &State<AppConfig>,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
     redis: RedisClient,
+    encryptor: &State<Encryptor>,
     session_id: Uuid,
     input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
@@ -62,7 +62,7 @@ pub async fn send_chat_stream(
         &user.id,
         &input.provider,
         &mut ApiKeyDbService::new(&mut db),
-        &app_config.secret_key,
+        &encryptor,
     )
     .await?;
 
@@ -91,7 +91,7 @@ pub async fn send_chat_stream(
                 &session_id,
                 user_message,
                 &input.provider,
-                &app_config.secret_key,
+                &encryptor,
                 db_pool,
             );
         }

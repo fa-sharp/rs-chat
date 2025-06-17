@@ -9,7 +9,7 @@ use crate::{
         lorem::{LoremConfig, LoremProvider},
         ChatRsError, ChatRsProvider,
     },
-    utils::encryption::decrypt_string,
+    utils::encryption::Encryptor,
 };
 
 /// Provider configuration input from API
@@ -37,7 +37,7 @@ pub async fn create_provider<'a>(
     user_id: &Uuid,
     provider_config: &'a ProviderConfigInput,
     db: &mut ApiKeyDbService<'_>,
-    secret_key: &'a str,
+    encryptor: &Encryptor,
 ) -> Result<Box<dyn ChatRsProvider + Send + 'a>, ChatRsError> {
     let provider: Box<dyn ChatRsProvider + Send> = match provider_config {
         ProviderConfigInput::Lorem => Box::new(LoremProvider {
@@ -49,15 +49,12 @@ pub async fn create_provider<'a>(
                 .await
                 .map_err(|e| ChatRsError::DatabaseError(e.to_string()))?
                 .ok_or(ChatRsError::MissingApiKey)?;
-            let api_key = decrypt_string(
-                &api_key_secret.ciphertext,
-                &api_key_secret.nonce,
-                secret_key,
-            )?;
+            let api_key =
+                encryptor.decrypt_string(&api_key_secret.ciphertext, &api_key_secret.nonce)?;
 
             Box::new(LlmApiProvider::new(
                 llm_config.backend.clone().into(),
-                api_key,
+                api_key.to_owned(),
                 &llm_config.model,
                 llm_config.max_tokens,
                 llm_config.temperature,

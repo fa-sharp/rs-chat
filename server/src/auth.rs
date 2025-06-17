@@ -19,6 +19,7 @@ use crate::{
     api::GitHubUserInfo,
     config::get_app_config,
     db::{models::ChatRsUser, services::user::UserDbService, DbConnection},
+    utils::encryption::Encryptor,
 };
 
 #[derive(Debug, Clone)]
@@ -119,6 +120,17 @@ pub fn setup_oauth() -> AdHoc {
             HyperRustlsAdapter::default(),
             oauth_config,
         ))
+    })
+}
+
+/// Fairing that sets up an encryption service
+pub fn setup_encryption() -> AdHoc {
+    AdHoc::on_ignite("Encryption setup", |rocket| async {
+        let app_config = get_app_config(&rocket);
+        let encryptor = Encryptor::new(&app_config.secret_key)
+            .expect("Invalid secret key: must be 64-character hexadecimal string");
+
+        rocket.manage(encryptor)
     })
 }
 

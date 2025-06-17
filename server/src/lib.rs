@@ -16,7 +16,7 @@ use rocket_okapi::{
 };
 
 use crate::{
-    auth::{setup_oauth, setup_session},
+    auth::{setup_encryption, setup_oauth, setup_session},
     config::{get_config_provider, AppConfig},
     db::setup_db,
     errors::get_catchers,
@@ -30,6 +30,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(AdHoc::config::<AppConfig>())
         .attach(setup_db())
         .attach(setup_redis())
+        .attach(setup_encryption())
         .attach(setup_session())
         .attach(setup_oauth())
         .attach(setup_static_files())

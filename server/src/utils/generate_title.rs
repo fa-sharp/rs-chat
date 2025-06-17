@@ -1,9 +1,12 @@
 use uuid::Uuid;
 
-use crate::db::{
-    models::UpdateChatRsSession,
-    services::{api_key::ApiKeyDbService, chat::ChatDbService},
-    DbConnection, DbPool,
+use crate::{
+    db::{
+        models::UpdateChatRsSession,
+        services::{api_key::ApiKeyDbService, chat::ChatDbService},
+        DbConnection, DbPool,
+    },
+    utils::encryption::Encryptor,
 };
 
 use super::create_provider::{create_provider, ProviderConfigInput};
@@ -14,14 +17,14 @@ pub fn generate_title(
     session_id: &Uuid,
     user_message: &str,
     provider_config: &ProviderConfigInput,
-    secret_key: &str,
+    encryptor: &Encryptor,
     pool: &rocket::State<DbPool>,
 ) {
     let user_id = user_id.to_owned();
     let session_id = session_id.to_owned();
     let message = user_message.to_string();
     let config = provider_config.clone();
-    let secret_key = secret_key.to_owned();
+    let encryptor = encryptor.clone();
     let pool = pool.inner().clone();
 
     tokio::spawn(async move {
@@ -34,7 +37,7 @@ pub fn generate_title(
             &user_id,
             &config,
             &mut ApiKeyDbService::new(&mut db),
-            &secret_key,
+            &encryptor,
         )
         .await
         else {

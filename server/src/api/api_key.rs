@@ -6,14 +6,13 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
-    config::AppConfig,
     db::{
         models::{ChatRsApiKey, ChatRsApiKeyProviderType, ChatRsUser, NewChatRsApiKey},
         services::api_key::ApiKeyDbService,
         DbConnection,
     },
     errors::ApiError,
-    utils::encryption::encrypt_string,
+    utils::encryption::Encryptor,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -46,10 +45,10 @@ struct ApiKeyInput {
 async fn create_api_key(
     user: ChatRsUser,
     mut db: DbConnection,
-    config: &State<AppConfig>,
+    encryptor: &State<Encryptor>,
     input: Json<ApiKeyInput>,
 ) -> Result<String, ApiError> {
-    let (ciphertext, nonce) = encrypt_string(&input.key, &config.secret_key)?;
+    let (ciphertext, nonce) = encryptor.encrypt_string(&input.key)?;
     let id = ApiKeyDbService::new(&mut db)
         .create(NewChatRsApiKey {
             user_id: &user.id,
