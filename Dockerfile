@@ -20,6 +20,20 @@ RUN --mount=type=cache,target=/app/target \
     cargo build --release; \
     objcopy --compress-debug-sections target/release/$pkg ./run-server
 
+### Build Vite frontend with pnpm ###
+FROM node:${NODE_VERSION}-slim-${DEBIAN_VERSION} AS frontend-build
+WORKDIR /app
+
+RUN npm install -g pnpm
+
+COPY ./web/package.json ./web/pnpm-lock.json ./
+RUN pnpm install --frozen-lockfile
+
+COPY ./web/src src
+COPY ./web/public public
+COPY index.html tsconfig.json vite.config.ts ./
+RUN pnpm run build
+
 ### Final image ###
 FROM debian:${DEBIAN_VERSION}-slim
 
@@ -39,10 +53,11 @@ RUN adduser \
 USER appuser
 
 # Copy app files
-# COPY --from=frontend-build /app/build /srv
+COPY --from=frontend-build /app/dist /var/www
 COPY --from=backend-build /app/run-server /usr/local/bin/
 
 # Run
+ENV CHAT_RS_STATIC_PATH=/var/www
 ENV CHAT_RS_ADDRESS=0.0.0.0
 ENV CHAT_RS_PORT=8080
 EXPOSE 8080

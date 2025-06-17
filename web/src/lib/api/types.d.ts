@@ -28,6 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Get the current user info */
         get: operations["user"];
         put?: never;
         post?: never;
@@ -46,6 +47,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Log out */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -60,8 +62,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description List chat sessions */
         get: operations["get_all_sessions"];
         put?: never;
+        /** @description Create a new chat session */
         post: operations["create_session"];
         delete?: never;
         options?: never;
@@ -76,10 +80,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Get a chat session and its messages */
         get: operations["get_session"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/{session_id}/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a chat message */
+        delete: operations["delete_message"];
         options?: never;
         head?: never;
         patch?: never;
@@ -94,8 +116,44 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Send a chat message and stream the response */
         post: operations["send_chat_stream"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api_key/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all API keys */
+        get: operations["get_all_api_keys"];
+        put?: never;
+        /** @description Create a new API key */
+        post: operations["create_api_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api_key/{api_key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete an API key */
+        delete: operations["delete_api_key"];
         options?: never;
         head?: never;
         patch?: never;
@@ -150,10 +208,44 @@ export interface components {
         ChatRsMessageRole: "User" | "Assistant" | "System";
         SendChatInput: {
             message?: string | null;
-            provider: components["schemas"]["ProviderInput"];
+            provider: components["schemas"]["ProviderConfigInput"];
+        };
+        /** @description Provider configuration input from API */
+        ProviderConfigInput: "Lorem" | {
+            Llm: components["schemas"]["LLMConfig"];
+        } | {
+            OpenRouter: components["schemas"]["OpenRouterConfig"];
+        };
+        LLMConfig: {
+            backend: components["schemas"]["LLMBackendInput"];
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
         };
         /** @enum {string} */
-        ProviderInput: "Lorem" | "Anthropic";
+        LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
+        OpenRouterConfig: {
+            model: string;
+        };
+        ChatRsApiKey: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            provider: components["schemas"]["ChatRsApiKeyProviderType"];
+            ciphertext: number[];
+            nonce: number[];
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @enum {string} */
+        ChatRsApiKeyProviderType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
+        ApiKeyInput: {
+            provider: components["schemas"]["ChatRsApiKeyProviderType"];
+            key: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -504,6 +596,71 @@ export interface operations {
             };
         };
     };
+    delete_message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
     send_chat_stream: {
         parameters: {
             query?: never;
@@ -526,6 +683,202 @@ export interface operations {
                 content: {
                     "text/event-stream": number[];
                 };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_all_api_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsApiKey"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_api_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_api_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                api_key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad request */
             400: {

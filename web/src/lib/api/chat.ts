@@ -1,10 +1,10 @@
 import { SSE, type SSEvent, type ReadyStateEvent } from "sse.js";
 import type { components } from "./types";
 
-/** Stream a chat using the `eventsource` library */
+/** Stream a chat via SSE, using the `eventsource` library */
 export function streamChat(
   sessionId: string,
-  input: string,
+  input: components["schemas"]["SendChatInput"],
   {
     onPart,
     onError,
@@ -13,13 +13,9 @@ export function streamChat(
     onError: (error: string) => void;
   },
 ) {
-  const body: components["schemas"]["SendChatInput"] = {
-    message: input,
-    provider: "Lorem",
-  };
   const source = new SSE(`/api/chat/${sessionId}`, {
     method: "POST",
-    payload: JSON.stringify(body),
+    payload: JSON.stringify(input),
     headers: { "Content-Type": "application/json" },
   });
 
@@ -30,23 +26,34 @@ export function streamChat(
         onPart(event.data);
       };
       const errorListener = (event: SSEvent & { responseCode?: number }) => {
+        console.error("Error while streaming:", event);
         if (event.responseCode) {
-          switch (event.responseCode) {
-            case 404:
-              onError("Not Found Error");
-              break;
-            case 500:
-              onError("Internal Server Error");
-              break;
-            default:
-              onError(`Error code ${event.responseCode}`);
-              break;
+          let data;
+          try {
+            data = JSON.parse(event.data).message;
+          } catch (error) {
+            data = event.data;
+          }
+          if (typeof data === "string") {
+            onError(data);
+          } else {
+            switch (event.responseCode) {
+              case 404:
+                onError("Not Found Error");
+                break;
+              case 500:
+                onError("Internal Server Error");
+                break;
+              default:
+                onError(`Error code ${event.responseCode}`);
+                break;
+            }
           }
           reject();
-        } else if (event.data) {
-          onError(event.data);
         } else {
-          onError("Unknown error");
+          onError(
+            typeof event.data === "string" ? event.data : "Unknown error",
+          );
         }
       };
 

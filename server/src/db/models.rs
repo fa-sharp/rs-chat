@@ -29,7 +29,7 @@ pub struct NewChatRsUser<'r> {
 #[diesel(table_name = super::schema::chat_sessions)]
 pub struct ChatRsSession {
     pub id: Uuid,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub user_id: Uuid,
     pub title: String,
     pub created_at: DateTime<Utc>,
@@ -63,7 +63,6 @@ pub enum ChatRsMessageRole {
 #[diesel(table_name = super::schema::chat_messages)]
 pub struct ChatRsMessage {
     pub id: Uuid,
-    #[serde(skip_serializing)]
     pub session_id: Uuid,
     pub role: ChatRsMessageRole,
     pub content: String,
@@ -97,9 +96,9 @@ pub struct ChatRsApiKey {
     pub id: Uuid,
     pub user_id: Uuid,
     pub provider: ChatRsApiKeyProviderType,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub ciphertext: Vec<u8>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub nonce: Vec<u8>,
     pub created_at: DateTime<Utc>,
 }

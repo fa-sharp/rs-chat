@@ -51,6 +51,7 @@ function RouteComponent() {
         <ChatMessageInput
           onSubmit={(input) => onUserSubmit(sessionId, input)}
           isGenerating={streamedChats[sessionId]?.status === "streaming"}
+          sessionId={sessionId}
         />
       </div>
     </div>

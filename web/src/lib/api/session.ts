@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "./client";
 
 export async function getChatSession(sessionId: string) {
@@ -36,3 +36,30 @@ export const useGetRecentChatSessions = () =>
     queryKey: ["recentChatSessions"],
     queryFn: () => getRecentChatSessions(),
   });
+
+export const useDeleteChatMessage = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      sessionId,
+      messageId,
+    }: {
+      sessionId: string;
+      messageId: string;
+    }) => {
+      const response = await client.DELETE(
+        "/session/{session_id}/{message_id}",
+        {
+          params: { path: { session_id: sessionId, message_id: messageId } },
+        },
+      );
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+    },
+    onSettled: (_data, _error, { sessionId }) =>
+      queryClient.invalidateQueries({
+        queryKey: chatSessionQueryKey(sessionId),
+      }),
+  });
+};

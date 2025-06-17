@@ -150,7 +150,7 @@ export function AppSidebar({
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {chats.map((session) => (
-                        <SidebarMenuSubItem key={session.title}>
+                        <SidebarMenuSubItem key={session.id}>
                           <SidebarMenuSubButton
                             asChild
                             isActive={
@@ -213,6 +213,7 @@ function groupSessionsByDate(
   lastWeekStart.setDate(thisWeekStart.getDate() - 7);
   const lastWeekEnd = new Date(thisWeekStart);
   lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
+  lastWeekEnd.setHours(23, 59, 59, 999);
 
   const groups: Record<string, components["schemas"]["ChatRsSession"][]> = {
     today: [],

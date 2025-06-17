@@ -1,19 +1,21 @@
+import { useDeleteChatMessage } from "@/lib/api/session";
+import type { components } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
+import { useCallback, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import {
   ChatBubble,
-  ChatBubbleAction,
-  ChatBubbleActionWrapper,
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
-import type { components } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
-import { Check, Copy, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { CopyButton, DeleteButton } from "./ChatMessageActions";
+import type { ReactNode } from "@tanstack/react-router";
+import { Check, Copy } from "lucide-react";
+import { Button } from "../ui/button";
 
 interface Props {
   isGenerating: boolean;
@@ -23,7 +25,10 @@ interface Props {
   error?: string;
 }
 
-const proseClasses = "prose prose-sm md:prose-base";
+const proseClasses =
+  "prose prose-sm dark:prose-invert prose-pre:bg-primary-foreground";
+const proseUserClasses = "prose-code:text-primary-foreground";
+const proseAssistantClasses = "prose-code:text-secondary-foreground";
 
 export default function ChatMessages({
   user,
@@ -32,6 +37,14 @@ export default function ChatMessages({
   streamedResponse,
   error,
 }: Props) {
+  const { mutate: deleteMessage } = useDeleteChatMessage();
+  const onDeleteMessage = useCallback(
+    (sessionId: string, messageId: string) => {
+      deleteMessage({ sessionId, messageId });
+    },
+    [],
+  );
+
   return (
     <ChatMessageList>
       {messages.map((message) => (
@@ -50,56 +63,41 @@ export default function ChatMessages({
           <ChatBubbleMessage
             className={cn(
               proseClasses,
-              message.role == "User" && "prose-code:text-primary-foreground",
-              message.role == "Assistant" &&
-                "prose-code:text-secondary-foreground",
+              message.role == "User" && proseUserClasses,
+              message.role == "Assistant" && proseAssistantClasses,
             )}
           >
-            <Markdown
-              key={message.id}
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[
-                rehypeHighlight,
-                [rehypeHighlightCodeLines, { showLineNumbers: true }],
-              ]}
-            >
-              {message.content}
-            </Markdown>
-            {/* {message.role === "Assistant" && (
-              <div className="flex items-center gap-1">
-                <ChatBubbleAction
-                  variant="outline"
-                  className="size-6"
-                  icon={<Copy className="size-3" />}
-                  onClick={() => navigator.clipboard.writeText(message.content)}
+            <MarkdownWithPlugins>{message.content}</MarkdownWithPlugins>
+            {message.role === "Assistant" && (
+              <div className="flex items-center gap-1 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                <CopyButton message={message.content} />
+                <DeleteButton
+                  onDelete={() =>
+                    onDeleteMessage(message.session_id, message.id)
+                  }
                 />
               </div>
-            )} */}
+            )}
           </ChatBubbleMessage>
-          <ChatBubbleActionWrapper className="flex gap-1">
-            <ChatMessageCopyButton message={message.content} />
-            <ChatBubbleAction
-              variant="destructive"
-              className="size-6 bg-red-400"
-              icon={<Trash2 className="size-3" />}
-              onClick={() => {}} // TODO Delete
-            />
-          </ChatBubbleActionWrapper>
         </ChatBubble>
       ))}
 
       {isGenerating && (
         <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback="🤖" />
+          <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
           <ChatBubbleMessage isLoading />
         </ChatBubble>
       )}
 
       {streamedResponse && (
         <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback="🤖" />
+          <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
           <ChatBubbleMessage
-            className={cn(proseClasses, "outline-2 outline-ring")}
+            className={cn(
+              proseClasses,
+              proseAssistantClasses,
+              "outline-2 outline-ring",
+            )}
           >
             <Markdown key="streaming">{streamedResponse}</Markdown>
           </ChatBubbleMessage>
@@ -118,32 +116,61 @@ export default function ChatMessages({
   );
 }
 
-function ChatMessageCopyButton({ message }: { message: string }) {
-  const [copied, setCopied] = useState(false);
+function MarkdownWithPlugins({ children }: { children: ReactNode }) {
+  return (
+    <Markdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[
+        rehypeHighlight,
+        [rehypeHighlightCodeLines, { showLineNumbers: true }],
+      ]}
+      components={{
+        pre: CodeWrapper,
+      }}
+    >
+      {children}
+    </Markdown>
+  );
+}
 
-  const handleClick = async () => {
-    try {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error("Failed to copy text: ", error);
+/** Wrapper for code blocks with copy button */
+function CodeWrapper({ children }: { children?: ReactNode }) {
+  const ref = useRef<HTMLPreElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (ref.current) {
+      try {
+        await navigator.clipboard.writeText(
+          ref.current.innerText.slice(5), // Slice off the text of the copy button
+        );
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } catch (error) {
+        console.error("Failed to copy text:", error);
+      }
     }
   };
 
+  if (!children) return null;
   return (
-    <ChatBubbleAction
-      variant="outline"
-      className="size-6"
-      disabled={copied}
-      icon={
-        copied ? (
-          <Check className="size-4 text-green-800" />
-        ) : (
-          <Copy className="size-3" />
-        )
-      }
-      onClick={handleClick}
-    />
+    <div className="not-prose relative">
+      <pre ref={ref} className="relative">
+        <Button
+          className="absolute top-2 right-2 btn btn-sm"
+          onClick={handleCopy}
+          variant="outline"
+          size="sm"
+        >
+          {isCopied ? (
+            <Check className="size-4 text-green-600" />
+          ) : (
+            <Copy className="size-3" />
+          )}
+          Copy
+        </Button>
+        {children}
+      </pre>
+    </div>
   );
 }

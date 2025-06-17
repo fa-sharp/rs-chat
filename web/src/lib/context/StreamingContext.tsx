@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { components } from "../api/types";
 import { streamChat } from "../api/chat";
+import { chatSessionQueryKey } from "../api/session";
 
 export interface StreamedChat {
   content: string;
@@ -16,8 +17,10 @@ export const useStreamingChats = () => {
 
   // Start stream + optimistic update of user message
   const onUserSubmit = useCallback(
-    (sessionId: string, input: string) => {
+    (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
       startStream(sessionId, input);
+      if (!input.message) return;
+
       queryClient.setQueryData<{
         messages: components["schemas"]["ChatRsMessage"][];
       }>(["chatSession", { sessionId }], (oldData: any) => {
@@ -28,7 +31,7 @@ export const useStreamingChats = () => {
             ...oldData.messages,
             {
               id: crypto.randomUUID(),
-              content: input,
+              content: input.message,
               role: "User",
               timestamp: new Date(),
             },
@@ -66,7 +69,7 @@ export const ChatStreamProvider = ({
   );
 };
 
-/** Manage ongoing chat streams in memory */
+/** Manage ongoing chat streams */
 const useChatStreamManager = () => {
   const [streamedChats, setStreamedChats] = useState<{
     [sessionId: string]: StreamedChat | undefined;
@@ -114,9 +117,14 @@ const useChatStreamManager = () => {
   const queryClient = useQueryClient();
 
   const invalidateSession = useCallback(async (sessionId: string) => {
-    await queryClient.invalidateQueries({
-      queryKey: ["chatSession", { sessionId }],
-    });
+    await Promise.allSettled([
+      queryClient.invalidateQueries({
+        queryKey: chatSessionQueryKey(sessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: ["recentChatSessions"],
+      }),
+    ]);
   }, []);
 
   /** Refetch chat session with 1 retry */
@@ -149,28 +157,32 @@ const useChatStreamManager = () => {
   );
 
   /** Start a new chat stream */
-  const startStream = useCallback((sessionId: string, input: string) => {
-    setChatStatus(sessionId, "streaming");
-    let stream = streamChat(sessionId, input, {
-      onPart: (part) => {
-        addChatPart(sessionId, part);
-      },
-      onError: (error) => {
-        addChatError(sessionId, error);
-      },
-    });
-    stream.start
-      .then(() => {
-        refetchSessionForNewResponse(sessionId).then(() =>
-          clearChat(sessionId),
-        );
-      })
-      .catch(() => {
-        invalidateSession(sessionId).then(() =>
-          setChatStatus(sessionId, "completed"),
-        );
+  const startStream = useCallback(
+    (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
+      clearChat(sessionId);
+      setChatStatus(sessionId, "streaming");
+      let stream = streamChat(sessionId, input, {
+        onPart: (part) => {
+          addChatPart(sessionId, part);
+        },
+        onError: (error) => {
+          addChatError(sessionId, error);
+        },
       });
-  }, []);
+      stream.start
+        .then(() => {
+          refetchSessionForNewResponse(sessionId).then(() =>
+            clearChat(sessionId),
+          );
+        })
+        .catch(() => {
+          invalidateSession(sessionId).then(() =>
+            setChatStatus(sessionId, "completed"),
+          );
+        });
+    },
+    [],
+  );
 
   return {
     startStream,
