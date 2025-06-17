@@ -21,17 +21,19 @@ RUN --mount=type=cache,target=/app/target \
     objcopy --compress-debug-sections target/release/$pkg ./run-server
 
 ### Build Vite frontend with pnpm ###
-FROM node:${NODE_VERSION}-slim-${DEBIAN_VERSION} AS frontend-build
+FROM node:${NODE_VERSION}-${DEBIAN_VERSION}-slim AS frontend-build
 WORKDIR /app
 
 RUN npm install -g pnpm
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
-COPY ./web/package.json ./web/pnpm-lock.json ./
-RUN pnpm install --frozen-lockfile
+COPY ./web/package.json ./web/pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/pnpm/store pnpm install --frozen-lockfile
 
 COPY ./web/src src
 COPY ./web/public public
-COPY index.html tsconfig.json vite.config.ts ./
+COPY ./web/index.html ./web/tsconfig.json ./web/vite.config.ts ./
 RUN pnpm run build
 
 ### Final image ###

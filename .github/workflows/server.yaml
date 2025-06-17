@@ -70,11 +70,12 @@ jobs:
         id: cache
         uses: actions/cache@v4
         with:
-          key: docker-mount-${{ hashFiles('Dockerfile') }}-${{ hashFiles('server/Cargo.lock') }}
+          key: docker-mount-${{ hashFiles('Dockerfile') }}-${{ hashFiles('server/Cargo.lock') }}-${{ hashFiles('web/pnpm-lock.yaml') }}
           path: |
             ci-cache-app-target
             ci-cache-cargo-registry
             ci-cache-cargo-git
+            ci-pnpm-store
           restore-keys: |
             docker-mount-${{ hashFiles('Dockerfile') }}
 
@@ -86,7 +87,8 @@ jobs:
             {
               "ci-cache-app-target": "/app/target",
               "ci-cache-cargo-registry": "/usr/local/cargo/registry",
-              "ci-cache-cargo-git": "/usr/local/cargo/git"
+              "ci-cache-cargo-git": "/usr/local/cargo/git",
+              "ci-pnpm-store": "/pnpm/store"
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 

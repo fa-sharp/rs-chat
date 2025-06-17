@@ -27,9 +27,9 @@ services:
       - "8080:8080"
     environment:
       RUST_LOG: info
+      CHAT_RS_SERVER_ADDRESS: http://localhost:8080
       CHAT_RS_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
       CHAT_RS_REDIS_URL: redis://redis:6379
-      CHAT_RS_SECRET_KEY: NWk8wRQsR3r20r1KsAkzi/akBJ1TeZDBT9gB26DnSRsI
 
 volumes:
   postgres_data:
