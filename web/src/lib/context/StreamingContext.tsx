@@ -48,27 +48,6 @@ export const useStreamingChats = () => {
   };
 };
 
-const ChatStreamContext = createContext<
-  ReturnType<typeof useChatStreamManager>
->(
-  //@ts-expect-error should be initialized
-  null,
-);
-
-export const ChatStreamProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
-  const chatStreamManager = useChatStreamManager();
-
-  return (
-    <ChatStreamContext.Provider value={chatStreamManager}>
-      {children}
-    </ChatStreamContext.Provider>
-  );
-};
-
 /** Manage ongoing chat streams */
 const useChatStreamManager = () => {
   const [streamedChats, setStreamedChats] = useState<{
@@ -161,7 +140,7 @@ const useChatStreamManager = () => {
     (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
       clearChat(sessionId);
       setChatStatus(sessionId, "streaming");
-      let stream = streamChat(sessionId, input, {
+      const stream = streamChat(sessionId, input, {
         onPart: (part) => {
           addChatPart(sessionId, part);
         },
@@ -188,4 +167,25 @@ const useChatStreamManager = () => {
     startStream,
     streamedChats,
   };
+};
+
+const ChatStreamContext = createContext<
+  ReturnType<typeof useChatStreamManager>
+>(
+  //@ts-expect-error should be initialized
+  null,
+);
+
+export const ChatStreamProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const chatStreamManager = useChatStreamManager();
+
+  return (
+    <ChatStreamContext.Provider value={chatStreamManager}>
+      {children}
+    </ChatStreamContext.Provider>
+  );
 };

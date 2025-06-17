@@ -1,3 +1,4 @@
+import ErrorComponent from "@/components/Error";
 import ChatMessageInput from "@/components/main/ChatMessageInput";
 import ChatMessages from "@/components/main/ChatMessages";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,
+  errorComponent: ErrorComponent,
   pendingComponent: () => (
     <div className="flex-1">
       <div className="flex flex-col space-y-10 p-48">

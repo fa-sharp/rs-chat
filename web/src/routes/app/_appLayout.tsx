@@ -8,6 +8,7 @@ import {
   useGetRecentChatSessions,
 } from "@/lib/api/session";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
+import ErrorComponent from "@/components/Error";
 
 export const Route = createFileRoute("/app/_appLayout")({
   beforeLoad: async ({ context }) => {
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/app/_appLayout")({
     });
   },
   component: RouteComponent,
+  errorComponent: ErrorComponent,
 });
 
 function RouteComponent() {
