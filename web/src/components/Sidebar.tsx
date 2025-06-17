@@ -115,9 +115,11 @@ export function AppSidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-48" align="start">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <KeyRound />
-                    API Keys
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/api-keys">
+                      <KeyRound />
+                      API Keys
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={onLogout}>
                     <LogOut />

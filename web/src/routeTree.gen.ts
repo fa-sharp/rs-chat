@@ -14,6 +14,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppAppLayoutRouteImport } from './routes/app/_appLayout'
 import { Route as AppAppLayoutIndexRouteImport } from './routes/app/_appLayout/index'
+import { Route as AppAppLayoutApiKeysRouteImport } from './routes/app/_appLayout/api-keys'
 import { Route as AppAppLayoutSessionSessionIdRouteImport } from './routes/app/_appLayout/session/$sessionId'
 
 const AppRouteImport = createFileRoute('/app')()
@@ -37,6 +38,11 @@ const AppAppLayoutIndexRoute = AppAppLayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppAppLayoutRoute,
 } as any)
+const AppAppLayoutApiKeysRoute = AppAppLayoutApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => AppAppLayoutRoute,
+} as any)
 const AppAppLayoutSessionSessionIdRoute =
   AppAppLayoutSessionSessionIdRouteImport.update({
     id: '/session/$sessionId',
@@ -47,12 +53,14 @@ const AppAppLayoutSessionSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppAppLayoutRouteWithChildren
+  '/app/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/': typeof AppAppLayoutIndexRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppAppLayoutIndexRoute
+  '/app/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesById {
@@ -60,19 +68,26 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/app/_appLayout': typeof AppAppLayoutRouteWithChildren
+  '/app/_appLayout/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/_appLayout/': typeof AppAppLayoutIndexRoute
   '/app/_appLayout/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/app/' | '/app/session/$sessionId'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/app/api-keys'
+    | '/app/'
+    | '/app/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/app/session/$sessionId'
+  to: '/' | '/app' | '/app/api-keys' | '/app/session/$sessionId'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/app/_appLayout'
+    | '/app/_appLayout/api-keys'
     | '/app/_appLayout/'
     | '/app/_appLayout/session/$sessionId'
   fileRoutesById: FileRoutesById
@@ -112,6 +127,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAppLayoutIndexRouteImport
       parentRoute: typeof AppAppLayoutRoute
     }
+    '/app/_appLayout/api-keys': {
+      id: '/app/_appLayout/api-keys'
+      path: '/api-keys'
+      fullPath: '/app/api-keys'
+      preLoaderRoute: typeof AppAppLayoutApiKeysRouteImport
+      parentRoute: typeof AppAppLayoutRoute
+    }
     '/app/_appLayout/session/$sessionId': {
       id: '/app/_appLayout/session/$sessionId'
       path: '/session/$sessionId'
@@ -123,11 +145,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAppLayoutRouteChildren {
+  AppAppLayoutApiKeysRoute: typeof AppAppLayoutApiKeysRoute
   AppAppLayoutIndexRoute: typeof AppAppLayoutIndexRoute
   AppAppLayoutSessionSessionIdRoute: typeof AppAppLayoutSessionSessionIdRoute
 }
 
 const AppAppLayoutRouteChildren: AppAppLayoutRouteChildren = {
+  AppAppLayoutApiKeysRoute: AppAppLayoutApiKeysRoute,
   AppAppLayoutIndexRoute: AppAppLayoutIndexRoute,
   AppAppLayoutSessionSessionIdRoute: AppAppLayoutSessionSessionIdRoute,
 }

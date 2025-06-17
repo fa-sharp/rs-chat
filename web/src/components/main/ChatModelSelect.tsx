@@ -34,19 +34,19 @@ const providers: Array<{
       "claude-3-opus-latest",
     ],
   },
-  {
-    value: "OpenAI",
-    label: "OpenAI",
-    models: [
-      "gpt-4.1",
-      "gpt-4.1-nano",
-      "gpt-4o",
-      "o4-mini",
-      "o3",
-      "o3-pro",
-      "o3-mini",
-    ],
-  },
+  // {
+  //   value: "OpenAI",
+  //   label: "OpenAI",
+  //   models: [
+  //     "gpt-4.1",
+  //     "gpt-4.1-nano",
+  //     "gpt-4o",
+  //     "o4-mini",
+  //     "o3",
+  //     "o3-pro",
+  //     "o3-mini",
+  //   ],
+  // },
   {
     value: "OpenRouter",
     label: "OpenRouter",

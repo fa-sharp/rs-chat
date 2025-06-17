@@ -107,7 +107,7 @@ export default function ChatMessages({
       {error && (
         <ChatBubble variant="received">
           <ChatBubbleAvatar fallback="🤖" />
-          <ChatBubbleMessage className="text-destructive">
+          <ChatBubbleMessage className="text-destructive-foreground">
             {error}
           </ChatBubbleMessage>
         </ChatBubble>

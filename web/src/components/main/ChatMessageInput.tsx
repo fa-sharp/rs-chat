@@ -53,7 +53,12 @@ export default function ChatMessageInput({
         onSubmit({
           message: inputRef.current.value,
           provider: {
-            Llm: { backend: provider, model, max_tokens: 1000 },
+            Llm: {
+              backend: provider,
+              model,
+              temperature: 0.7,
+              max_tokens: 1000,
+            },
           },
         });
         break;
@@ -129,7 +134,9 @@ export default function ChatMessageInput({
             setModel(model || "");
           }}
         />
-        {error && <div className="text-sm text-destructive">{error}</div>}
+        {error && (
+          <div className="text-sm text-destructive-foreground">{error}</div>
+        )}
 
         <Button
           disabled={isGenerating}
