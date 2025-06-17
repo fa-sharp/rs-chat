@@ -8,9 +8,13 @@ import {
   Plus,
   RefreshCwIcon,
 } from "lucide-react";
-import { Link, useLocation, useRouter } from "@tanstack/react-router";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 
-import { SearchForm } from "@/components/SearchForm";
 import {
   Collapsible,
   CollapsibleContent,
@@ -41,6 +45,7 @@ import {
 } from "./ui/dropdown-menu";
 import type { StreamedChat } from "@/lib/context/StreamingContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCreateChatSession } from "@/lib/api/session";
 
 export function AppSidebar({
   sessions,
@@ -53,8 +58,21 @@ export function AppSidebar({
   streamedChats?: Record<string, StreamedChat | undefined>;
 } & React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
+  const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const { mutate: createChatSession, isPending: createChatPending } =
+    useCreateChatSession();
+  const onCreateChat = () => {
+    createChatSession(undefined, {
+      onSuccess: ({ session_id }) =>
+        navigate({
+          to: "/app/session/$sessionId",
+          params: { sessionId: session_id },
+        }),
+    });
+  };
 
   const groupedSessions = React.useMemo(
     () => groupSessionsByDate(sessions || []),
@@ -130,7 +148,14 @@ export function AppSidebar({
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SearchForm />
+        <Button
+          variant="outline"
+          disabled={createChatPending}
+          onClick={onCreateChat}
+        >
+          <Plus className="" />
+          New Chat
+        </Button>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -163,6 +188,10 @@ export function AppSidebar({
                               to="/app/session/$sessionId"
                               params={{ sessionId: session.id }}
                             >
+                              {streamedChats?.[session.id]?.status ===
+                                "streaming" && (
+                                <RefreshCwIcon className="animate-spin" />
+                              )}
                               <span className="overflow-hidden text-nowrap text-ellipsis">
                                 {session.title}
                               </span>
@@ -171,10 +200,6 @@ export function AppSidebar({
                                   ? formatTime(session.created_at)
                                   : formatDate(session.created_at)}
                               </span>
-                              {streamedChats?.[session.id]?.status ===
-                                "streaming" && (
-                                <RefreshCwIcon className="ml-auto animate-spin" />
-                              )}
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>

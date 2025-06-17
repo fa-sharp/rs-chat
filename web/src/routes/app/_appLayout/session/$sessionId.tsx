@@ -52,6 +52,10 @@ function RouteComponent() {
           onSubmit={(input) => onUserSubmit(sessionId, input)}
           isGenerating={streamedChats[sessionId]?.status === "streaming"}
           sessionId={sessionId}
+          providerConfig={
+            data?.messages.findLast((m) => m.role === "Assistant")?.meta
+              ?.provider_config
+          }
         />
       </div>
     </div>

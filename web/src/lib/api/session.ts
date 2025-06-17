@@ -37,6 +37,22 @@ export const useGetRecentChatSessions = () =>
     queryFn: () => getRecentChatSessions(),
   });
 
+export const useCreateChatSession = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const response = await client.POST("/session/");
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      return response.data;
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["recentChatSessions"] }),
+  });
+};
+
 export const useDeleteChatMessage = () => {
   const queryClient = useQueryClient();
   return useMutation({

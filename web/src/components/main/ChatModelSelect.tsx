@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Lock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,18 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { ProviderKey } from "./ChatMessageInput";
+import { useApiKeys } from "@/lib/api/apiKey";
+import type { components } from "@/lib/api/types";
 
 const providers: Array<{
   value: ProviderKey;
+  apiKeyType?: components["schemas"]["ChatRsApiKeyProviderType"];
   label: string;
   models: string[];
 }> = [
   {
     value: "Anthropic",
+    apiKeyType: "Anthropic",
     label: "Anthropic",
     models: [
       "claude-opus-4-0",
@@ -50,6 +54,7 @@ const providers: Array<{
   {
     value: "OpenRouter",
     label: "OpenRouter",
+    apiKeyType: "Openrouter",
     models: [
       "openrouter/auto",
       "openai/gpt-4.1",
@@ -67,6 +72,11 @@ const providers: Array<{
       "google/gemini-2.0-flash-001",
     ],
   },
+  {
+    value: "Lorem",
+    label: "Lorem ipsum",
+    models: [],
+  },
 ];
 
 export function ChatModelSelect({
@@ -78,7 +88,7 @@ export function ChatModelSelect({
   currentModel: string;
   onSelect: (provider?: ProviderKey, model?: string) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const { data: apiKeys } = useApiKeys();
 
   const currentProvider = React.useMemo(() => {
     return providers.find((p) => p.value === currentProviderKey);
@@ -87,6 +97,8 @@ export function ChatModelSelect({
   const setCurrentModel = (model: string) => {
     onSelect(currentProvider?.value, model);
   };
+
+  const [open, setOpen] = React.useState(false);
 
   return (
     <>
@@ -110,35 +122,45 @@ export function ChatModelSelect({
             <CommandList>
               <CommandEmpty>No provider found.</CommandEmpty>
               <CommandGroup>
-                {providers.map((provider) => (
-                  <CommandItem
-                    key={provider.value}
-                    value={provider.value}
-                    onSelect={() => {
-                      const newProvider = providers.find(
-                        (p) => p.value === provider.value,
-                      );
-                      onSelect(newProvider?.value, "");
-                      setOpen(false);
-                    }}
-                  >
-                    {provider.label}
-                    <Check
-                      className={cn(
-                        "ml-auto",
-                        currentProvider?.value === provider.value
-                          ? "opacity-100"
-                          : "opacity-0",
-                      )}
-                    />
-                  </CommandItem>
-                ))}
+                {providers.map((provider) => {
+                  const missingApiKey =
+                    provider.apiKeyType &&
+                    !apiKeys?.find(
+                      (key) => key.provider === provider.apiKeyType,
+                    );
+
+                  return (
+                    <CommandItem
+                      key={provider.value}
+                      disabled={missingApiKey}
+                      value={provider.value}
+                      onSelect={() => {
+                        const newProvider = providers.find(
+                          (p) => p.value === provider.value,
+                        );
+                        onSelect(newProvider?.value, "");
+                        setOpen(false);
+                      }}
+                    >
+                      {missingApiKey && <Lock />}
+                      {provider.label}
+                      <Check
+                        className={cn(
+                          "ml-auto",
+                          currentProvider?.value === provider.value
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>
         </PopoverContent>
       </Popover>
-      {currentProvider && (
+      {currentProvider && currentProvider.value !== "Lorem" && (
         <ProviderModelSelect
           provider={currentProvider}
           currentModel={currentModel}

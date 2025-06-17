@@ -195,6 +195,7 @@ export function ApiKeysManager({
                 <div className="grid gap-2">
                   <Label htmlFor="api-key">API Key</Label>
                   <Input
+                    autoFocus
                     id="api-key"
                     type="password"
                     placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
@@ -241,17 +242,8 @@ export function ApiKeysManager({
               <div className="text-center py-8">
                 <Bot className="size-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">
-                  No API keys configured
+                  No API keys configured yet
                 </h3>
-                <p className="text-muted-foreground mb-4">
-                  Add API keys from your AI providers here.
-                </p>
-                {availableProviders.length > 0 && (
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="size-4 mr-2" />
-                    Add first key
-                  </Button>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -278,12 +270,9 @@ export function ApiKeysManager({
                     </div>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                        >
-                          <Trash2 className="size-4" />
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="size-4 text-destructive-foreground" />
+                          Delete
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>

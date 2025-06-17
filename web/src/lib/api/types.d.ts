@@ -199,14 +199,15 @@ export interface components {
             session_id: string;
             role: components["schemas"]["ChatRsMessageRole"];
             content: string;
+            meta: components["schemas"]["ChatRsMessageMeta"];
             /** Format: date-time */
             created_at: string;
         };
         /** @enum {string} */
         ChatRsMessageRole: "User" | "Assistant" | "System";
-        SendChatInput: {
-            message?: string | null;
-            provider: components["schemas"]["ProviderConfigInput"];
+        ChatRsMessageMeta: {
+            provider_config?: components["schemas"]["ProviderConfigInput"] | null;
+            interrupted?: boolean | null;
         };
         /** @description Provider configuration input from API */
         ProviderConfigInput: "Lorem" | {
@@ -230,6 +231,10 @@ export interface components {
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+        };
+        SendChatInput: {
+            message?: string | null;
+            provider: components["schemas"]["ProviderConfigInput"];
         };
         ChatRsApiKey: {
             /** Format: uuid */
