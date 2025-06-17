@@ -66,7 +66,11 @@ export default function ChatMessageInput({
         onSubmit({
           message: inputRef.current.value,
           provider: {
-            OpenRouter: { model },
+            OpenRouter: {
+              model,
+              temperature: 0.7,
+              max_tokens: 1000,
+            },
           },
         });
         break;

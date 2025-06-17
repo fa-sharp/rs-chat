@@ -7,6 +7,7 @@ use crate::{
     provider::{
         llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
+        openrouter::OpenRouterProvider,
         ChatRsError, ChatRsProvider,
     },
     utils::encryption::Encryptor,
@@ -31,6 +32,8 @@ pub struct LLMConfig {
 #[derive(Clone, JsonSchema, serde::Deserialize)]
 pub struct OpenRouterConfig {
     pub model: String,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
 }
 
 pub async fn create_provider<'a>(
@@ -60,7 +63,22 @@ pub async fn create_provider<'a>(
                 llm_config.temperature,
             ))
         }
-        ProviderConfigInput::OpenRouter(_config) => unimplemented!(),
+        ProviderConfigInput::OpenRouter(llm_config) => {
+            let api_key_secret = db
+                .find_by_user_and_provider(user_id, &ChatRsApiKeyProviderType::Openrouter)
+                .await
+                .map_err(|e| ChatRsError::DatabaseError(e.to_string()))?
+                .ok_or(ChatRsError::MissingApiKey)?;
+            let api_key =
+                encryptor.decrypt_string(&api_key_secret.ciphertext, &api_key_secret.nonce)?;
+
+            Box::new(OpenRouterProvider::new(
+                api_key,
+                &llm_config.model,
+                llm_config.max_tokens,
+                llm_config.temperature,
+            ))
+        }
     };
 
     Ok(provider)

@@ -7,7 +7,7 @@ export const Route = createFileRoute("/app/_appLayout/api-keys")({
 
 function RouteComponent() {
   return (
-    <div>
+    <div className="p-10">
       <ApiKeysManager />
     </div>
   );

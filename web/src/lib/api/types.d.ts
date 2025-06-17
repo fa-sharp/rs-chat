@@ -179,8 +179,6 @@ export interface components {
         ChatRsSession: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            user_id: string;
             title: string;
             /** Format: date-time */
             created_at: string;
@@ -228,6 +226,10 @@ export interface components {
         LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
         OpenRouterConfig: {
             model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
         };
         ChatRsApiKey: {
             /** Format: uuid */
@@ -235,8 +237,6 @@ export interface components {
             /** Format: uuid */
             user_id: string;
             provider: components["schemas"]["ChatRsApiKeyProviderType"];
-            ciphertext: number[];
-            nonce: number[];
             /** Format: date-time */
             created_at: string;
         };

@@ -1,9 +1,11 @@
 pub mod llm;
 pub mod lorem;
+pub mod openrouter;
 
 use std::pin::Pin;
 
 use ::llm::error::LLMError;
+use openrouter_rs::error::OpenRouterError;
 use rocket::{async_trait, futures::Stream};
 
 use crate::db::models::ChatRsMessage;
@@ -20,6 +22,8 @@ pub enum ChatRsError {
     MissingApiKey,
     #[error(transparent)]
     LlmError(#[from] LLMError),
+    #[error(transparent)]
+    OpenRouterError(#[from] OpenRouterError),
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]
