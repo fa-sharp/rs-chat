@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 import { ChatInput } from "../ui/chat/chat-input";
 import { ChatModelSelect } from "./ChatModelSelect";
 import type { components } from "@/lib/api/types";
+import { providers, type ProviderKey } from "@/lib/providerInfo";
 
 interface Props {
   sessionId?: string;
@@ -17,14 +18,6 @@ interface Props {
   isGenerating: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
 }
-
-export type ProviderKey =
-  | "Anthropic"
-  | "OpenAI"
-  | "OpenRouter"
-  | "Lorem"
-  | "Deepseek"
-  | "Google";
 
 export default function ChatMessageInput({
   sessionId,
@@ -36,7 +29,7 @@ export default function ChatMessageInput({
   const [model, setModel] = useState("");
   const [error, setError] = useState<string>("");
 
-  // Set initial provider and model
+  // Set initial provider and model for this session from the chat metadata
   useEffect(() => {
     if (sessionId && providerConfig) {
       const { provider, model } =
@@ -52,9 +45,24 @@ export default function ChatMessageInput({
 
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Focus input when switching sessions
   useEffect(() => {
-    if (sessionId) inputRef.current?.focus(); // Focus input when switching session
+    if (sessionId) inputRef.current?.focus();
   }, [sessionId]);
+
+  const onSelectModel = useCallback(
+    (provider?: ProviderKey, model?: string) => {
+      setProvider(provider);
+      if (provider) {
+        setModel(
+          model ||
+            providers.find((p) => p.value === provider)?.defaultModel ||
+            "",
+        );
+      }
+    },
+    [],
+  );
 
   const onSubmitUserMessage = useCallback(() => {
     if (isGenerating || !inputRef.current?.value) {
@@ -71,7 +79,6 @@ export default function ChatMessageInput({
         setError("Must select a provider");
         break;
       case "Anthropic":
-      case "OpenAI":
         onSubmit({
           message: inputRef.current.value,
           provider: {
@@ -144,10 +151,7 @@ export default function ChatMessageInput({
         <ChatModelSelect
           currentProviderKey={provider}
           currentModel={model}
-          onSelect={(provider, model) => {
-            setProvider(provider);
-            setModel(model || "");
-          }}
+          onSelect={onSelectModel}
         />
         {error && (
           <div className="text-sm text-destructive-foreground">{error}</div>

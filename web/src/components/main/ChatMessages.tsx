@@ -1,21 +1,18 @@
-import { useDeleteChatMessage } from "@/lib/api/session";
-import type { components } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
 import Markdown from "react-markdown";
-import rehypeHighlight from "rehype-highlight";
-import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
-import remarkGfm from "remark-gfm";
+
 import {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
+
 import { CopyButton, DeleteButton } from "./ChatMessageActions";
-import type { ReactNode } from "@tanstack/react-router";
-import { Check, Copy } from "lucide-react";
-import { Button } from "../ui/button";
+import { useDeleteChatMessage } from "@/lib/api/session";
+import type { components } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
+import ChatFancyMarkdown from "./ChatFancyMarkdown";
 
 interface Props {
   isGenerating: boolean;
@@ -67,7 +64,7 @@ export default function ChatMessages({
               message.role == "Assistant" && proseAssistantClasses,
             )}
           >
-            <MarkdownWithPlugins>{message.content}</MarkdownWithPlugins>
+            <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
             {message.role === "Assistant" && (
               <div className="flex items-center gap-1 opacity-65 hover:opacity-100 focus-within:opacity-100">
                 <CopyButton message={message.content} />
@@ -113,64 +110,5 @@ export default function ChatMessages({
         </ChatBubble>
       )}
     </ChatMessageList>
-  );
-}
-
-function MarkdownWithPlugins({ children }: { children: ReactNode }) {
-  return (
-    <Markdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[
-        rehypeHighlight,
-        [rehypeHighlightCodeLines, { showLineNumbers: true }],
-      ]}
-      components={{
-        pre: CodeWrapper,
-      }}
-    >
-      {children}
-    </Markdown>
-  );
-}
-
-/** Wrapper for code blocks with copy button */
-function CodeWrapper({ children }: { children?: ReactNode }) {
-  const ref = useRef<HTMLPreElement>(null);
-  const [isCopied, setIsCopied] = useState(false);
-
-  const handleCopy = async () => {
-    if (ref.current) {
-      try {
-        await navigator.clipboard.writeText(
-          ref.current.innerText.slice(5).trim(), // Slice off the text of the copy button
-        );
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-      } catch (error) {
-        console.error("Failed to copy text:", error);
-      }
-    }
-  };
-
-  if (!children) return null;
-  return (
-    <div className="not-prose">
-      <pre ref={ref} className="relative">
-        <Button
-          className="absolute top-2 right-2 opacity-85 hover:opacity-100"
-          onClick={handleCopy}
-          variant="outline"
-          size="sm"
-        >
-          {isCopied ? (
-            <Check className="size-4 text-green-600" />
-          ) : (
-            <Copy className="size-3" />
-          )}
-          Copy
-        </Button>
-        {children}
-      </pre>
-    </div>
   );
 }

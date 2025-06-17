@@ -126,8 +126,7 @@ export function ApiKeysManager({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <Key className="size-6" />
-          <h1 className="text-2xl font-bold">API Keys</h1>
+          <h1 className="text-3xl font-bold">API Keys</h1>
         </div>
         <p className="text-muted-foreground">
           Manage your API keys for different AI providers. Each provider can
