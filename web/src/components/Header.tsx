@@ -10,6 +10,7 @@ import {
 import { SidebarTrigger } from "./ui/sidebar";
 import { createLink, useMatchRoute } from "@tanstack/react-router";
 import { useGetChatSession } from "@/lib/api/session";
+import { ThemeToggle } from "./theme/ThemeToggle";
 
 const RouterBreadcrumbLink = createLink(BreadcrumbLink);
 
@@ -42,6 +43,7 @@ export default function Header() {
           )}
         </BreadcrumbList>
       </Breadcrumb>
+      <ThemeToggle className="ml-auto" />
     </header>
   );
 }

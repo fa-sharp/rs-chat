@@ -142,7 +142,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
     if (ref.current) {
       try {
         await navigator.clipboard.writeText(
-          ref.current.innerText.slice(5), // Slice off the text of the copy button
+          ref.current.innerText.slice(5).trim(), // Slice off the text of the copy button
         );
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
@@ -154,10 +154,10 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
 
   if (!children) return null;
   return (
-    <div className="not-prose relative">
+    <div className="not-prose">
       <pre ref={ref} className="relative">
         <Button
-          className="absolute top-2 right-2 btn btn-sm"
+          className="absolute top-2 right-2 opacity-85 hover:opacity-100"
           onClick={handleCopy}
           variant="outline"
           size="sm"

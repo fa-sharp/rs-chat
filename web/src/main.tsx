@@ -5,6 +5,7 @@ import reportWebVitals from "./reportWebVitals.ts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/api/client.ts";
 import { ChatStreamProvider } from "./lib/context/StreamingContext.tsx";
+import { ThemeProvider } from "./components/theme/ThemeProvider.tsx";
 
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
@@ -35,11 +36,13 @@ if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <ChatStreamProvider>
-          <RouterProvider router={router} />
-        </ChatStreamProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <ChatStreamProvider>
+            <RouterProvider router={router} />
+          </ChatStreamProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </StrictMode>,
   );
 }
