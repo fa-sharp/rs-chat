@@ -122,4 +122,31 @@ impl<'a> ChatDbService<'a> {
 
         Ok(updated_id)
     }
+
+    pub async fn delete_session(
+        &mut self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Result<Uuid, diesel::result::Error> {
+        let id: Uuid = diesel::delete(chat_sessions::table.find(session_id))
+            .filter(chat_sessions::user_id.eq(user_id))
+            .returning(chat_sessions::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(id)
+    }
+
+    pub async fn delete_all_sessions(
+        &mut self,
+        user_id: &Uuid,
+    ) -> Result<Vec<Uuid>, diesel::result::Error> {
+        let ids: Vec<Uuid> = diesel::delete(chat_sessions::table)
+            .filter(chat_sessions::user_id.eq(user_id))
+            .returning(chat_sessions::id)
+            .get_results(self.db)
+            .await?;
+
+        Ok(ids)
+    }
 }

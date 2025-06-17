@@ -47,4 +47,13 @@ impl<'a> UserDbService<'a> {
             .get_result(self.db)
             .await
     }
+
+    pub async fn delete(&mut self, user_id: &Uuid) -> Result<Uuid, Error> {
+        let id: Uuid = diesel::delete(users::table.find(user_id))
+            .returning(users::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(id)
+    }
 }

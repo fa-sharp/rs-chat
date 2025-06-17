@@ -7,6 +7,7 @@ import {
   Minus,
   Plus,
   RefreshCwIcon,
+  UserRound,
 } from "lucide-react";
 import {
   Link,
@@ -137,6 +138,12 @@ export function AppSidebar({
                     <Link to="/app/api-keys">
                       <KeyRound />
                       API Keys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/profile">
+                      <UserRound />
+                      Profile
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={onLogout}>

@@ -16,6 +16,7 @@ import { Route as LegalTermsRouteImport } from './routes/legal/terms'
 import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as AppAppLayoutRouteImport } from './routes/app/_appLayout'
 import { Route as AppAppLayoutIndexRouteImport } from './routes/app/_appLayout/index'
+import { Route as AppAppLayoutProfileRouteImport } from './routes/app/_appLayout/profile'
 import { Route as AppAppLayoutApiKeysRouteImport } from './routes/app/_appLayout/api-keys'
 import { Route as AppAppLayoutSessionSessionIdRouteImport } from './routes/app/_appLayout/session/$sessionId'
 
@@ -50,6 +51,11 @@ const AppAppLayoutIndexRoute = AppAppLayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppAppLayoutRoute,
 } as any)
+const AppAppLayoutProfileRoute = AppAppLayoutProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppAppLayoutRoute,
+} as any)
 const AppAppLayoutApiKeysRoute = AppAppLayoutApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/profile': typeof AppAppLayoutProfileRoute
   '/app/': typeof AppAppLayoutIndexRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
@@ -77,6 +84,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/profile': typeof AppAppLayoutProfileRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesById {
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/_appLayout/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/_appLayout/profile': typeof AppAppLayoutProfileRoute
   '/app/_appLayout/': typeof AppAppLayoutIndexRoute
   '/app/_appLayout/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/api-keys'
+    | '/app/profile'
     | '/app/'
     | '/app/session/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/api-keys'
+    | '/app/profile'
     | '/app/session/$sessionId'
   id:
     | '__root__'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/_appLayout/api-keys'
+    | '/app/_appLayout/profile'
     | '/app/_appLayout/'
     | '/app/_appLayout/session/$sessionId'
   fileRoutesById: FileRoutesById
@@ -171,6 +183,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAppLayoutIndexRouteImport
       parentRoute: typeof AppAppLayoutRoute
     }
+    '/app/_appLayout/profile': {
+      id: '/app/_appLayout/profile'
+      path: '/profile'
+      fullPath: '/app/profile'
+      preLoaderRoute: typeof AppAppLayoutProfileRouteImport
+      parentRoute: typeof AppAppLayoutRoute
+    }
     '/app/_appLayout/api-keys': {
       id: '/app/_appLayout/api-keys'
       path: '/api-keys'
@@ -190,12 +209,14 @@ declare module '@tanstack/react-router' {
 
 interface AppAppLayoutRouteChildren {
   AppAppLayoutApiKeysRoute: typeof AppAppLayoutApiKeysRoute
+  AppAppLayoutProfileRoute: typeof AppAppLayoutProfileRoute
   AppAppLayoutIndexRoute: typeof AppAppLayoutIndexRoute
   AppAppLayoutSessionSessionIdRoute: typeof AppAppLayoutSessionSessionIdRoute
 }
 
 const AppAppLayoutRouteChildren: AppAppLayoutRouteChildren = {
   AppAppLayoutApiKeysRoute: AppAppLayoutApiKeysRoute,
+  AppAppLayoutProfileRoute: AppAppLayoutProfileRoute,
   AppAppLayoutIndexRoute: AppAppLayoutIndexRoute,
   AppAppLayoutSessionSessionIdRoute: AppAppLayoutSessionSessionIdRoute,
 }

@@ -64,4 +64,14 @@ impl<'a> ApiKeyDbService<'a> {
 
         Ok(id)
     }
+
+    pub async fn delete_by_user(&mut self, user_id: &Uuid) -> Result<Vec<Uuid>, Error> {
+        let ids: Vec<Uuid> = diesel::delete(api_keys::table)
+            .filter(api_keys::user_id.eq(user_id))
+            .returning(api_keys::id)
+            .get_results(self.db)
+            .await?;
+
+        Ok(ids)
+    }
 }
