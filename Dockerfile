@@ -59,8 +59,8 @@ COPY --from=frontend-build /app/dist /var/www
 COPY --from=backend-build /app/run-server /usr/local/bin/
 
 # Run
-ENV CHAT_RS_STATIC_PATH=/var/www
-ENV CHAT_RS_ADDRESS=0.0.0.0
-ENV CHAT_RS_PORT=8080
+ENV RS_CHAT_STATIC_PATH=/var/www
+ENV RS_CHAT_ADDRESS=0.0.0.0
+ENV RS_CHAT_PORT=8080
 EXPOSE 8080
 CMD ["run-server"]

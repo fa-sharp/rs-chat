@@ -7,7 +7,7 @@ export const Route = createFileRoute("/app/_appLayout/api-keys")({
 
 function RouteComponent() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="overflow-auto bg-background">
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <ApiKeysManager />
       </div>

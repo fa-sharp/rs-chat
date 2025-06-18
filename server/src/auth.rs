@@ -6,10 +6,7 @@ use rocket::{
     request::{FromRequest, Outcome},
 };
 use rocket_flex_session::{
-    storage::{
-        memory::MemoryStorage,
-        redis::{RedisFredStorage, RedisType},
-    },
+    storage::redis::{RedisFredStorage, RedisType},
     RocketFlexSession, Session,
 };
 use rocket_oauth2::{HyperRustlsAdapter, OAuthConfig, StaticProvider};
@@ -134,47 +131,35 @@ pub fn setup_encryption() -> AdHoc {
     })
 }
 
-/// Fairing that sets up persistent sessions in Rocket. Uses
-/// Redis if CHAT_RS_REDIS_URL is set, otherwise uses in-memory session store.
+/// Fairing that sets up persistent sessions via Redis.
 pub fn setup_session() -> AdHoc {
     AdHoc::on_ignite("Session setup", |rocket| async {
         let app_config = get_app_config(&rocket);
+        let config = fred::prelude::Config::from_url(&app_config.redis_url)
+            .expect("RS_CHAT_REDIS_URL should be valid Redis URL");
+        let session_redis_pool = fred::prelude::Builder::from_config(config)
+            .with_connection_config(|config| {
+                config.connection_timeout = Duration::from_secs(4);
+                config.tcp = fred::prelude::TcpConfig {
+                    nodelay: Some(true),
+                    ..Default::default()
+                };
+            })
+            .build_pool(app_config.redis_pool.unwrap_or(2))
+            .expect("Failed to build Redis session pool");
+        let session_fairing: RocketFlexSession<ChatRsAuthSession> = RocketFlexSession::builder()
+            .with_options(|opt| {
+                opt.cookie_name = "auth_rs_chat".to_string();
+                opt.ttl = Some(60 * 60 * 24 * 2); // 2 days
+                opt.rolling = true;
+            })
+            .storage(RedisFredStorage::new(
+                session_redis_pool,
+                RedisType::Hash,
+                "sess:",
+            ))
+            .build();
 
-        if let Some(redis_url) = Some(&app_config.redis_url) {
-            let config = fred::prelude::Config::from_url(&redis_url)
-                .expect("CHAT_RS_REDIS_URL should be valid Redis URL");
-            let session_redis_pool = fred::prelude::Builder::from_config(config)
-                .with_connection_config(|config| {
-                    config.connection_timeout = Duration::from_secs(4);
-                    config.tcp = fred::prelude::TcpConfig {
-                        nodelay: Some(true),
-                        ..Default::default()
-                    };
-                })
-                .build_pool(2)
-                .expect("Failed to build Redis session pool");
-            let session_fairing: RocketFlexSession<ChatRsAuthSession> =
-                RocketFlexSession::builder()
-                    .with_options(|opt| {
-                        opt.cookie_name = "auth_rs_chat".to_string();
-                        opt.ttl = Some(60 * 60 * 24 * 2); // 2 days
-                        opt.rolling = true;
-                    })
-                    .storage(RedisFredStorage::new(
-                        session_redis_pool,
-                        RedisType::Hash,
-                        "sess:",
-                    ))
-                    .build();
-
-            rocket.attach(session_fairing)
-        } else {
-            let session_fairing: RocketFlexSession<ChatRsAuthSession> =
-                RocketFlexSession::builder()
-                    .storage(MemoryStorage::default())
-                    .build();
-
-            rocket.attach(session_fairing)
-        }
+        rocket.attach(session_fairing)
     })
 }

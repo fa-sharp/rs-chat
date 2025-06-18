@@ -1,3 +1,4 @@
+use fred::prelude::KeysInterface;
 use rocket::{delete, get, post, serde::json::Json, Route};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
@@ -7,11 +8,16 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        models::{ChatRsMessage, ChatRsSession, ChatRsUser, NewChatRsSession},
+        models::{
+            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, ChatRsUser,
+            NewChatRsSession,
+        },
         services::chat::ChatDbService,
         DbConnection,
     },
     errors::ApiError,
+    redis::RedisClient,
+    utils::stored_stream::CACHE_KEY_PREFIX,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -66,11 +72,30 @@ struct GetSessionResponse {
 async fn get_session(
     user: ChatRsUser,
     mut db: DbConnection,
+    redis: RedisClient,
     session_id: Uuid,
 ) -> Result<Json<GetSessionResponse>, ApiError> {
-    let (session, messages) = ChatDbService::new(&mut db)
+    let (session, mut messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user.id, &session_id)
         .await?;
+
+    // Check for a cached response if the session is interrupted
+    let cached_response: Option<String> = redis
+        .get(format!("{}{}", CACHE_KEY_PREFIX, &session_id))
+        .await?;
+    if let Some(interrupted_response) = cached_response {
+        messages.push(ChatRsMessage {
+            id: Uuid::new_v4(),
+            session_id,
+            role: ChatRsMessageRole::Assistant,
+            content: interrupted_response,
+            created_at: chrono::Utc::now(),
+            meta: ChatRsMessageMeta {
+                interrupted: Some(true),
+                ..Default::default()
+            },
+        });
+    }
 
     Ok(Json(GetSessionResponse { session, messages }))
 }

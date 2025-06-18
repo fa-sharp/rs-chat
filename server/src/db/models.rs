@@ -75,7 +75,9 @@ pub struct ChatRsMessage {
 
 #[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_config: Option<ProviderConfigInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub interrupted: Option<bool>,
 }
 

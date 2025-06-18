@@ -38,12 +38,21 @@ A fast, secure, self-hostable chat application built with Rust, TypeScript, and 
 ## 📁 Project Structure
 
 ```
-chat-rs/
-├── server/               # Rust backend
-│   ├── src/              # Backend source code
-│   ├── migrations/       # Database migrations
-│   └── Cargo.toml        # Rust dependencies
-├── web/                  # Vite / React frontend
+rs-chat/
+├── server/                 # Rust backend
+│   ├── src/
+│   │   ├── api/           # API route handlers
+│   │   ├── db/            # Database models and queries
+│   │   ├── provider/      # AI provider integrations
+│   │   ├── utils/         # Utility functions
+│   │   ├── lib.rs         # Server setup
+│   │   ├── main.rs        # Server entry point
+│   │   ├── auth.rs        # Authentication stuff
+│   │   ├── config.rs      # Reading configuration / env variables
+│   │   └── ...            # Other modules
+│   ├── migrations/         # Database migrations
+│   └── Cargo.toml          # Rust dependencies
+├── web/                    # Vite / React frontend
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── routes/       # TanStack Router routes
@@ -139,12 +148,12 @@ services:
     #   - "8080:8080"
     environment:
       RUST_LOG: warn   # 'info' for more logs
-      CHAT_RS_SERVER_ADDRESS: https://mydomain.com # where you're hosting the app
-      CHAT_RS_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
-      CHAT_RS_REDIS_URL: redis://myredis:6379 # Your Redis URL
-      CHAT_RS_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
-      CHAT_RS_GITHUB_CLIENT_ID: your-github-client-id
-      CHAT_RS_GITHUB_CLIENT_SECRET: your-github-client-secret
+      RS_CHAT_SERVER_ADDRESS: https://mydomain.com # where you're hosting the app
+      RS_CHAT_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
+      RS_CHAT_REDIS_URL: redis://myredis:6379 # Your Redis URL
+      RS_CHAT_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
+      RS_CHAT_GITHUB_CLIENT_ID: your-github-client-id
+      RS_CHAT_GITHUB_CLIENT_SECRET: your-github-client-secret
 ```
 
 ## 🔒 Security & Privacy
@@ -168,7 +177,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [TanStack](https://tanstack.com/) and [Vite](https://vitejs.dev/) for great tooling and libraries
+- [TanStack](https://tanstack.com/) and [Vite](https://vitejs.dev/) for great JS tooling and libraries
 - [Rocket](https://rocket.rs/) for the amazing Rust web framework
 - Many, many other open-source maintainers and contributors that make this project possible
 

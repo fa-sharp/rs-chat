@@ -81,9 +81,17 @@ pub fn setup_db() -> AdHoc {
 
                     static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
                     MIGRATIONS
+                        .pending_migrations(&mut conn)
+                        .await
+                        .expect("Failed to get pending migrations")
+                        .iter()
+                        .for_each(|migration| {
+                            rocket::info!("Running migration: {}", migration.name);
+                        });
+                    MIGRATIONS
                         .run_pending_migrations(&mut conn)
                         .await
-                        .expect("Should run migrations");
+                        .expect("Database migrations failed");
                     rocket::info!("Migrations completed successfully");
 
                     rocket.manage(pool)

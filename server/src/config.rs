@@ -14,12 +14,14 @@ pub struct AppConfig {
     pub secret_key: String,
     /// Server address, used for OAuth redirects(e.g. "http://localhost:8000" or "https://example.com")
     pub server_address: String,
-    /// Static files directory
+    /// Static files directory (default: "../web/dist")
     pub static_path: Option<String>,
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL
     pub redis_url: String,
+    /// Redis pool size (default: 2)
+    pub redis_pool: Option<usize>,
     /// GitHub OAuth Client ID
     pub github_client_id: String,
     /// GitHub OAuth Client Secret
@@ -36,7 +38,7 @@ pub fn get_app_config(rocket: &Rocket<Build>) -> &AppConfig {
 /// Builds and returns a Figment configuration provider that merges settings from:
 /// 1. Default Rocket config
 /// 2. Rocket.toml file
-/// 3. Environment variables prefixed with `CHAT_RS_`. In debug/dev mode, will load
+/// 3. Environment variables prefixed with `RS_CHAT_`. In debug/dev mode, will also load
 /// variables from local `.env` file
 pub fn get_config_provider() -> Figment {
     #[cfg(debug_assertions)]
@@ -46,5 +48,5 @@ pub fn get_config_provider() -> Figment {
 
     Figment::from(rocket::Config::default())
         .merge(Toml::file("Rocket.toml").nested())
-        .merge(Env::prefixed("CHAT_RS_").global())
+        .merge(Env::prefixed("RS_CHAT_").global())
 }

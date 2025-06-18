@@ -45,8 +45,9 @@ pub fn setup_redis() -> AdHoc {
             .attach(AdHoc::on_ignite(
                 "Initialize Redis connection",
                 |rocket| async {
-                    let config = Config::from_url(&get_app_config(&rocket).redis_url)
-                        .expect("CHAT_RS_REDIS_URL should be valid Redis URL");
+                    let app_config = get_app_config(&rocket);
+                    let config = Config::from_url(&app_config.redis_url)
+                        .expect("RS_CHAT_REDIS_URL should be valid Redis URL");
                     let pool = Builder::from_config(config)
                         .with_connection_config(|config| {
                             config.connection_timeout = Duration::from_secs(4);
@@ -55,7 +56,7 @@ pub fn setup_redis() -> AdHoc {
                                 ..Default::default()
                             };
                         })
-                        .build_pool(2)
+                        .build_pool(app_config.redis_pool.unwrap_or(2))
                         .expect("Failed to build Redis pool");
                     pool.init().await.expect("Failed to connect to Redis");
 
