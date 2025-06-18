@@ -15,7 +15,7 @@ export const useStreamingChats = () => {
   const queryClient = useQueryClient();
   const { streamedChats, startStream } = useContext(ChatStreamContext);
 
-  // Start stream + optimistic update of user message
+  /** Start stream + optimistic update of user message */
   const onUserSubmit = useCallback(
     (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
       startStream(sessionId, input);

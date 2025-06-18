@@ -41,14 +41,6 @@ impl<'a> OpenRouterProvider<'a> {
 
 #[async_trait]
 impl ChatRsProvider for OpenRouterProvider<'_> {
-    fn name(&self) -> &'static str {
-        "openrouter_api"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "OpenRouter API"
-    }
-
     async fn chat_stream(
         &self,
         input: Option<&str>,

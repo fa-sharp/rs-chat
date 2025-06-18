@@ -1,6 +1,6 @@
 import ErrorComponent from "@/components/Error";
-import ChatMessageInput from "@/components/main/ChatMessageInput";
-import ChatMessages from "@/components/main/ChatMessages";
+import ChatMessageInput from "@/components/chat/ChatMessageInput";
+import ChatMessages from "@/components/chat/ChatMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   chatSessionQueryKey,

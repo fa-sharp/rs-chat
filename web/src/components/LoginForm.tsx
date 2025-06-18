@@ -17,7 +17,7 @@ export function LoginForm({
               <img src="/logo512.png" alt="RsChat Logo" className="size-20" />
               <span className="sr-only">RsChat</span>
             </div>
-            <h1 className="text-xl font-bold">Welcome to RsChat</h1>
+            <h1 className="text-2xl font-bold">Welcome to RsChat</h1>
             <div className="text-center text-sm">
               A submission to the{" "}
               <a

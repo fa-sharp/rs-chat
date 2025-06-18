@@ -7,6 +7,7 @@ import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import { Button } from "../ui/button";
 
+/** Markdown with plugins for syntax highlighting, line numbers, copying code, etc. */
 export default function ChatFancyMarkdown({
   children,
 }: {
@@ -28,7 +29,7 @@ export default function ChatFancyMarkdown({
   );
 }
 
-/** Wrapper for code blocks with copy button */
+/** Wrapper for code blocks and added copy button */
 function CodeWrapper({ children }: { children?: ReactNode }) {
   const ref = useRef<HTMLPreElement>(null);
   const [isCopied, setIsCopied] = useState(false);
@@ -50,6 +51,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
   if (!children) return null;
   return (
     <div className="not-prose">
+      {/* `not-prose` disables the Tailwind typography styles */}
       <pre ref={ref} className="relative">
         <Button
           className="absolute top-2 right-2 opacity-85 hover:opacity-100"

@@ -35,14 +35,6 @@ pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<String, ChatRsError>> +
 /// Interface for all chat providers
 #[async_trait]
 pub trait ChatRsProvider {
-    /// Provider name
-    fn name(&self) -> &'static str;
-
-    /// Provider display name for UI
-    fn display_name(&self) -> &'static str {
-        self.name()
-    }
-
     /// Stream a chat response given the input and context
     async fn chat_stream(
         &self,

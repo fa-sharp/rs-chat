@@ -62,14 +62,6 @@ impl<'a> LlmApiProvider<'a> {
 
 #[async_trait]
 impl<'a> ChatRsProvider for LlmApiProvider<'a> {
-    fn name(&self) -> &'static str {
-        "llm_api"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "LLM API"
-    }
-
     async fn chat_stream(
         &self,
         input: Option<&str>,

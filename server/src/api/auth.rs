@@ -56,7 +56,7 @@ async fn login_callback(
         .get("https://api.github.com/user")
         .header("Authorization", format!("Bearer {}", token.access_token()))
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "fa-sharp/chat-rs")
+        .header("User-Agent", "fa-sharp/rs-chat")
         .send()
         .await
         .map_err(|e| ApiError::Authentication(format!("Failed to get GitHub user: {}", e)))?;

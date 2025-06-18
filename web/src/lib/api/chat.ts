@@ -20,7 +20,9 @@ export function streamChat(
   });
 
   return {
-    readyState: source.readyState,
+    get readyState() {
+      return source.readyState;
+    },
     start: new Promise<void>((resolve, reject) => {
       const chatListener = (event: SSEvent) => {
         onPart(event.data);

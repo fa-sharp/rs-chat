@@ -55,14 +55,6 @@ impl Stream for LoremStream {
 
 #[rocket::async_trait]
 impl ChatRsProvider for LoremProvider {
-    fn name(&self) -> &'static str {
-        "lorem"
-    }
-
-    fn display_name(&self) -> &'static str {
-        "Lorem ipsum (for testing)"
-    }
-
     async fn chat_stream(
         &self,
         _input: Option<&str>,

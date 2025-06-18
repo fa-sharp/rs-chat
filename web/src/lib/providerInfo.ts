@@ -8,7 +8,7 @@ export type ProviderKey =
   | "Deepseek"
   | "Google";
 
-/** Provider and model information. TODO model fetching should be automated */
+/** Provider and model information. TODO should fetch models rather than list them manually */
 export const providers: Array<{
   value: ProviderKey;
   apiKeyType?: components["schemas"]["ChatRsApiKeyProviderType"];
