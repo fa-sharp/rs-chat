@@ -55,8 +55,9 @@ function RouteComponent() {
           isGenerating={streamedChats[sessionId]?.status === "streaming"}
           sessionId={sessionId}
           providerConfig={
-            data?.messages.findLast((m) => m.role === "Assistant")?.meta
-              ?.provider_config
+            data?.messages.findLast(
+              (m) => m.role === "Assistant" && !!m.meta.provider_config,
+            )?.meta.provider_config
           }
         />
       </div>
