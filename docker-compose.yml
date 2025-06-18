@@ -19,18 +19,6 @@ services:
     volumes:
       - redis_data:/data
 
-  web:
-    build:
-      context: .
-    env_file: server/.env
-    ports:
-      - "8080:8080"
-    environment:
-      RUST_LOG: info
-      CHAT_RS_SERVER_ADDRESS: http://localhost:8080
-      CHAT_RS_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
-      CHAT_RS_REDIS_URL: redis://redis:6379
-
 volumes:
   postgres_data:
   redis_data:

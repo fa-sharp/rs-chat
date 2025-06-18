@@ -7,4 +7,3 @@ log_level = "normal"  # can set to "debug" for more logs
 server_address = "http://localhost:8000"
 database_url = "postgres://postgres:postgres@localhost/postgres"
 redis_url = "redis://localhost:6379"
-secret_key = "4d44140782e98524e4e8e6f0c986a53036bcfcdbdc31f7a0a39fd74e354ee4a0"
