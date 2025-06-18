@@ -17,7 +17,7 @@ import {
   Info,
   Trash2,
 } from "lucide-react";
-import { useState, type FormEventHandler } from "react";
+import { useMemo, useState, type FormEventHandler } from "react";
 import { ChatBubbleAction } from "../ui/chat/chat-bubble";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import type { components } from "@/lib/api/types";
@@ -95,8 +95,8 @@ export function InfoButton({
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
 }) {
-  const { provider, model, temperature, interrupted } =
-    extractMessageMeta(meta);
+  const { provider, model, temperature, maxTokens, interrupted } =
+    useMessageMeta(meta);
 
   return (
     <Popover>
@@ -138,6 +138,12 @@ export function InfoButton({
                 <span className="font-bold">Temperature:</span> {temperature}
               </div>
             )}
+            {maxTokens && (
+              <div>
+                <span className="font-bold">Max Tokens:</span>{" "}
+                {maxTokens.toLocaleString()}
+              </div>
+            )}
           </p>
         </div>
       </PopoverContent>
@@ -145,26 +151,35 @@ export function InfoButton({
   );
 }
 
-function extractMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
-  if (typeof meta.provider_config === "string") {
-    return { provider: meta.provider_config, interrupted: !!meta.interrupted };
-  } else if (meta.provider_config && "Llm" in meta.provider_config) {
-    return {
-      provider: meta.provider_config.Llm.backend,
-      model: meta.provider_config.Llm.model,
-      temperature: meta.provider_config.Llm.temperature,
-      interrupted: !!meta.interrupted,
-    };
-  } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
-    return {
-      provider: "OpenRouter",
-      model: meta.provider_config.OpenRouter.model,
-      temperature: meta.provider_config.OpenRouter.temperature,
-      interrupted: !!meta.interrupted,
-    };
-  }
+function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
+  const extractedMetadata = useMemo(() => {
+    if (typeof meta.provider_config === "string") {
+      return {
+        provider: meta.provider_config,
+        interrupted: !!meta.interrupted,
+      };
+    } else if (meta.provider_config && "Llm" in meta.provider_config) {
+      return {
+        provider: meta.provider_config.Llm.backend,
+        model: meta.provider_config.Llm.model,
+        temperature: meta.provider_config.Llm.temperature,
+        interrupted: !!meta.interrupted,
+        maxTokens: meta.provider_config.Llm.max_tokens,
+      };
+    } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
+      return {
+        provider: "OpenRouter",
+        model: meta.provider_config.OpenRouter.model,
+        temperature: meta.provider_config.OpenRouter.temperature,
+        interrupted: !!meta.interrupted,
+        maxTokens: meta.provider_config.OpenRouter.max_tokens,
+      };
+    }
 
-  return {
-    interrupted: !!meta.interrupted,
-  };
+    return {
+      interrupted: !!meta.interrupted,
+    };
+  }, [meta]);
+
+  return extractedMetadata;
 }

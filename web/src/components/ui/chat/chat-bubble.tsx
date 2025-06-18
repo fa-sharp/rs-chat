@@ -7,7 +7,7 @@ import { Button } from "../button";
 
 // ChatBubble
 const chatBubbleVariant = cva(
-  "flex flex-col-reverse md:flex-row gap-2 max-w-[90%] md:max-w-[80%] relative group",
+  "flex flex-col-reverse md:flex-row gap-2 max-w-[100%] md:max-w-[80%] relative group",
   {
     variants: {
       variant: {

@@ -4,6 +4,8 @@ A fast, secure, self-hostable chat application built with Rust, TypeScript, and 
 
 !! **Submission to the [T3 Chat Cloneathon](https://cloneathon.t3.chat/)** !!
 
+Demo link: https://rschat.fasharp.io
+
 ## ✨ Features
 
 ### 🚀 Main Features
@@ -180,6 +182,7 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 - [TanStack](https://tanstack.com/) and [Vite](https://vitejs.dev/) for great JS tooling and libraries
 - [Rocket](https://rocket.rs/) for the amazing Rust web framework
+- [shadcn](https://ui.shadcn.com/) and [shadcn-chat](https://github.com/jakobhoeg/shadcn-chat) for the UI
 - Many, many other open-source maintainers and contributors that make this project possible
 
 ❤️ Built with the [Zed editor](https://zed.dev/), with help from [Claude](https://claude.ai/).

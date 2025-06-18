@@ -18,15 +18,32 @@ import {
 } from "@/components/ui/popover";
 import { useApiKeys } from "@/lib/api/apiKey";
 import { providers, type ProviderKey } from "@/lib/providerInfo";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 export function ChatModelSelect({
   onSelect,
   currentProviderKey,
   currentModel,
+  currentMaxTokens,
+  onSelectMaxTokens,
+  currentTemperature,
+  onSelectTemperature,
 }: {
   currentProviderKey?: ProviderKey;
   currentModel: string;
   onSelect: (provider?: ProviderKey, model?: string) => void;
+  currentMaxTokens: number;
+  onSelectMaxTokens: (maxTokens: number) => void;
+  currentTemperature: number;
+  onSelectTemperature: (temperature: number) => void;
 }) {
   const { data: apiKeys } = useApiKeys();
 
@@ -48,7 +65,7 @@ export function ChatModelSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-[150px] justify-between"
+            className="w-[140px] justify-between"
           >
             {currentProvider
               ? providers.find((p) => p.value === currentProvider.value)?.label
@@ -101,11 +118,54 @@ export function ChatModelSelect({
         </PopoverContent>
       </Popover>
       {currentProvider && currentProvider.value !== "Lorem" && (
-        <ProviderModelSelect
-          provider={currentProvider}
-          currentModel={currentModel}
-          onSelect={setCurrentModel}
-        />
+        <>
+          <ProviderModelSelect
+            provider={currentProvider}
+            currentModel={currentModel}
+            onSelect={setCurrentModel}
+          />
+          <Select
+            value={currentMaxTokens.toString()}
+            onValueChange={(tokens) => onSelectMaxTokens(+tokens)}
+          >
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Max tokens" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Max tokens</SelectLabel>
+                {[500, 1000, 2000, 5000, 10000, 20000, 50000].map((tokens) => (
+                  <SelectItem key={tokens} value={tokens.toString()}>
+                    {tokens.toLocaleString()} tokens
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Select
+            value={currentTemperature.toFixed(1)}
+            onValueChange={(temperature) => onSelectTemperature(+temperature)}
+          >
+            <SelectTrigger className="w-[70px]">
+              <SelectValue placeholder="Temperature" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Temperature</SelectLabel>
+                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(
+                  (temperature) => (
+                    <SelectItem
+                      key={temperature}
+                      value={temperature.toString()}
+                    >
+                      {temperature.toFixed(1)}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </>
       )}
     </>
   );

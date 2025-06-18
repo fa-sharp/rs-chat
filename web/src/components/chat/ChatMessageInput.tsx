@@ -24,10 +24,14 @@ export default function ChatMessageInput(props: Props) {
   const {
     provider,
     model,
+    maxTokens,
+    temperature,
     error,
     inputRef,
     formRef,
     onSelectModel,
+    setMaxTokens,
+    setTemperature,
     onSubmitUserMessage,
   } = useChatMessageInputState(props);
 
@@ -69,7 +73,11 @@ export default function ChatMessageInput(props: Props) {
         <ChatModelSelect
           currentProviderKey={provider}
           currentModel={model}
+          currentMaxTokens={maxTokens}
+          currentTemperature={temperature}
           onSelect={onSelectModel}
+          onSelectMaxTokens={setMaxTokens}
+          onSelectTemperature={setTemperature}
         />
         {error && (
           <div className="text-sm text-destructive-foreground">{error}</div>
@@ -108,6 +116,8 @@ const useChatMessageInputState = ({
 }: Props) => {
   const [provider, setProvider] = useState<ProviderKey | undefined>();
   const [model, setModel] = useState("");
+  const [maxTokens, setMaxTokens] = useState<number>(1000);
+  const [temperature, setTemperature] = useState<number>(0.7);
   const [error, setError] = useState<string>("");
 
   // Set initial provider and model for this session from the chat metadata
@@ -166,8 +176,8 @@ const useChatMessageInputState = ({
             Llm: {
               backend: provider,
               model,
-              temperature: 0.7,
-              max_tokens: 1000,
+              temperature: temperature,
+              max_tokens: maxTokens,
             },
           },
         });
@@ -178,8 +188,8 @@ const useChatMessageInputState = ({
           provider: {
             OpenRouter: {
               model,
-              temperature: 0.7,
-              max_tokens: 1000,
+              temperature: temperature,
+              max_tokens: maxTokens,
             },
           },
         });
@@ -192,14 +202,18 @@ const useChatMessageInputState = ({
         break;
     }
     formRef.current?.reset();
-  }, [provider, model, onSubmit, isGenerating]);
+  }, [provider, model, temperature, maxTokens, onSubmit, isGenerating]);
 
   return {
     provider,
     model,
+    maxTokens,
+    temperature,
     error,
     inputRef,
     formRef,
+    setMaxTokens,
+    setTemperature,
     onSelectModel,
     onSubmitUserMessage,
   };
