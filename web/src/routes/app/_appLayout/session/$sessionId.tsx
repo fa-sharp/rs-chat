@@ -1,6 +1,8 @@
-import ErrorComponent from "@/components/Error";
+import { createFileRoute } from "@tanstack/react-router";
+
 import ChatMessageInput from "@/components/chat/ChatMessageInput";
 import ChatMessages from "@/components/chat/ChatMessages";
+import ErrorComponent from "@/components/Error";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   chatSessionQueryKey,
@@ -8,7 +10,6 @@ import {
   useGetChatSession,
 } from "@/lib/api/session";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
-import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,

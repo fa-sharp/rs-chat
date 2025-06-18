@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
+import ErrorComponent from "@/components/Error";
 import Header from "@/components/Header";
 import { AppSidebar } from "@/components/Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -8,7 +9,6 @@ import {
   useGetRecentChatSessions,
 } from "@/lib/api/session";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
-import ErrorComponent from "@/components/Error";
 
 export const Route = createFileRoute("/app/_appLayout")({
   beforeLoad: async ({ context }) => {

@@ -1,4 +1,5 @@
-import { SSE, type SSEvent, type ReadyStateEvent } from "sse.js";
+import { type ReadyStateEvent, SSE, type SSEvent } from "sse.js";
+
 import type { components } from "./types";
 
 /** Stream a chat via SSE, using the `eventsource` library */
@@ -30,10 +31,10 @@ export function streamChat(
       const errorListener = (event: SSEvent & { responseCode?: number }) => {
         console.error("Error while streaming:", event);
         if (event.responseCode) {
-          let data;
+          let data: string | undefined;
           try {
             data = JSON.parse(event.data).message;
-          } catch (error) {
+          } catch {
             data = event.data;
           }
           if (typeof data === "string") {

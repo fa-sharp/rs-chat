@@ -1,16 +1,17 @@
 import { Separator } from "@radix-ui/react-separator";
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from "./ui/breadcrumb";
-import { SidebarTrigger } from "./ui/sidebar";
 import { createLink, useMatchRoute } from "@tanstack/react-router";
+
 import { useGetChatSession } from "@/lib/api/session";
 import { ThemeToggle } from "./theme/ThemeToggle";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "./ui/breadcrumb";
+import { SidebarTrigger } from "./ui/sidebar";
 
 const RouterBreadcrumbLink = createLink(BreadcrumbLink);
 

@@ -1,16 +1,17 @@
 import { CornerDownLeft } from "lucide-react";
 import {
+  type FormEventHandler,
   useCallback,
   useEffect,
   useRef,
   useState,
-  type FormEventHandler,
 } from "react";
+
+import type { components } from "@/lib/api/types";
+import { type ProviderKey, providers } from "@/lib/providerInfo";
 import { Button } from "../ui/button";
 import { ChatInput } from "../ui/chat/chat-input";
 import { ChatModelSelect } from "./ChatModelSelect";
-import type { components } from "@/lib/api/types";
-import { providers, type ProviderKey } from "@/lib/providerInfo";
 
 interface Props {
   sessionId?: string;

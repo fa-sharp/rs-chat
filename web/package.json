@@ -8,6 +8,10 @@
     "build": "tsc && vite build",
     "serve": "vite preview",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint",
+    "lint:ci": "biome ci",
+    "format": "biome check --linter-enabled=false",
     "gen-api": "pnpm dlx openapi-typescript http://localhost:8000/api/openapi.json -o src/lib/api/types.d.ts"
   },
   "dependencies": {
@@ -47,6 +51,7 @@
     "use-debounce": "^10.0.5"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.0.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",

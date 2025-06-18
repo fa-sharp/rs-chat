@@ -1,7 +1,6 @@
-import * as React from "react";
 import { Check, ChevronsUpDown, Lock } from "lucide-react";
+import * as React from "react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -17,7 +16,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useApiKeys } from "@/lib/api/apiKey";
-import { providers, type ProviderKey } from "@/lib/providerInfo";
+import { type ProviderKey, providers } from "@/lib/providerInfo";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,

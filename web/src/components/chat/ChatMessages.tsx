@@ -1,5 +1,6 @@
 import React, { Suspense, useCallback } from "react";
 import Markdown from "react-markdown";
+
 import { useDeleteChatMessage } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,7 @@ export default function ChatMessages({
     (sessionId: string, messageId: string) => {
       deleteMessage({ sessionId, messageId });
     },
-    [],
+    [deleteMessage],
   );
 
   return (
@@ -46,7 +47,7 @@ export default function ChatMessages({
       {messages.map((message) => (
         <ChatBubble
           key={message.id}
-          variant={message.role == "User" ? "sent" : "received"}
+          variant={message.role === "User" ? "sent" : "received"}
         >
           <ChatBubbleAvatar
             src={
@@ -54,13 +55,13 @@ export default function ChatMessages({
                 ? `https://avatars.githubusercontent.com/u/${user.github_id}`
                 : ""
             }
-            fallback={message.role == "User" ? "🧑🏽‍💻" : "🤖"}
+            fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
           />
           <ChatBubbleMessage
             className={cn(
               proseClasses,
-              message.role == "User" && proseUserClasses,
-              message.role == "Assistant" && proseAssistantClasses,
+              message.role === "User" && proseUserClasses,
+              message.role === "Assistant" && proseAssistantClasses,
             )}
           >
             <Suspense fallback={<Markdown>{message.content}</Markdown>}>

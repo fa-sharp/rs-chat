@@ -1,8 +1,8 @@
+import { Link } from "@tanstack/react-router";
 import { Github } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 
 export function LoginForm({
   className,

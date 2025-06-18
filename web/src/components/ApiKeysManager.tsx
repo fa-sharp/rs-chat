@@ -163,8 +163,9 @@ export function ApiKeysManager({
                         !apiKeys?.some((key) => key.provider === provider),
                     )
                     .map((provider) => (
-                      <div
+                      <button
                         key={provider}
+                        type="button"
                         className={cn(
                           "p-3 border rounded-lg cursor-pointer transition-colors",
                           selectedProvider === provider
@@ -174,7 +175,7 @@ export function ApiKeysManager({
                         onClick={() => setSelectedProvider(provider)}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex flex-col items-start">
                             <div className="font-medium">
                               {PROVIDERS[provider].name}
                             </div>
@@ -186,7 +187,7 @@ export function ApiKeysManager({
                             {PROVIDERS[provider].keyFormat}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                 </div>
               </div>

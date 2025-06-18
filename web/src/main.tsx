@@ -1,12 +1,12 @@
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import reportWebVitals from "./reportWebVitals.ts";
-import { QueryClientProvider } from "@tanstack/react-query";
+
+import { ThemeProvider } from "./components/theme/ThemeProvider.tsx";
 import { queryClient } from "./lib/api/client.ts";
 import { ChatStreamProvider } from "./lib/context/StreamingContext.tsx";
-import { ThemeProvider } from "./components/theme/ThemeProvider.tsx";
-
+import reportWebVitals from "./reportWebVitals.ts";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 

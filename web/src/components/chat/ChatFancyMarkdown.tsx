@@ -1,12 +1,13 @@
 import type { ReactNode } from "@tanstack/react-router";
+import svelteHighlight from "highlight.svelte";
+import { common } from "lowlight";
 import { Check, Copy } from "lucide-react";
-import { useRef, useState, type ComponentProps } from "react";
+import { type ComponentProps, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
-import { common } from "lowlight";
-import svelteHighlight from "highlight.svelte";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
+
 import { Button } from "../ui/button";
 
 /**
@@ -55,7 +56,9 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
     if (ref.current) {
       try {
         await navigator.clipboard.writeText(
-          ref.current.innerText.slice(5).trim(), // Slice off the text of the copy button
+          ref.current.innerText
+            .slice(5)
+            .trim(), // Slice off the text of the copy button
         );
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);

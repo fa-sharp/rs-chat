@@ -1,17 +1,8 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { AlertTriangle, Trash2, User } from "lucide-react";
 import { useState } from "react";
-import { User, Trash2, AlertTriangle } from "lucide-react";
 
-import { getUser, deleteAccount } from "@/lib/api/user";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +15,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { deleteAccount, getUser } from "@/lib/api/user";
 
 export const Route = createFileRoute("/app/_appLayout/profile")({
   component: ProfilePage,

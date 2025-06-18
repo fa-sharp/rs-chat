@@ -1,10 +1,11 @@
 import { Bot } from "lucide-react";
+
 import {
   Card,
+  CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
 } from "./ui/card";
 
 export default function ErrorComponent({ error }: { error?: Error }) {

@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { components } from "../api/types";
+import { createContext, useCallback, useContext, useState } from "react";
+
 import { streamChat } from "../api/chat";
 import { chatSessionQueryKey } from "../api/session";
+import type { components } from "../api/types";
 
 export interface StreamedChat {
   content: string;
@@ -39,7 +40,7 @@ export const useStreamingChats = () => {
         };
       });
     },
-    [startStream],
+    [startStream, queryClient],
   );
 
   return {
@@ -95,16 +96,19 @@ const useChatStreamManager = () => {
 
   const queryClient = useQueryClient();
 
-  const invalidateSession = useCallback(async (sessionId: string) => {
-    await Promise.allSettled([
-      queryClient.invalidateQueries({
-        queryKey: chatSessionQueryKey(sessionId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ["recentChatSessions"],
-      }),
-    ]);
-  }, []);
+  const invalidateSession = useCallback(
+    async (sessionId: string) => {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({
+          queryKey: chatSessionQueryKey(sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["recentChatSessions"],
+        }),
+      ]);
+    },
+    [queryClient],
+  );
 
   /** Refetch chat session with 1 retry */
   const refetchSessionForNewResponse = useCallback(
@@ -132,7 +136,7 @@ const useChatStreamManager = () => {
         await invalidateSession(sessionId);
       }
     },
-    [invalidateSession],
+    [invalidateSession, queryClient],
   );
 
   /** Start a new chat stream */
@@ -160,7 +164,14 @@ const useChatStreamManager = () => {
           );
         });
     },
-    [],
+    [
+      clearChat,
+      addChatPart,
+      addChatError,
+      setChatStatus,
+      invalidateSession,
+      refetchSessionForNewResponse,
+    ],
   );
 
   return {

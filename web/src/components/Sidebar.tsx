@@ -1,4 +1,10 @@
-import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router";
 import {
   ChevronsUpDown,
   KeyRound,
@@ -9,12 +15,7 @@ import {
   RefreshCwIcon,
   UserRound,
 } from "lucide-react";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useRouter,
-} from "@tanstack/react-router";
+import * as React from "react";
 
 import {
   Collapsible,
@@ -34,7 +35,9 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useCreateChatSession } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
+import type { StreamedChat } from "@/lib/context/StreamingContext";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
@@ -44,9 +47,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import type { StreamedChat } from "@/lib/context/StreamingContext";
-import { useQueryClient } from "@tanstack/react-query";
-import { useCreateChatSession } from "@/lib/api/session";
 
 export function AppSidebar({
   sessions,
@@ -86,7 +86,7 @@ export function AppSidebar({
     });
     queryClient.invalidateQueries({ queryKey: ["user"] });
     router.invalidate();
-  }, []);
+  }, [queryClient, router]);
 
   return (
     <Sidebar {...props}>

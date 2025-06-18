@@ -1,4 +1,14 @@
 import {
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  Copy,
+  Info,
+  Trash2,
+} from "lucide-react";
+import { type FormEventHandler, useMemo, useState } from "react";
+
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -9,18 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  AlertTriangle,
-  AlertCircle,
-  Check,
-  Copy,
-  Info,
-  Trash2,
-} from "lucide-react";
-import { useMemo, useState, type FormEventHandler } from "react";
+import type { components } from "@/lib/api/types";
 import { ChatBubbleAction } from "../ui/chat/chat-bubble";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import type { components } from "@/lib/api/types";
 
 export function CopyButton({ message }: { message: string }) {
   const [copied, setCopied] = useState(false);

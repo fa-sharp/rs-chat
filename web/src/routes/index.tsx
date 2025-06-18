@@ -1,6 +1,7 @@
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
 import { LoginForm } from "@/components/LoginForm";
 import { Card, CardContent } from "@/components/ui/card";
-import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async ({ context }) => {

@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import createClient from "openapi-fetch";
+
 import type { paths } from "./types";
 
 export const client = createClient<paths>({

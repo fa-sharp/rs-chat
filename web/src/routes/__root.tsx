@@ -1,7 +1,8 @@
-import { getUser } from "@/lib/api/user";
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+
+import { getUser } from "@/lib/api/user";
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
