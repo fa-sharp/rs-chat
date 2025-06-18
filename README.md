@@ -160,7 +160,7 @@ services:
 1. Create a feature branch (`git checkout -b feature/amazing-feature`)
 1. Commit your changes (`git commit -m 'Add amazing feature'`)
 1. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Open a Pull Request
 
 ## 📝 License
 
@@ -168,10 +168,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [TanStack](https://tanstack.com/) for incredible React tooling
+- [TanStack](https://tanstack.com/) and [Vite](https://vitejs.dev/) for great tooling and libraries
 - [Rocket](https://rocket.rs/) for the amazing Rust web framework
-- [shadcn/ui](https://ui.shadcn.com/) for beautiful UI components
-- [openrouter-rs](https://github.com/realmorrisliu/openrouter-rs) for the OpenRouter client
-- [llm](https://github.com/graniet/llm) for accessing Anthropic and other AI providers
+- Many, many other open-source maintainers and contributors that make this project possible
 
-❤️ Built with the [Zed](https://zed.dev/) editor, with help from [Claude](https://claude.ai/).
+❤️ Built with the [Zed editor](https://zed.dev/), with help from [Claude](https://claude.ai/).
