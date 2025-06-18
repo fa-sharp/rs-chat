@@ -13,9 +13,6 @@ import { useDeleteChatMessage } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import ChatFancyMarkdown from "./ChatFancyMarkdown";
-import { Info } from "lucide-react";
-import { Button } from "../ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 interface Props {
   isGenerating: boolean;
