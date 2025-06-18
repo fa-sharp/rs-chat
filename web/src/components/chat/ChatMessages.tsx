@@ -1,18 +1,17 @@
-import { useCallback } from "react";
+import React, { Suspense, useCallback } from "react";
 import Markdown from "react-markdown";
-
+import { useDeleteChatMessage } from "@/lib/api/session";
+import type { components } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 import {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
-
 import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
-import { useDeleteChatMessage } from "@/lib/api/session";
-import type { components } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
-import ChatFancyMarkdown from "./ChatFancyMarkdown";
+
+const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 
 interface Props {
   isGenerating: boolean;
@@ -64,7 +63,9 @@ export default function ChatMessages({
               message.role == "Assistant" && proseAssistantClasses,
             )}
           >
-            <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
+            <Suspense fallback={<Markdown>{message.content}</Markdown>}>
+              <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
+            </Suspense>
             {message.role === "Assistant" && (
               <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                 <InfoButton meta={message.meta} />

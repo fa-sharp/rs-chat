@@ -7,7 +7,10 @@ import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import { Button } from "../ui/button";
 
-/** Markdown with plugins for syntax highlighting, line numbers, copying code, etc. */
+/**
+ * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.
+ * Should be asynchronously imported as lowlight is a large library.
+ */
 export default function ChatFancyMarkdown({
   children,
 }: {
