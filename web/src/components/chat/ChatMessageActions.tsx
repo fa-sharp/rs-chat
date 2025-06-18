@@ -9,9 +9,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Check, Copy, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  AlertCircle,
+  Check,
+  Copy,
+  Info,
+  Trash2,
+} from "lucide-react";
 import { useState, type FormEventHandler } from "react";
 import { ChatBubbleAction } from "../ui/chat/chat-bubble";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import type { components } from "@/lib/api/types";
 
 export function CopyButton({ message }: { message: string }) {
   const [copied, setCopied] = useState(false);
@@ -28,13 +37,14 @@ export function CopyButton({ message }: { message: string }) {
 
   return (
     <ChatBubbleAction
-      variant="outline"
-      className="size-6"
+      aria-label="Copy message"
+      variant="ghost"
+      className="size-5"
       icon={
         copied ? (
-          <Check className="size-4 text-green-600" />
+          <Check className="size-5 text-green-600" />
         ) : (
-          <Copy className="size-3" />
+          <Copy className="size-4" />
         )
       }
       onClick={handleClick}
@@ -52,9 +62,10 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <ChatBubbleAction
-          variant="outline"
-          className="size-6 "
-          icon={<Trash2 className="size-3" />}
+          aria-label="Delete message"
+          variant="ghost"
+          className="size-5"
+          icon={<Trash2 className="size-4" />}
         />
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -77,4 +88,83 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+export function InfoButton({
+  meta,
+}: {
+  meta: components["schemas"]["ChatRsMessageMeta"];
+}) {
+  const { provider, model, temperature, interrupted } =
+    extractMessageMeta(meta);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <ChatBubbleAction
+          className="size-5"
+          icon={
+            meta.interrupted ? (
+              <AlertCircle className="size-4.5 text-yellow-700 dark:text-yellow-300" />
+            ) : (
+              <Info className="size-4.5" />
+            )
+          }
+          variant="ghost"
+          aria-label="Message metadata"
+        />
+      </PopoverTrigger>
+      <PopoverContent>
+        <div className="p-2">
+          <p className="text-sm">
+            {interrupted && (
+              <div className="flex items-center gap-1 mb-2">
+                <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+                Stream was interrupted
+              </div>
+            )}
+            {provider && (
+              <div>
+                <span className="font-bold">Provider:</span> {provider}
+              </div>
+            )}
+            {model && (
+              <div>
+                <span className="font-bold">Model:</span> {model}
+              </div>
+            )}
+            {temperature && (
+              <div>
+                <span className="font-bold">Temperature:</span> {temperature}
+              </div>
+            )}
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function extractMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
+  if (typeof meta.provider_config === "string") {
+    return { provider: meta.provider_config, interrupted: !!meta.interrupted };
+  } else if (meta.provider_config && "Llm" in meta.provider_config) {
+    return {
+      provider: meta.provider_config.Llm.backend,
+      model: meta.provider_config.Llm.model,
+      temperature: meta.provider_config.Llm.temperature,
+      interrupted: !!meta.interrupted,
+    };
+  } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
+    return {
+      provider: "OpenRouter",
+      model: meta.provider_config.OpenRouter.model,
+      temperature: meta.provider_config.OpenRouter.temperature,
+      interrupted: !!meta.interrupted,
+    };
+  }
+
+  return {
+    interrupted: !!meta.interrupted,
+  };
 }

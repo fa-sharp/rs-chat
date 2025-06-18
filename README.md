@@ -2,15 +2,16 @@
 
 A fast, secure, self-hostable chat application built with Rust, TypeScript, and React. Chat with multiple AI providers using your own API keys, with real-time streaming built-in.
 
-**Submission to the [T3 Chat Cloneathon](https://cloneathon.t3.chat/)**
+!! **Submission to the [T3 Chat Cloneathon](https://cloneathon.t3.chat/)** !!
 
 ## ✨ Features
 
 ### 🚀 Main Features
 
 - **Multiple AI Providers**: Chat with AI models from Anthropic (Claude) and OpenRouter
-- **Streaming**: Stream conversations using SSE (Server-Sent Events)
-- **Concurrent Streaming**: Stream multiple AI conversations simultaneously
+- **Streaming**: Streams responses using SSE (Server-Sent Events)
+- **Concurrent Streaming**: Seamlessly switch between multiple AI conversations being streamed
+- **Resumable Conversations**: Resume the conversation if your connection is lost or interrupted
 - **Code Highlighting**: Beautiful syntax highlighting for code blocks using [`rehype-highlight`](https://github.com/rehypejs/rehype-highlight)
 - **Dark Mode**: Dark/light theme support
 - **Fully Type-Safe**: End-to-end type safety with OpenAPI generation and auto-generated client
@@ -158,8 +159,8 @@ services:
 
 ## 🔒 Security & Privacy
 
-- **Encrypted Storage**: API keys are encrypted using AES-GCM
 - **Your Keys, Your Control**: You provide and manage your own AI provider API keys
+- **Encrypted Storage**: API keys are encrypted using AES-GCM
 - **Open Source**: Full transparency - audit the code yourself
 
 ## 🤝 Contributing
@@ -173,7 +174,7 @@ services:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
 ## 🙏 Acknowledgments
 

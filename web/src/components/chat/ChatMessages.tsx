@@ -8,11 +8,14 @@ import {
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 
-import { CopyButton, DeleteButton } from "./ChatMessageActions";
+import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
 import { useDeleteChatMessage } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import ChatFancyMarkdown from "./ChatFancyMarkdown";
+import { Info } from "lucide-react";
+import { Button } from "../ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 interface Props {
   isGenerating: boolean;
@@ -66,7 +69,8 @@ export default function ChatMessages({
           >
             <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
             {message.role === "Assistant" && (
-              <div className="flex items-center gap-1 opacity-65 hover:opacity-100 focus-within:opacity-100">
+              <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                <InfoButton meta={message.meta} />
                 <CopyButton message={message.content} />
                 <DeleteButton
                   onDelete={() =>
