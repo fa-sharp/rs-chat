@@ -23,7 +23,7 @@ interface Props {
 }
 
 const proseClasses =
-  "prose prose-sm dark:prose-invert prose-pre:bg-primary-foreground";
+  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-li:my-1";
 const proseUserClasses = "prose-code:text-primary-foreground";
 const proseAssistantClasses = "prose-code:text-secondary-foreground";
 

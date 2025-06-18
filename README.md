@@ -12,14 +12,14 @@ Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your 
 
 - **Multiple AI Providers**: Chat with AI models from Anthropic (Claude) and OpenRouter
 - **Streaming**: Streams responses using SSE (Server-Sent Events)
-- **Concurrent Streaming**: Seamlessly switch between multiple AI conversations being streamed
-- **Resumable Conversations**: Resume the conversation if your connection is lost or interrupted
+- **Concurrent Streaming**: Seamlessly switch between multiple AI conversations streamed at the same time
+- **Resumable Conversations**: Resume the conversation if your connection is lost or the page is refreshed
 - **Code Highlighting**: Beautiful syntax highlighting for code blocks using [`rehype-highlight`](https://github.com/rehypejs/rehype-highlight)
 - **Dark Mode**: Dark/light theme support
+- **Responsive Design**: Mobile-friendly layout
 - **Fully Type-Safe**: End-to-end type safety with OpenAPI generation and auto-generated client
 - **OpenAPI Docs**: API documentation at `/api/docs` for developers to integrate with RsChat
 - **Fast and Memory Efficient**: Rust backend using Rocket framework
-- **Fast Navigation**: Preloading and optimistic updates with TanStack Router
 - **GitHub Authentication**: Secure login with GitHub OAuth and persistent sessions
 - **Session Management**: Powered by [`rocket-flex-session`](https://github.com/fa-sharp/rocket-flex-session) for flexible session handling
 

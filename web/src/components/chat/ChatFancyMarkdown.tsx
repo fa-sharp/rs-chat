@@ -52,7 +52,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
   return (
     <div className="not-prose">
       {/* `not-prose` disables the Tailwind typography styles */}
-      <pre ref={ref} className="relative">
+      <pre ref={ref} className="relative text-xs md:text-sm">
         <Button
           className="absolute top-2 right-2 opacity-85 hover:opacity-100"
           onClick={handleCopy}
