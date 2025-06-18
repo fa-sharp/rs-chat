@@ -30,8 +30,8 @@ pub fn get_oauth_routes() -> Vec<Route> {
 #[derive(serde::Deserialize)]
 pub struct GitHubUserInfo {
     id: u64,
-    #[serde(default)]
-    name: String,
+    name: Option<String>,
+    login: String,
 }
 
 #[get("/login/github")]
@@ -76,7 +76,10 @@ async fn login_callback(
             let new_user = db_service
                 .create(NewChatRsUser {
                     github_id: &user_info.id.to_string(),
-                    name: &user_info.name,
+                    name: user_info
+                        .name
+                        .as_deref()
+                        .unwrap_or_else(|| user_info.login.as_str()),
                 })
                 .await?;
             session.set(ChatRsAuthSession {
