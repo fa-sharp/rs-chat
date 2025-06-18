@@ -1,15 +1,17 @@
 import type { ReactNode } from "@tanstack/react-router";
 import { Check, Copy } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
+import { common } from "lowlight";
+import svelteHighlight from "highlight.svelte";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 import { Button } from "../ui/button";
 
 /**
  * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.
- * Should be asynchronously imported as lowlight is a large library.
+ * Should be asynchronously imported as it loads a bunch of languages.
  */
 export default function ChatFancyMarkdown({
   children,
@@ -19,18 +21,30 @@ export default function ChatFancyMarkdown({
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[
-        rehypeHighlight,
-        [rehypeHighlightCodeLines, { showLineNumbers: true }],
-      ]}
-      components={{
-        pre: CodeWrapper,
-      }}
+      rehypePlugins={rehypePlugins}
+      components={components}
     >
       {children}
     </Markdown>
   );
 }
+
+const rehypePlugins: ComponentProps<typeof Markdown>["rehypePlugins"] = [
+  [
+    rehypeHighlight,
+    {
+      languages: {
+        ...common,
+        svelte: svelteHighlight,
+      },
+    },
+  ],
+  [rehypeHighlightCodeLines, { showLineNumbers: true }],
+];
+
+const components: ComponentProps<typeof Markdown>["components"] = {
+  pre: CodeWrapper,
+};
 
 /** Wrapper for code blocks and added copy button */
 function CodeWrapper({ children }: { children?: ReactNode }) {
