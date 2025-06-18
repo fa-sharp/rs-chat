@@ -17,11 +17,10 @@ Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your 
 - **Code Highlighting**: Beautiful syntax highlighting for code blocks using [`rehype-highlight`](https://github.com/rehypejs/rehype-highlight)
 - **Dark Mode**: Dark/light theme support
 - **Responsive Design**: Mobile-friendly layout
-- **Fully Type-Safe**: End-to-end type safety with OpenAPI generation and auto-generated client
+- **Fast and Memory Efficient**: Rust backend using the [Rocket framework](https://rocket.rs/)
+- **Users & Authentication**: Login with GitHub, and persistent sessions in Redis
 - **OpenAPI Docs**: API documentation at `/api/docs` for developers to integrate with RsChat
-- **Fast and Memory Efficient**: Rust backend using Rocket framework
-- **GitHub Authentication**: Secure login with GitHub OAuth and persistent sessions
-- **Session Management**: Powered by [`rocket-flex-session`](https://github.com/fa-sharp/rocket-flex-session) for flexible session handling
+- **Fully Type-Safe**: End-to-end type safety with auto-generated client from OpenAPI spec
 
 ### ⚡ Convenience Features
 
@@ -60,10 +59,10 @@ rs-chat/
 │   │   ├── components/   # React components
 │   │   ├── routes/       # TanStack Router routes
 │   │   └── lib/          # Utilities and API client
-│   ├── public/           # Static assets
-│   └── package.json      # Node.js dependencies
-├── docker-compose.yml     # Docker Compose file for development
-└── Dockerfile             # Dockerfile to build RsChat as a container
+│   ├── public/            # Static assets
+│   └── package.json       # Node.js dependencies
+├── docker-compose.yml      # Docker Compose file for development
+└── Dockerfile              # Dockerfile to build RsChat as a container
 ```
 
 ## 🔑 Setting Up AI Providers
@@ -71,11 +70,11 @@ rs-chat/
 After logging in with GitHub:
 
 1. Click on name in top-left, and go to **API Keys**
-2. **Add your provider API keys**:
+2. Add your provider API keys:
    - **Anthropic**: Get your key from [Anthropic Console](https://console.anthropic.com/)
    - **OpenRouter**: Get your key from [OpenRouter](https://openrouter.ai/keys)
 
-Your API keys are encrypted in the database.
+Your API keys are encrypted and stored in the database.
 
 ## 🛠️ Development
 
