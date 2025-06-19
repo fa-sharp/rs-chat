@@ -136,9 +136,9 @@ function ProfilePage() {
           </Card>
 
           {/* Danger Zone Card */}
-          <Card className="border-destructive/50">
+          <Card className="border-destructive/50 dark:border-destructive/100">
             <CardHeader>
-              <CardTitle className="text-destructive flex items-center gap-2">
+              <CardTitle className="text-destructive-foreground flex items-center gap-2">
                 <AlertTriangle className="size-5" />
                 Danger Zone
               </CardTitle>
@@ -160,7 +160,7 @@ function ProfilePage() {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-destructive">
+                    <AlertDialogTitle className="text-destructive-foreground">
                       Delete Account Permanently
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
@@ -196,12 +196,12 @@ function ProfilePage() {
                       Cancel
                     </AlertDialogCancel>
                     <AlertDialogAction
+                      variant="destructive"
                       onClick={handleDeleteAccount}
                       disabled={
                         !isDeleteConfirmationValid ||
                         deleteAccountMutation.isPending
                       }
-                      className="bg-destructive hover:bg-destructive/90"
                     >
                       {deleteAccountMutation.isPending ? (
                         <>

@@ -53,11 +53,11 @@ update_version_files() {
     local new_version=$1
 
     # Update Cargo.toml
-    if [[ -f "server/Cargo.toml" ]]; then
-        sed -i.bak "s/^version = \".*\"/version = \"${new_version}\"/" server/Cargo.toml
-        rm server/Cargo.toml.bak
-        log_success "Updated server/Cargo.toml"
-    fi
+    # if [[ -f "server/Cargo.toml" ]]; then
+    #     sed -i.bak "s/^version = \".*\"/version = \"${new_version}\"/" server/Cargo.toml
+    #     rm server/Cargo.toml.bak
+    #     log_success "Updated server/Cargo.toml"
+    # fi
 
     # Update package.json
     if [[ -f "web/package.json" ]]; then
