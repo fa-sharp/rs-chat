@@ -43,16 +43,10 @@ export default function ChatMessages({
     reset,
   } = useSmoothStreaming(streamedResponse);
   useEffect(() => {
-    if (isCompleted) {
-      console.log("Streaming completed");
-      complete();
-    }
+    if (isCompleted) complete();
   }, [isCompleted, complete]);
   useEffect(() => {
-    if (!streamedResponse) {
-      console.log("Resetting streamed text");
-      reset();
-    }
+    if (!streamedResponse) reset();
   }, [streamedResponse, reset]);
 
   const { mutate: deleteMessage } = useDeleteChatMessage();
@@ -65,43 +59,49 @@ export default function ChatMessages({
 
   return (
     <ChatMessageList>
-      {messages.map((message) => (
-        <ChatBubble
-          key={message.id}
-          variant={message.role === "User" ? "sent" : "received"}
-        >
-          <ChatBubbleAvatar
-            src={
-              message.role === "User" && user
-                ? `https://avatars.githubusercontent.com/u/${user.github_id}`
-                : ""
-            }
-            fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
-          />
-          <ChatBubbleMessage
-            className={cn(
-              proseClasses,
-              message.role === "User" && proseUserClasses,
-              message.role === "Assistant" && proseAssistantClasses,
-            )}
+      {messages
+        .filter(
+          (message, idx) =>
+            !streamedResponse ||
+            !(message.meta?.interrupted && idx === messages.length - 1), // don't show the partial assistant response if still streaming
+        )
+        .map((message) => (
+          <ChatBubble
+            key={message.id}
+            variant={message.role === "User" ? "sent" : "received"}
           >
-            <Suspense fallback={<Markdown>{message.content}</Markdown>}>
-              <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
-            </Suspense>
-            {message.role === "Assistant" && (
-              <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                <InfoButton meta={message.meta} />
-                <CopyButton message={message.content} />
-                <DeleteButton
-                  onDelete={() =>
-                    onDeleteMessage(message.session_id, message.id)
-                  }
-                />
-              </div>
-            )}
-          </ChatBubbleMessage>
-        </ChatBubble>
-      ))}
+            <ChatBubbleAvatar
+              src={
+                message.role === "User" && user
+                  ? `https://avatars.githubusercontent.com/u/${user.github_id}`
+                  : ""
+              }
+              fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
+            />
+            <ChatBubbleMessage
+              className={cn(
+                proseClasses,
+                message.role === "User" && proseUserClasses,
+                message.role === "Assistant" && proseAssistantClasses,
+              )}
+            >
+              <Suspense fallback={<Markdown>{message.content}</Markdown>}>
+                <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
+              </Suspense>
+              {message.role === "Assistant" && (
+                <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                  <InfoButton meta={message.meta} />
+                  <CopyButton message={message.content} />
+                  <DeleteButton
+                    onDelete={() =>
+                      onDeleteMessage(message.session_id, message.id)
+                    }
+                  />
+                </div>
+              )}
+            </ChatBubbleMessage>
+          </ChatBubble>
+        ))}
 
       {isGenerating && (
         <ChatBubble variant="received">
