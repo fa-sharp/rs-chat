@@ -43,12 +43,13 @@ function RouteComponent() {
       <ChatMessages
         user={user}
         messages={data?.messages || []}
-        streamedResponse={streamedChats[sessionId]?.content}
         error={streamedChats[sessionId]?.error}
+        streamedResponse={streamedChats[sessionId]?.content}
         isGenerating={
           streamedChats[sessionId]?.status === "streaming" &&
           streamedChats[sessionId]?.content === ""
         }
+        isCompleted={streamedChats[sessionId]?.status === "completed"}
       />
       <div className="w-full px-4 pb-4">
         <ChatMessageInput

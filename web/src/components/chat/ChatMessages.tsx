@@ -1,6 +1,7 @@
-import React, { Suspense, useCallback } from "react";
+import React, { Suspense, useCallback, useEffect } from "react";
 import Markdown from "react-markdown";
 
+import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import { useDeleteChatMessage } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 
 interface Props {
   isGenerating: boolean;
+  isCompleted: boolean;
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   streamedResponse?: string;
@@ -31,9 +33,28 @@ export default function ChatMessages({
   user,
   messages,
   isGenerating,
+  isCompleted,
   streamedResponse,
   error,
 }: Props) {
+  const {
+    displayedText: animatedText,
+    complete,
+    reset,
+  } = useSmoothStreaming(streamedResponse);
+  useEffect(() => {
+    if (isCompleted) {
+      console.log("Streaming completed");
+      complete();
+    }
+  }, [isCompleted, complete]);
+  useEffect(() => {
+    if (!streamedResponse) {
+      console.log("Resetting streamed text");
+      reset();
+    }
+  }, [streamedResponse, reset]);
+
   const { mutate: deleteMessage } = useDeleteChatMessage();
   const onDeleteMessage = useCallback(
     (sessionId: string, messageId: string) => {
@@ -89,7 +110,7 @@ export default function ChatMessages({
         </ChatBubble>
       )}
 
-      {streamedResponse && (
+      {animatedText && (
         <ChatBubble variant="received">
           <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
           <ChatBubbleMessage
@@ -99,7 +120,7 @@ export default function ChatMessages({
               "outline-2 outline-ring",
             )}
           >
-            <Markdown key="streaming">{streamedResponse}</Markdown>
+            <Markdown key="streaming">{animatedText}</Markdown>
           </ChatBubbleMessage>
         </ChatBubble>
       )}

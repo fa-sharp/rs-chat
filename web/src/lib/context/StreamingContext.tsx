@@ -64,6 +64,7 @@ const useChatStreamManager = () => {
       },
     }));
   }, []);
+
   const addChatError = useCallback((sessionId: string, error: string) => {
     setStreamedChats((prev) => ({
       ...prev,
@@ -74,6 +75,7 @@ const useChatStreamManager = () => {
       },
     }));
   }, []);
+
   const setChatStatus = useCallback(
     (sessionId: string, status: "streaming" | "completed") => {
       setStreamedChats((prev) => ({
@@ -87,6 +89,7 @@ const useChatStreamManager = () => {
     },
     [],
   );
+
   const clearChat = useCallback((sessionId: string) => {
     setStreamedChats((prev) => ({
       ...prev,
@@ -110,26 +113,37 @@ const useChatStreamManager = () => {
     [queryClient],
   );
 
-  /** Refetch chat session with 1 retry */
+  /** Refetch chat session for the new assistant message */
   const refetchSessionForNewResponse = useCallback(
     async (sessionId: string) => {
       const retryDelay = 1000; // 1 second
       try {
-        // Refetch chat session
-        await invalidateSession(sessionId);
-        // Check if the chat session has been updated with the new assistant response
-        const updatedData = queryClient.getQueryData<{
-          messages: components["schemas"]["ChatRsMessage"][];
-        }>(["chatSession", { sessionId }]);
-        const hasNewAssistantMessage = updatedData?.messages?.some(
-          (msg) =>
-            msg.role === "Assistant" &&
-            new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
-        );
-        // Retry if needed
-        if (!hasNewAssistantMessage) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        // Refetch chat session with retry loop
+        let hasNewAssistantMessage = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (!hasNewAssistantMessage && retryCount < maxRetries) {
           await invalidateSession(sessionId);
+
+          // Check if the chat session has been updated with the new assistant response
+          const updatedData = queryClient.getQueryData<{
+            messages: components["schemas"]["ChatRsMessage"][];
+          }>(["chatSession", { sessionId }]);
+          hasNewAssistantMessage =
+            updatedData?.messages?.some(
+              (msg) =>
+                msg.role === "Assistant" &&
+                new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
+            ) || false;
+
+          // Retry if no new assistant message
+          if (!hasNewAssistantMessage) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            }
+          }
         }
       } catch (error) {
         console.error("Error refetching chat session:", error);
