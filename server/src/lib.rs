@@ -9,11 +9,7 @@ pub mod utils;
 pub mod web;
 
 use rocket::{fairing::AdHoc, get};
-use rocket_okapi::{
-    mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec,
-    rapidoc::{make_rapidoc, GeneralConfig, Layout, LayoutConfig, RapiDocConfig, RenderStyle},
-    settings::{OpenApiSettings, UrlObject},
-};
+use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec};
 
 use crate::{
     auth::{setup_encryption, setup_oauth, setup_session},
@@ -36,9 +32,9 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_static_files())
         .register("/", get_catchers())
         .mount("/api/docs", get_doc_routes())
-        .mount("/api/oauth", api::oauth_routes());
+        .mount("/api/auth", api::oauth_routes());
 
-    let openapi_settings = OpenApiSettings::default();
+    let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
@@ -60,6 +56,11 @@ async fn health() -> String {
 
 /// Create the OpenAPI doc routes
 fn get_doc_routes() -> impl Into<Vec<rocket::Route>> {
+    use rocket_okapi::{
+        rapidoc::{make_rapidoc, GeneralConfig, Layout, LayoutConfig, RapiDocConfig, RenderStyle},
+        settings::UrlObject,
+    };
+
     make_rapidoc(&RapiDocConfig {
         general: GeneralConfig {
             spec_urls: vec![UrlObject::new("OpenAPI Schema", "/api/openapi.json")],

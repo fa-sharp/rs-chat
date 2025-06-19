@@ -51,7 +51,7 @@ export function LoginForm({
           </div> */}
           <div className="flex">
             <Button asChild variant="outline" type="button" className="w-full">
-              <a href="/api/oauth/login/github">
+              <a href="/api/auth/login/github">
                 <Github className="size-5" />
                 Login with GitHub
               </a>

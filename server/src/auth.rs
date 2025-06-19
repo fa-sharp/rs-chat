@@ -109,7 +109,7 @@ pub fn setup_oauth() -> AdHoc {
             app_config.github_client_id.to_owned(),
             app_config.github_client_secret.to_owned(),
             Some(format!(
-                "{}/api/oauth/login/github/callback",
+                "{}/api/auth/login/github/callback",
                 app_config.server_address
             )),
         );

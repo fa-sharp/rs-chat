@@ -21,7 +21,7 @@ export const useGetUser = () =>
 
 export async function deleteAccount() {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL || ""}/api/oauth/user/delete-but-only-if-you-are-sure`,
+    `${import.meta.env.VITE_API_URL || ""}/api/auth/user/delete-but-only-if-you-are-sure`,
     { method: "DELETE" },
   );
   if (!response.ok) {

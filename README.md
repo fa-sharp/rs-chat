@@ -154,6 +154,7 @@ services:
       RS_CHAT_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
       RS_CHAT_REDIS_URL: redis://myredis:6379 # Your Redis URL
       RS_CHAT_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
+      # GitHub callback URL should be {your_server_address}/api/auth/login/github/callback
       RS_CHAT_GITHUB_CLIENT_ID: your-github-client-id
       RS_CHAT_GITHUB_CLIENT_SECRET: your-github-client-secret
 ```

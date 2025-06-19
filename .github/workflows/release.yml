@@ -10,7 +10,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  release:
+  docker:
     if: github.event.base_ref == 'refs/heads/main'
     name: Build and push Docker image
     runs-on: ubuntu-latest
