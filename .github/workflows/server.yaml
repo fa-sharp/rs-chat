@@ -16,6 +16,7 @@ env:
 
 jobs:
   build-web:
+    name: Build frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,6 +33,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install
 
