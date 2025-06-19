@@ -2,8 +2,6 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -13,6 +11,8 @@ env:
 
 jobs:
   release:
+    if: github.event.base_ref == 'refs/heads/main'
+    name: Build and push Docker image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -69,7 +69,8 @@ jobs:
             }
           skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
-      - name: Build and push Docker image
+      - name: Build and push image
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -96,9 +97,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
+    if: github.event.base_ref == 'refs/heads/main'
     name: Deploy demo app
     needs: docker
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Coolify
