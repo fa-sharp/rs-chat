@@ -109,6 +109,9 @@ export default function ChatMessageInput(props: Props) {
   );
 }
 
+const DEFAULT_MAX_TOKENS = 2000;
+const DEFAULT_TEMPERATURE = 0.7;
+
 const useChatMessageInputState = ({
   sessionId,
   providerConfig,
@@ -117,21 +120,25 @@ const useChatMessageInputState = ({
 }: Props) => {
   const [provider, setProvider] = useState<ProviderKey | undefined>();
   const [model, setModel] = useState("");
-  const [maxTokens, setMaxTokens] = useState<number>(1000);
-  const [temperature, setTemperature] = useState<number>(0.7);
+  const [maxTokens, setMaxTokens] = useState<number>(DEFAULT_MAX_TOKENS);
+  const [temperature, setTemperature] = useState<number>(DEFAULT_TEMPERATURE);
   const [error, setError] = useState<string>("");
 
-  // Set initial provider and model for this session from the chat metadata
+  // Set initial provider, model, and settings for this session from the chat metadata
   useEffect(() => {
     if (sessionId && providerConfig) {
-      const { provider, model } =
-        getProviderAndModelFromConfig(providerConfig) || {};
+      const { provider, model, maxTokens, temperature } =
+        getCommonSettingsFromConfig(providerConfig) || {};
       setProvider(provider);
       setModel(model || "");
+      setMaxTokens(maxTokens || DEFAULT_MAX_TOKENS);
+      setTemperature(temperature || DEFAULT_TEMPERATURE);
     }
     return () => {
       setProvider(undefined);
       setModel("");
+      setMaxTokens(DEFAULT_MAX_TOKENS);
+      setTemperature(DEFAULT_TEMPERATURE);
     };
   }, [sessionId, providerConfig]);
 
@@ -220,17 +227,34 @@ const useChatMessageInputState = ({
   };
 };
 
-const getProviderAndModelFromConfig = (
+const getCommonSettingsFromConfig = (
   providerConfig?: components["schemas"]["ProviderConfigInput"] | null,
-): { provider: ProviderKey; model: string } | undefined => {
+):
+  | {
+      provider: ProviderKey;
+      model: string;
+      maxTokens?: number | null;
+      temperature?: number | null;
+    }
+  | undefined => {
   if (!providerConfig) return undefined;
   if (typeof providerConfig === "string")
-    return { provider: providerConfig, model: "" };
+    return {
+      provider: providerConfig,
+      model: "",
+    };
   if ("OpenRouter" in providerConfig)
-    return { provider: "OpenRouter", model: providerConfig.OpenRouter.model };
+    return {
+      provider: "OpenRouter",
+      model: providerConfig.OpenRouter.model,
+      maxTokens: providerConfig.OpenRouter.max_tokens,
+      temperature: providerConfig.OpenRouter.temperature,
+    };
   if ("Llm" in providerConfig)
     return {
       provider: providerConfig.Llm.backend,
       model: providerConfig.Llm.model,
+      maxTokens: providerConfig.Llm.max_tokens,
+      temperature: providerConfig.Llm.temperature,
     };
 };
