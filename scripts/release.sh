@@ -39,7 +39,7 @@ if [[ -n $(git status --porcelain) ]]; then
 fi
 
 # Get current version from git tags
-CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.1.0")
 log_info "Current version: v${CURRENT_VERSION}"
 
 # Parse version components
