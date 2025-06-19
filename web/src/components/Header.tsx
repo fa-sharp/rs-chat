@@ -1,10 +1,25 @@
 import { Separator } from "@radix-ui/react-separator";
-import { createLink, useMatchRoute } from "@tanstack/react-router";
-import { Edit2, Trash } from "lucide-react";
-import { useState } from "react";
+import { createLink, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { Edit2, Trash, X } from "lucide-react";
+import { type FormEventHandler, useCallback, useState } from "react";
 
-import { useGetChatSession } from "@/lib/api/session";
+import {
+  useDeleteChatSession,
+  useGetChatSession,
+  useUpdateChatSession,
+} from "@/lib/api/session";
 import { ThemeToggle } from "./theme/ThemeToggle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,19 +29,43 @@ import {
   BreadcrumbSeparator,
 } from "./ui/breadcrumb";
 import { Button } from "./ui/button";
+import { ChatBubbleAction } from "./ui/chat/chat-bubble";
 import { Input } from "./ui/input";
 import { SidebarTrigger } from "./ui/sidebar";
 
 const RouterBreadcrumbLink = createLink(BreadcrumbLink);
 
 export default function Header() {
+  const navigate = useNavigate();
   const matchRoute = useMatchRoute();
   const sessionRouteMatch = matchRoute({ to: "/app/session/$sessionId" });
-  const { data: session } = useGetChatSession(
+  const { data } = useGetChatSession(
     sessionRouteMatch ? sessionRouteMatch.sessionId : "",
   );
 
+  const { mutate: updateSession } = useUpdateChatSession();
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const onSubmitTitleChange: FormEventHandler<HTMLFormElement> = useCallback(
+    (e) => {
+      e.preventDefault();
+      const newTitle = new FormData(e.currentTarget).get("title")?.toString();
+      if (data && newTitle) {
+        updateSession({
+          sessionId: data.session.id,
+          data: { title: newTitle },
+        });
+      }
+      setIsEditingTitle(false);
+    },
+    [updateSession, data],
+  );
+
+  const { mutate: deleteSession } = useDeleteChatSession();
+  const onDeleteSession = useCallback(() => {
+    if (!data) return;
+    deleteSession({ sessionId: data.session.id });
+    navigate({ to: "/app" });
+  }, [data, deleteSession, navigate]);
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -45,7 +84,7 @@ export default function Header() {
               <>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>{session?.session.title}</BreadcrumbPage>
+                  <BreadcrumbPage>{data?.session.title}</BreadcrumbPage>
                 </BreadcrumbItem>
                 <Button
                   size="icon"
@@ -55,27 +94,28 @@ export default function Header() {
                 >
                   <Edit2 className="size-4" />
                 </Button>
-                <Button size="icon" variant="ghost" className="size-6">
-                  <Trash className="size-4" />
-                </Button>
+                <DeleteSessionButton onDelete={onDeleteSession} />
               </>
             ) : (
               <>
                 <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      setIsEditingTitle(false);
-                      // Update session title in API
-                    }}
-                  >
+                  <form onSubmit={onSubmitTitleChange}>
                     <Input
+                      name="title"
                       autoFocus
                       className="text-foreground"
-                      defaultValue={session?.session.title}
+                      defaultValue={data?.session.title}
                     />
                   </form>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setIsEditingTitle(false)}
+                  >
+                    <X className="size-4" />
+                  </Button>
                 </BreadcrumbItem>
               </>
             ))}
@@ -83,5 +123,43 @@ export default function Header() {
       </Breadcrumb>
       <ThemeToggle className="ml-auto" />
     </header>
+  );
+}
+
+function DeleteSessionButton({ onDelete }: { onDelete: () => void }) {
+  const onSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault();
+    onDelete();
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <ChatBubbleAction
+          aria-label="Delete session"
+          variant="ghost"
+          className="size-6"
+          icon={<Trash className="size-4" />}
+        />
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <form onSubmit={onSubmit}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Are you sure you want to delete this session?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" type="submit">
+              Yes, delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -1,16 +1,17 @@
 use fred::prelude::KeysInterface;
-use rocket::{delete, get, post, serde::json::Json, Route};
+use rocket::{delete, get, patch, post, serde::json::Json, Route};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
 use schemars::JsonSchema;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
     db::{
         models::{
             ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, ChatRsUser,
-            NewChatRsSession,
+            NewChatRsSession, UpdateChatRsSession,
         },
         services::chat::ChatDbService,
         DbConnection,
@@ -21,11 +22,18 @@ use crate::{
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: get_all_sessions, create_session, get_session, delete_message]
+    openapi_get_routes_spec![
+        settings: get_all_sessions,
+        create_session,
+        get_session,
+        update_session,
+        delete_session,
+        delete_message
+    ]
 }
 
 #[derive(JsonSchema, serde::Serialize)]
-struct CreateSessionResponse {
+struct SessionIdResponse {
     session_id: String,
 }
 
@@ -49,7 +57,7 @@ async fn get_all_sessions(
 async fn create_session(
     user: ChatRsUser,
     mut db: DbConnection,
-) -> Result<Json<CreateSessionResponse>, ApiError> {
+) -> Result<Json<SessionIdResponse>, ApiError> {
     let id = ChatDbService::new(&mut db)
         .create_session(NewChatRsSession {
             user_id: &user.id,
@@ -57,7 +65,7 @@ async fn create_session(
         })
         .await?;
 
-    Ok(Json(CreateSessionResponse { session_id: id }))
+    Ok(Json(SessionIdResponse { session_id: id }))
 }
 
 #[derive(JsonSchema, serde::Serialize)]
@@ -100,6 +108,33 @@ async fn get_session(
     Ok(Json(GetSessionResponse { session, messages }))
 }
 
+#[derive(Deserialize, JsonSchema)]
+struct UpdateSessionInput {
+    title: String,
+}
+
+/// Update chat session
+#[openapi(tag = "Chat Session")]
+#[patch("/<session_id>", data = "<body>")]
+async fn update_session(
+    user: ChatRsUser,
+    mut db: DbConnection,
+    session_id: Uuid,
+    body: Json<UpdateSessionInput>,
+) -> Result<Json<SessionIdResponse>, ApiError> {
+    let updated_id = ChatDbService::new(&mut db)
+        .update_session(
+            &user.id,
+            &session_id,
+            UpdateChatRsSession { title: &body.title },
+        )
+        .await?;
+
+    Ok(Json(SessionIdResponse {
+        session_id: updated_id.to_string(),
+    }))
+}
+
 /// Delete a chat message
 #[openapi(tag = "Chat Session")]
 #[delete("/<session_id>/<message_id>")]
@@ -114,4 +149,21 @@ async fn delete_message(
     let _ = db_service.delete_message(&session_id, &message_id).await?;
 
     Ok(())
+}
+
+/// Delete chat session
+#[openapi(tag = "Chat Session")]
+#[delete("/<session_id>")]
+async fn delete_session(
+    user: ChatRsUser,
+    mut db: DbConnection,
+    session_id: Uuid,
+) -> Result<Json<SessionIdResponse>, ApiError> {
+    let deleted_id = ChatDbService::new(&mut db)
+        .delete_session(&user.id, &session_id)
+        .await?;
+
+    Ok(Json(SessionIdResponse {
+        session_id: deleted_id.to_string(),
+    }))
 }

@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useState } from "react";
 
 import { streamChat } from "../api/chat";
-import { chatSessionQueryKey } from "../api/session";
+import { chatSessionQueryKey, recentSessionsQueryKey } from "../api/session";
 import type { components } from "../api/types";
 
 export interface StreamedChat {
@@ -103,7 +103,7 @@ const useChatStreamManager = () => {
           queryKey: chatSessionQueryKey(sessionId),
         }),
         queryClient.invalidateQueries({
-          queryKey: ["recentChatSessions"],
+          queryKey: recentSessionsQueryKey,
         }),
       ]);
     },

@@ -62,7 +62,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description List chat sessions */
+        /** List chat sessions */
         get: operations["get_all_sessions"];
         put?: never;
         /** @description Create a new chat session */
@@ -84,10 +84,12 @@ export interface paths {
         get: operations["get_session"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Delete chat session */
+        delete: operations["delete_session"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** @description Update chat session */
+        patch: operations["update_session"];
         trace?: never;
     };
     "/session/{session_id}/{message_id}": {
@@ -185,7 +187,7 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        CreateSessionResponse: {
+        SessionIdResponse: {
             session_id: string;
         };
         GetSessionResponse: {
@@ -231,6 +233,9 @@ export interface components {
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+        };
+        UpdateSessionInput: {
+            title: string;
         };
         SendChatInput: {
             message?: string | null;
@@ -485,7 +490,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreateSessionResponse"];
+                    "application/json": components["schemas"]["SessionIdResponse"];
                 };
             };
             /** @description Bad request */
@@ -552,6 +557,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetSessionResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionIdResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    update_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSessionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionIdResponse"];
                 };
             };
             /** @description Bad request */

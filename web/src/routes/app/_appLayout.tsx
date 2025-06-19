@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import {
   getRecentChatSessions,
+  recentSessionsQueryKey,
   useGetRecentChatSessions,
 } from "@/lib/api/session";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/app/_appLayout")({
   },
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData({
-      queryKey: ["recentChatSessions"],
+      queryKey: recentSessionsQueryKey,
       queryFn: getRecentChatSessions,
     });
   },
