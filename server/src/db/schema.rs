@@ -8,6 +8,10 @@ pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "llm_provider"))]
     pub struct LlmProvider;
+
+    #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "tsvector", schema = "pg_catalog"))]
+    pub struct Tsvector;
 }
 
 diesel::table! {
@@ -27,6 +31,7 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::ChatMessageRole;
+    use super::sql_types::Tsvector;
 
     chat_messages (id) {
         id -> Uuid,
@@ -36,6 +41,7 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         meta -> Jsonb,
+        search_vector -> Tsvector,
     }
 }
 

@@ -2,12 +2,15 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
-use crate::db::{
-    models::{
-        ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession, UpdateChatRsSession,
+use crate::{
+    db::{
+        models::{
+            ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession, UpdateChatRsSession,
+        },
+        schema::{chat_messages, chat_sessions},
+        DbConnection,
     },
-    schema::{chat_messages, chat_sessions},
-    DbConnection,
+    utils::full_text_search::{full_text_query, SessionSearchResult},
 };
 
 pub struct ChatDbService<'a> {
@@ -105,6 +108,16 @@ impl<'a> ChatDbService<'a> {
             .await?;
 
         Ok((session, messages))
+    }
+
+    pub async fn search_sessions(
+        &mut self,
+        user_id: &Uuid,
+        query: &str,
+    ) -> Result<Vec<SessionSearchResult>, diesel::result::Error> {
+        let sessions = full_text_query(self.db, user_id, query, 10).await?;
+
+        Ok(sessions)
     }
 
     pub async fn update_session(
