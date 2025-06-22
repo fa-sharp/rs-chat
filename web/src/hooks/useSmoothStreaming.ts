@@ -175,6 +175,13 @@ export function useSmoothStreaming(
       lastStreamLengthRef.current = newLength;
       lastStreamTimeRef.current = now;
 
+      // If previous stream length was empty and newLength is big,
+      // we might be switching to an ongoing stream. Skip ahead to the
+      // current position instead of animating all of the characters so far.
+      if (prevLength === 0 && newLength > 100) {
+        positionRef.current = bufferRef.current.length - 2;
+      }
+
       // Start or resume streaming
       if (!isStreaming && timeoutRef.current === null) {
         setIsStreaming(true);

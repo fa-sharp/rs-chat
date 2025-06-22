@@ -43,6 +43,7 @@ function RouteComponent() {
       <ChatMessages
         user={user}
         messages={data?.messages || []}
+        sessionId={sessionId}
         error={streamedChats[sessionId]?.error}
         streamedResponse={streamedChats[sessionId]?.content}
         isGenerating={
