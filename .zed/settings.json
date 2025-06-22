@@ -37,6 +37,14 @@
       "code_actions_on_format": {
         "source.fixAll.biome": true
       }
+    },
+    "SQL": {
+      "formatter": {
+        "external": {
+          "command": "sql-formatter",
+          "arguments": ["--language", "postgresql"]
+        }
+      }
     }
   }
 }
