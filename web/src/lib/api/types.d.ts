@@ -257,6 +257,8 @@ export interface components {
             session_id: string;
             /** Format: double */
             session_rank: number;
+            /** Format: date-time */
+            session_created_at: string;
             /** Format: int64 */
             message_matches: number;
             title_highlight: string;

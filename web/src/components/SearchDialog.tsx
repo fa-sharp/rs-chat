@@ -78,6 +78,16 @@ export default function SearchDialog() {
 
 const HIGHLIGHT_REGEX = /§§§HIGHLIGHT_START§§§|§§§HIGHLIGHT_END§§§/g;
 
+const dateTimeFormatter = (date: Date) =>
+  new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year:
+      date.getUTCFullYear() === new Date().getUTCFullYear()
+        ? undefined
+        : "numeric",
+  }).format(date);
+
 function HighlightedResult({
   result,
 }: {
@@ -111,8 +121,15 @@ function HighlightedResult({
   );
 
   return (
-    <div className="flex flex-col">
-      <span>{highlightedTitle}</span>
+    <div className="flex flex-col flex-1 min-w-0">
+      <span className="flex justify-between">
+        <span className="text-nowrap overflow-hidden overflow-ellipsis">
+          {highlightedTitle}
+        </span>
+        <span className="text-muted-foreground text-nowrap">
+          {dateTimeFormatter(new Date(result.session_created_at))}
+        </span>
+      </span>
       <span className="text-xs text-muted-foreground">
         {highlightedMessage}
       </span>
