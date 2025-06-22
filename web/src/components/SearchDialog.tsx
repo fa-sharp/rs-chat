@@ -34,7 +34,10 @@ export default function SearchDialog() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
-      <CommandInput onValueChange={setSearchQuery} />
+      <CommandInput
+        placeholder="Search chats..."
+        onValueChange={setSearchQuery}
+      />
       <CommandList>
         {(isFetching || debounceMeta.isPending()) && (
           <CommandLoading className="p-3" progress={50}>
@@ -44,11 +47,20 @@ export default function SearchDialog() {
             </div>
           </CommandLoading>
         )}
-        {!(isFetching || debounceMeta.isPending()) && (
+        {searchQuery && !(isFetching || debounceMeta.isPending()) && (
           <CommandEmpty>No results</CommandEmpty>
         )}
-        {data?.map((item) => (
-          <CommandItem key={item}>{item}</CommandItem>
+        {data?.map((result) => (
+          <CommandItem
+            key={result.session_id}
+            className="flex flex-col items-start gap-0.5"
+            value={result.session_id}
+          >
+            <div>{result.title_highlight}</div>
+            <div className="text-xs text-muted-foreground">
+              {result.message_highlights}
+            </div>
+          </CommandItem>
         ))}
       </CommandList>
     </CommandDialog>

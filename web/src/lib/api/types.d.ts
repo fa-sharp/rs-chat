@@ -62,7 +62,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List chat sessions */
+        /** @description List chat sessions */
         get: operations["get_all_sessions"];
         put?: never;
         /** @description Create a new chat session */
@@ -90,6 +90,23 @@ export interface paths {
         head?: never;
         /** @description Update chat session */
         patch: operations["update_session"];
+        trace?: never;
+    };
+    "/session/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Search chat sessions by title and messages */
+        get: operations["search_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/session/{session_id}/{message_id}": {
@@ -233,6 +250,17 @@ export interface components {
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+        };
+        /** @description Session matches for a full-text search query of chat titles and messages */
+        SessionSearchResult: {
+            /** Format: uuid */
+            session_id: string;
+            /** Format: double */
+            session_rank: number;
+            /** Format: int64 */
+            message_matches: number;
+            title_highlight: string;
+            message_highlights: string;
         };
         UpdateSessionInput: {
             title: string;
@@ -693,6 +721,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SessionIdResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    search_sessions: {
+        parameters: {
+            query: {
+                query: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSearchResult"][];
                 };
             };
             /** @description Bad request */
