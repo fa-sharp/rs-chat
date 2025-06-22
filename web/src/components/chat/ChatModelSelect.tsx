@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Lock } from "lucide-react";
+import { Check, ChevronsUpDown, Lock, Settings } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import {
 import { useApiKeys } from "@/lib/api/apiKey";
 import { type ProviderKey, providers } from "@/lib/providerInfo";
 import { cn } from "@/lib/utils";
+import { Label } from "../ui/label";
 import {
   Select,
   SelectContent,
@@ -124,47 +125,67 @@ export function ChatModelSelect({
             currentModel={currentModel}
             onSelect={setCurrentModel}
           />
-          <Select
-            value={currentMaxTokens.toString()}
-            onValueChange={(tokens) => onSelectMaxTokens(+tokens)}
-          >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Max tokens" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Max tokens</SelectLabel>
-                {[500, 1000, 2000, 5000, 10000, 20000, 50000].map((tokens) => (
-                  <SelectItem key={tokens} value={tokens.toString()}>
-                    {tokens.toLocaleString()} tokens
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select
-            value={currentTemperature.toFixed(1)}
-            onValueChange={(temperature) => onSelectTemperature(+temperature)}
-          >
-            <SelectTrigger className="w-[70px]">
-              <SelectValue placeholder="Temperature" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Temperature</SelectLabel>
-                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(
-                  (temperature) => (
-                    <SelectItem
-                      key={temperature}
-                      value={temperature.toString()}
-                    >
-                      {temperature.toFixed(1)}
-                    </SelectItem>
-                  ),
-                )}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button aria-label="More settings" size="icon" variant="outline">
+                <Settings />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="flex flex-col gap-2">
+              <Label>
+                Max tokens
+                <Select
+                  value={currentMaxTokens.toString()}
+                  onValueChange={(tokens) => onSelectMaxTokens(+tokens)}
+                >
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue placeholder="Max tokens" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Max tokens</SelectLabel>
+                      {[500, 1000, 2000, 5000, 10000, 20000, 50000].map(
+                        (tokens) => (
+                          <SelectItem key={tokens} value={tokens.toString()}>
+                            {tokens.toLocaleString()}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Label>
+              <Label>
+                Temperature
+                <Select
+                  value={currentTemperature.toFixed(1)}
+                  onValueChange={(temperature) =>
+                    onSelectTemperature(+temperature)
+                  }
+                >
+                  <SelectTrigger className="w-[70px]">
+                    <SelectValue placeholder="Temperature" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Temperature</SelectLabel>
+                      {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(
+                        (temperature) => (
+                          <SelectItem
+                            key={temperature}
+                            value={temperature.toString()}
+                          >
+                            {temperature.toFixed(1)}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Label>
+            </PopoverContent>
+          </Popover>
         </>
       )}
     </>
@@ -189,7 +210,7 @@ function ProviderModelSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[180px] justify-between"
+          className="w-[280px] justify-between"
         >
           <span className="overflow-hidden text-ellipsis">
             {currentModel
@@ -199,7 +220,7 @@ function ProviderModelSelect({
           <ChevronsUpDown className="opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[250px] p-0">
         <Command>
           <CommandInput placeholder="Search models..." className="h-9" />
           <CommandList>
