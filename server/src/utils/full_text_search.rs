@@ -53,8 +53,8 @@ pub async fn full_text_query(
             session_id,
             rank * (1 + LOG(message_matches) * 0.1) AS session_rank,
             message_matches,
-            ts_headline('english', title, sq.query, 'StartSel=<b>, StopSel=</b>, HighlightAll=true') AS title_highlight,
-            ts_headline('english', content, sq.query, 'StartSel=<b>, StopSel=</b>, MinWords=8, MaxWords=10, MaxFragments=2') AS message_highlights
+            ts_headline('english', title, sq.query, 'StartSel=§§§HIGHLIGHT_START§§§, StopSel=§§§HIGHLIGHT_END§§§, HighlightAll=true') AS title_highlight,
+            ts_headline('english', content, sq.query, 'StartSel=§§§HIGHLIGHT_START§§§, StopSel=§§§HIGHLIGHT_END§§§, MinWords=8, MaxWords=12, MaxFragments=3') AS message_highlights
         FROM message_stats ms
         CROSS JOIN search_query sq
         WHERE rank_in_session = 1  -- Only best message per session

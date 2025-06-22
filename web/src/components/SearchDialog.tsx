@@ -1,8 +1,10 @@
+import { useNavigate } from "@tanstack/react-router";
 import { CommandLoading } from "cmdk";
-import { useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { useDebounce } from "use-debounce";
 
 import { useSearchChats } from "@/lib/api/search";
+import type { components } from "@/lib/api/types";
 import {
   CommandDialog,
   CommandEmpty,
@@ -13,6 +15,16 @@ import {
 
 export default function SearchDialog() {
   const [open, setOpen] = useState(false);
+
+  const navigate = useNavigate();
+  const onSelectSession = useCallback(
+    (sessionId: string) => {
+      navigate({ to: "/app/session/$sessionId", params: { sessionId } });
+      setOpen(false);
+    },
+    [navigate],
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, debounceMeta] = useDebounce(searchQuery, 300, {
     trailing: true,
@@ -53,16 +65,57 @@ export default function SearchDialog() {
         {data?.map((result) => (
           <CommandItem
             key={result.session_id}
-            className="flex flex-col items-start gap-0.5"
             value={result.session_id}
+            onSelect={onSelectSession}
           >
-            <div>{result.title_highlight}</div>
-            <div className="text-xs text-muted-foreground">
-              {result.message_highlights}
-            </div>
+            <HighlightedResult result={result} />
           </CommandItem>
         ))}
       </CommandList>
     </CommandDialog>
+  );
+}
+
+const HIGHLIGHT_REGEX = /§§§HIGHLIGHT_START§§§|§§§HIGHLIGHT_END§§§/g;
+
+function HighlightedResult({
+  result,
+}: {
+  result: components["schemas"]["SessionSearchResult"];
+}) {
+  const titleParts = result.title_highlight.split(HIGHLIGHT_REGEX);
+  const messageParts = result.message_highlights.split(HIGHLIGHT_REGEX);
+
+  const highlightedTitle = titleParts.map((part, index) =>
+    index % 2 === 1 ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: no alternative key
+      <span key={index} className="font-bold">
+        {part}
+      </span>
+    ) : (
+      // biome-ignore lint/suspicious/noArrayIndexKey: no alternative key
+      <Fragment key={index}>{part}</Fragment>
+    ),
+  );
+
+  const highlightedMessage = messageParts.map((part, index) =>
+    index % 2 === 1 ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: no alternative key
+      <span key={index} className="font-bold">
+        {part}
+      </span>
+    ) : (
+      // biome-ignore lint/suspicious/noArrayIndexKey: no alternative key
+      <Fragment key={index}>{part}</Fragment>
+    ),
+  );
+
+  return (
+    <div className="flex flex-col">
+      <span>{highlightedTitle}</span>
+      <span className="text-xs text-muted-foreground">
+        {highlightedMessage}
+      </span>
+    </div>
   );
 }
