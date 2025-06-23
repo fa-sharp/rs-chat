@@ -127,7 +127,7 @@ function HighlightedResult({
           {highlightedTitle}
         </span>
         <span className="text-muted-foreground text-nowrap">
-          {dateTimeFormatter(new Date(result.session_created_at))}
+          {dateTimeFormatter(new Date(result.session_updated_at))}
         </span>
       </span>
       <span className="text-xs text-muted-foreground">
