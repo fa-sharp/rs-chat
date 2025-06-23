@@ -67,7 +67,7 @@ impl<'a> ChatDbService<'a> {
         let sessions = chat_sessions::table
             .filter(chat_sessions::user_id.eq(user_id))
             .select(ChatRsSession::as_select())
-            .order_by(chat_sessions::created_at.desc())
+            .order_by(chat_sessions::updated_at.desc())
             .limit(100)
             .load(self.db)
             .await?;

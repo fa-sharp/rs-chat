@@ -13,7 +13,7 @@ pub struct SessionSearchResult {
     #[diesel(sql_type = diesel::sql_types::Double)]
     pub session_rank: f64,
     #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-    pub session_created_at: chrono::DateTime<chrono::Utc>,
+    pub session_updated_at: chrono::DateTime<chrono::Utc>,
     #[diesel(sql_type = diesel::sql_types::BigInt)]
     pub message_matches: i64,
     #[diesel(sql_type = diesel::sql_types::Text)]
@@ -38,7 +38,7 @@ pub async fn full_text_query(
             SELECT
                 cm.session_id,
                 cs.title,
-                cs.created_at,
+                cs.updated_at,
                 cm.content,
                 ts_rank(cm.search_vector, sq.query) AS rank,
                 COUNT(*) OVER (PARTITION BY cm.session_id) AS message_matches,
@@ -55,7 +55,7 @@ pub async fn full_text_query(
         SELECT DISTINCT ON (session_id)
             session_id,
             rank * (1 + LOG(message_matches) * 0.1) AS session_rank,
-            created_at AS session_created_at,
+            updated_at AS session_updated_at,
             message_matches,
             ts_headline('english', title, sq.query, 'StartSel=§§§HIGHLIGHT_START§§§, StopSel=§§§HIGHLIGHT_END§§§, HighlightAll=true') AS title_highlight,
             ts_headline('english', content, sq.query, 'StartSel=§§§HIGHLIGHT_START§§§, StopSel=§§§HIGHLIGHT_END§§§, MinWords=8, MaxWords=12, MaxFragments=3') AS message_highlights
