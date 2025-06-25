@@ -14,6 +14,7 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
+    api::session::DEFAULT_SESSION_TITLE,
     db::{
         models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
         services::{api_key::ApiKeyDbService, chat::ChatDbService},
@@ -52,10 +53,11 @@ pub async fn send_chat_stream(
     input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     // Check session exists and user is owner, get message history
-    let (_, current_messages) = ChatDbService::new(&mut db)
+    let (session, current_messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user.id, &session_id)
         .await?;
-    let is_first_message = current_messages.is_empty();
+    let should_generate_title =
+        current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE;
 
     // Get the chat provider
     let provider = create_provider(
@@ -87,7 +89,7 @@ pub async fn send_chat_stream(
                 meta: &ChatRsMessageMeta::default(),
             })
             .await?;
-        if is_first_message {
+        if should_generate_title {
             generate_title(
                 &user.id,
                 &session_id,
