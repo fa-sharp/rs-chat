@@ -70,22 +70,22 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
 
   if (!children) return null;
   return (
-    <div className="not-prose">
+    <div className="not-prose relative">
       {/* `not-prose` disables the Tailwind typography styles */}
-      <pre ref={ref} className="relative text-xs md:text-sm">
-        <Button
-          className="absolute top-1 md:top-2 right-1 md:right-2 opacity-85 hover:opacity-100"
-          onClick={handleCopy}
-          variant="outline"
-          size="sm"
-        >
-          {isCopied ? (
-            <Check className="size-4 text-green-600" />
-          ) : (
-            <Copy className="size-3" />
-          )}
-          Copy
-        </Button>
+      <Button
+        aria-label="Copy code"
+        className="absolute top-1 right-1 size-8 text-muted-foreground opacity-75 hover:opacity-100"
+        onClick={handleCopy}
+        variant="outline"
+        size="icon"
+      >
+        {isCopied ? (
+          <Check className="size-5 text-green-600" />
+        ) : (
+          <Copy className="size-4" />
+        )}
+      </Button>
+      <pre ref={ref} className="text-xs md:text-sm overflow-x-auto">
         {children}
       </pre>
     </div>
