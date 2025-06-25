@@ -74,7 +74,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
       {/* `not-prose` disables the Tailwind typography styles */}
       <Button
         aria-label="Copy code"
-        className="absolute top-1 right-1 size-8 text-muted-foreground opacity-75 hover:opacity-100"
+        className="absolute top-1 right-1 size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
         onClick={handleCopy}
         variant="outline"
         size="icon"
