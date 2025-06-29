@@ -178,6 +178,7 @@ const useChatMessageInputState = ({
         setError("Must select a provider");
         break;
       case "Anthropic":
+      case "OpenAI":
         onSubmit({
           message: inputRef.current.value,
           provider: {
