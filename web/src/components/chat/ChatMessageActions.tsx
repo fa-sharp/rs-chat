@@ -115,38 +115,34 @@ export function InfoButton({
           aria-label="Message metadata"
         />
       </PopoverTrigger>
-      <PopoverContent>
-        <div className="p-2">
-          <p className="text-sm">
-            {interrupted && (
-              <div className="flex items-center gap-1 mb-2">
-                <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
-                Stream was interrupted
-              </div>
-            )}
-            {provider && (
-              <div>
-                <span className="font-bold">Provider:</span> {provider}
-              </div>
-            )}
-            {model && (
-              <div>
-                <span className="font-bold">Model:</span> {model}
-              </div>
-            )}
-            {temperature && (
-              <div>
-                <span className="font-bold">Temperature:</span> {temperature}
-              </div>
-            )}
-            {maxTokens && (
-              <div>
-                <span className="font-bold">Max Tokens:</span>{" "}
-                {maxTokens.toLocaleString()}
-              </div>
-            )}
-          </p>
-        </div>
+      <PopoverContent className="text-sm">
+        {interrupted && (
+          <div className="flex items-center gap-1 mb-2">
+            <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+            Stream was interrupted
+          </div>
+        )}
+        {provider && (
+          <div>
+            <span className="font-bold">Provider:</span> {provider}
+          </div>
+        )}
+        {model && (
+          <div>
+            <span className="font-bold">Model:</span> {model}
+          </div>
+        )}
+        {temperature && (
+          <div>
+            <span className="font-bold">Temperature:</span> {temperature}
+          </div>
+        )}
+        {maxTokens && (
+          <div>
+            <span className="font-bold">Max Tokens:</span>{" "}
+            {maxTokens.toLocaleString()}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
