@@ -41,6 +41,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/auth" => api::auth_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
+        "/provider" => api::provider_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };
 
