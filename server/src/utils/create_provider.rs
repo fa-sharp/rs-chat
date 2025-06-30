@@ -26,16 +26,35 @@ pub enum ProviderConfigInput {
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
     pub backend: LLMBackendInput,
-    pub model: String,
+    pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+}
+impl Default for LLMConfig {
+    fn default() -> Self {
+        Self {
+            backend: LLMBackendInput::Anthropic,
+            model: None,
+            max_tokens: None,
+            temperature: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct OpenRouterConfig {
-    pub model: String,
+    pub model: Option<String>,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+}
+impl Default for OpenRouterConfig {
+    fn default() -> Self {
+        Self {
+            model: None,
+            max_tokens: None,
+            temperature: None,
+        }
+    }
 }
 
 pub async fn create_provider<'a>(
@@ -43,8 +62,8 @@ pub async fn create_provider<'a>(
     provider_config: &'a ProviderConfigInput,
     db: &mut ApiKeyDbService<'_>,
     encryptor: &Encryptor,
-) -> Result<Box<dyn ChatRsProvider + Send + 'a>, ChatRsError> {
-    let provider: Box<dyn ChatRsProvider + Send> = match provider_config {
+) -> Result<Box<dyn ChatRsProvider + Send + Sync + 'a>, ChatRsError> {
+    let provider: Box<dyn ChatRsProvider + Send + Sync> = match provider_config {
         ProviderConfigInput::Lorem => Box::new(LoremProvider {
             config: LoremConfig { interval: 400 },
         }),
@@ -60,12 +79,12 @@ pub async fn create_provider<'a>(
             Box::new(LlmApiProvider::new(
                 llm_config.backend.clone().into(),
                 api_key.to_owned(),
-                &llm_config.model,
+                llm_config.model.as_deref(),
                 llm_config.max_tokens,
                 llm_config.temperature,
             ))
         }
-        ProviderConfigInput::OpenRouter(llm_config) => {
+        ProviderConfigInput::OpenRouter(or_config) => {
             let api_key_secret = db
                 .find_by_user_and_provider(user_id, &ChatRsApiKeyProviderType::Openrouter)
                 .await
@@ -76,9 +95,9 @@ pub async fn create_provider<'a>(
 
             Box::new(OpenRouterProvider::new(
                 api_key,
-                &llm_config.model,
-                llm_config.max_tokens,
-                llm_config.temperature,
+                or_config.model.as_deref(),
+                or_config.max_tokens,
+                or_config.temperature,
             ))
         }
     };

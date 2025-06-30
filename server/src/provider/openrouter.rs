@@ -4,7 +4,7 @@ use openrouter_rs::{
         chat::{ChatCompletionRequest, Message},
         completion::CompletionRequest,
     },
-    types::Role,
+    types::{Role, SupportedParameters},
     OpenRouterClient,
 };
 use rocket::futures::StreamExt;
@@ -18,7 +18,7 @@ use crate::{
 pub struct OpenRouterProvider<'a> {
     api_key: String,
 
-    model: &'a str,
+    model: Option<&'a str>,
     max_tokens: Option<u32>,
     temperature: Option<f32>,
 }
@@ -26,7 +26,7 @@ pub struct OpenRouterProvider<'a> {
 impl<'a> OpenRouterProvider<'a> {
     pub fn new(
         api_key: String,
-        model: &'a str,
+        model: Option<&'a str>,
         max_tokens: Option<u32>,
         temperature: Option<f32>,
     ) -> Self {
@@ -55,13 +55,17 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
         if let Some(user_message) = input {
             messages.push(Message::new(Role::User, user_message));
         }
-
-        let request = ChatCompletionRequest::builder()
-            .model(self.model)
-            .messages(messages)
-            .temperature(self.temperature.unwrap_or(0.7).into())
-            .max_tokens(self.max_tokens.unwrap_or(1000))
-            .build()?;
+        let request = {
+            let mut builder = ChatCompletionRequest::builder();
+            builder
+                .messages(messages)
+                .temperature(self.temperature.unwrap_or(0.7).into())
+                .max_tokens(self.max_tokens.unwrap_or(1000));
+            if let Some(model) = self.model {
+                builder.model(model);
+            }
+            builder.build()?
+        };
 
         let stream = client
             .stream_chat_completion(&request)
@@ -81,13 +85,17 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
 
     async fn prompt(&self, input: &str) -> Result<String, ChatRsError> {
         let client = OpenRouterClient::builder().api_key(&self.api_key).build()?;
-
-        let request = CompletionRequest::builder()
-            .model(self.model)
-            .prompt(input)
-            .temperature(self.temperature.unwrap_or(0.7).into())
-            .max_tokens(self.max_tokens.unwrap_or(1000))
-            .build()?;
+        let request = {
+            let mut builder = CompletionRequest::builder();
+            builder
+                .prompt(input)
+                .temperature(self.temperature.unwrap_or(0.7).into())
+                .max_tokens(self.max_tokens.unwrap_or(1000));
+            if let Some(model) = self.model {
+                builder.model(model);
+            }
+            builder.build()?
+        };
 
         let response = client.send_completion_request(&request).await?;
         let content = response
@@ -97,6 +105,16 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
             .ok_or(ChatRsError::ChatError("No text response".to_owned()))?;
 
         Ok(content.to_string())
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>, ChatRsError> {
+        let client = OpenRouterClient::builder().build()?;
+        let mut models = client
+            .list_models_by_parameters(SupportedParameters::MaxTokens)
+            .await?;
+        models.sort_by(|a, b| b.created.partial_cmp(&a.created).unwrap());
+
+        Ok(models.into_iter().map(|model| model.id).collect())
     }
 }
 

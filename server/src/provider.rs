@@ -44,4 +44,9 @@ pub trait ChatRsProvider {
 
     /// Submit a prompt to the provider (not streamed)
     async fn prompt(&self, message: &str) -> Result<String, ChatRsError>;
+
+    /// List available models for this provider
+    async fn list_models(&self) -> Result<Vec<String>, ChatRsError> {
+        Ok(vec![])
+    }
 }
