@@ -31,6 +31,7 @@ struct ProviderInfo {
     models: Vec<String>,
 }
 
+/// Get provider details
 #[openapi(tag = "Provider")]
 #[get("/?<provider_type>")]
 async fn get_provider_info(
