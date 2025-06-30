@@ -233,7 +233,7 @@ const getCommonSettingsFromConfig = (
 ):
   | {
       provider: ProviderKey;
-      model: string;
+      model?: string | null;
       maxTokens?: number | null;
       temperature?: number | null;
     }

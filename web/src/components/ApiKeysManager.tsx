@@ -50,7 +50,6 @@ interface ProviderInfo {
   color: string;
 }
 
-//@ts-expect-error not all providers are supported yet
 const PROVIDERS: Record<ApiKey["provider"], ProviderInfo> = {
   Openai: {
     name: "OpenAI",

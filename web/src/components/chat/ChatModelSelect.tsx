@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useApiKeys } from "@/lib/api/apiKey";
+import { useGetProviderInfo } from "@/lib/api/provider";
 import { type ProviderKey, providers } from "@/lib/providerInfo";
 import { cn } from "@/lib/utils";
 import {
@@ -50,6 +51,10 @@ export function ChatModelSelect({
   const currentProvider = React.useMemo(() => {
     return providers.find((p) => p.value === currentProviderKey);
   }, [currentProviderKey]);
+
+  const { data: providerInfo } = useGetProviderInfo(
+    currentProvider?.apiKeyType,
+  );
 
   const setCurrentModel = (model: string) => {
     onSelect(currentProvider?.value, model);
@@ -121,6 +126,7 @@ export function ChatModelSelect({
         <>
           <ProviderModelSelect
             provider={currentProvider}
+            models={providerInfo?.models}
             currentModel={currentModel}
             onSelect={setCurrentModel}
           />
@@ -173,10 +179,12 @@ export function ChatModelSelect({
 
 function ProviderModelSelect({
   provider,
+  models,
   currentModel,
   onSelect,
 }: {
   provider: (typeof providers)[number];
+  models?: string[];
   currentModel: string;
   onSelect: (model: string) => void;
 }) {
@@ -192,9 +200,7 @@ function ProviderModelSelect({
           className="w-[180px] justify-between"
         >
           <span className="overflow-hidden text-ellipsis">
-            {currentModel
-              ? provider.models.find((model) => model === currentModel)
-              : "Select model"}
+            {currentModel || "Select model"}
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
@@ -205,7 +211,7 @@ function ProviderModelSelect({
           <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
             <CommandGroup>
-              {provider.models.map((model) => (
+              {(models || provider.models).map((model) => (
                 <CommandItem
                   key={model}
                   value={model}
