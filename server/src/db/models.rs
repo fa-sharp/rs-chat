@@ -97,10 +97,10 @@ pub struct NewChatRsMessage<'r> {
 pub enum ChatRsApiKeyProviderType {
     Anthropic,
     Openai,
-    Ollama,
-    Deepseek,
-    Google,
     Openrouter,
+    // Ollama,
+    // Deepseek,
+    // Google,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]

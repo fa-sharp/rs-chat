@@ -1,8 +1,10 @@
+use fred::prelude::KeysInterface;
 use rocket::{get, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
 use schemars::JsonSchema;
+use uuid::Uuid;
 
 use crate::{
     db::{
@@ -11,6 +13,7 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
+    redis::RedisClient,
     utils::{
         create_provider::{
             create_provider, LLMBackendInput, LLMConfig, OpenRouterConfig, ProviderConfigInput,
@@ -29,14 +32,23 @@ struct ProviderInfo {
 }
 
 #[openapi(tag = "Provider")]
-#[get("/?<provider>")]
+#[get("/?<provider_type>")]
 async fn get_provider_info(
     user: ChatRsUser,
     mut db: DbConnection,
+    redis: RedisClient,
     encryptor: &State<Encryptor>,
-    provider: ChatRsApiKeyProviderType,
+    provider_type: ChatRsApiKeyProviderType,
 ) -> Result<Json<ProviderInfo>, ApiError> {
-    let provider_config: ProviderConfigInput = match provider {
+    let cached_models: Option<Vec<String>> = redis
+        .get::<Option<String>, _>(cached_models_key(&user.id, &provider_type))
+        .await?
+        .and_then(|val| serde_json::from_str(&val).ok());
+    if let Some(models) = cached_models {
+        return Ok(Json(ProviderInfo { models }));
+    }
+
+    let provider_config: ProviderConfigInput = match provider_type {
         ChatRsApiKeyProviderType::Anthropic => ProviderConfigInput::Llm(LLMConfig {
             backend: LLMBackendInput::Anthropic,
             ..Default::default()
@@ -48,7 +60,6 @@ async fn get_provider_info(
         ChatRsApiKeyProviderType::Openrouter => {
             ProviderConfigInput::OpenRouter(OpenRouterConfig::default())
         }
-        _ => unimplemented!(),
     };
 
     let provider = create_provider(
@@ -60,5 +71,19 @@ async fn get_provider_info(
     .await?;
     let models = provider.list_models().await?;
 
+    let _: () = redis
+        .set(
+            cached_models_key(&user.id, &provider_type),
+            serde_json::to_string(&models).ok(),
+            Some(fred::types::Expiration::EX(60 * 60 * 2)), // 2 hours
+            None,
+            false,
+        )
+        .await?;
+
     Ok(Json(ProviderInfo { models }))
+}
+
+fn cached_models_key(user_id: &Uuid, provider: &ChatRsApiKeyProviderType) -> String {
+    format!("models:user-{}:{:?}", user_id, provider)
 }

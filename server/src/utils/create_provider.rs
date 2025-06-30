@@ -109,8 +109,8 @@ pub async fn create_provider<'a>(
 pub enum LLMBackendInput {
     OpenAI,
     Anthropic,
-    Deepseek,
-    Google,
+    // Deepseek,
+    // Google,
 }
 
 impl From<LLMBackendInput> for LLMBackend {
@@ -118,8 +118,8 @@ impl From<LLMBackendInput> for LLMBackend {
         match value {
             LLMBackendInput::OpenAI => LLMBackend::OpenAI,
             LLMBackendInput::Anthropic => LLMBackend::Anthropic,
-            LLMBackendInput::Deepseek => LLMBackend::DeepSeek,
-            LLMBackendInput::Google => LLMBackend::Google,
+            // LLMBackendInput::Deepseek => LLMBackend::DeepSeek,
+            // LLMBackendInput::Google => LLMBackend::Google,
         }
     }
 }
@@ -129,8 +129,8 @@ impl From<LLMBackendInput> for ChatRsApiKeyProviderType {
         match value {
             LLMBackendInput::OpenAI => ChatRsApiKeyProviderType::Openai,
             LLMBackendInput::Anthropic => ChatRsApiKeyProviderType::Anthropic,
-            LLMBackendInput::Deepseek => ChatRsApiKeyProviderType::Deepseek,
-            LLMBackendInput::Google => ChatRsApiKeyProviderType::Google,
+            // LLMBackendInput::Deepseek => ChatRsApiKeyProviderType::Deepseek,
+            // LLMBackendInput::Google => ChatRsApiKeyProviderType::Google,
         }
     }
 }

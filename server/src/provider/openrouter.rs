@@ -108,7 +108,7 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ChatRsError> {
-        let client = OpenRouterClient::builder().build()?;
+        let client = OpenRouterClient::builder().api_key(&self.api_key).build()?;
         let mut models = client
             .list_models_by_parameters(SupportedParameters::MaxTokens)
             .await?;
