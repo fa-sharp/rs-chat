@@ -1,3 +1,6 @@
+mod proxy;
+pub use proxy::setup_proxy_auth;
+
 use std::time::Duration;
 
 use rocket::{
@@ -14,6 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     api::GitHubUserInfo,
+    auth::proxy::{get_proxy_user_from_headers, ProxyHeaderConfig},
     config::get_app_config,
     db::{models::ChatRsUser, services::user::UserDbService, DbConnection},
     utils::encryption::Encryptor,
@@ -72,6 +76,19 @@ impl<'r> FromRequest<'r> for ChatRsUser {
     type Error = &'r str;
 
     async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
+        // Try authentication via proxy headers if configured
+        if let Some(config) = req.rocket().state::<ProxyHeaderConfig>() {
+            match get_proxy_user_from_headers(config, req.headers()) {
+                Some(proxy_user) => {
+                    rocket::debug!("Proxy header auth: headers found");
+                }
+                None => {
+                    rocket::debug!("Proxy header auth: headers not found")
+                }
+            }
+        };
+
+        // Try authentication via session
         let session = req
             .guard::<Session<ChatRsAuthSession>>()
             .await
