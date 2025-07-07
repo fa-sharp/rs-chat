@@ -8,7 +8,7 @@ use ::llm::error::LLMError;
 use openrouter_rs::error::OpenRouterError;
 use rocket::{async_trait, futures::Stream};
 
-use crate::db::models::ChatRsMessage;
+use crate::db::models::{ChatRsFile, ChatRsMessage};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChatRsError {
@@ -32,14 +32,18 @@ pub enum ChatRsError {
 
 pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<String, ChatRsError>> + Send>>;
 
+pub enum ChatRsProviderMessage {
+    Message(ChatRsMessage),
+    Attachment(ChatRsFile),
+}
+
 /// Interface for all chat providers
 #[async_trait]
 pub trait ChatRsProvider {
-    /// Stream a chat response given the input and context
+    /// Stream an assistant response with the provided message history
     async fn chat_stream(
         &self,
-        input: Option<&str>,
-        context: Option<Vec<ChatRsMessage>>,
+        messages: Vec<ChatRsProviderMessage>,
     ) -> Result<ChatRsStream, ChatRsError>;
 
     /// Submit a prompt to the provider (not streamed)

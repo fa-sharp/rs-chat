@@ -10,7 +10,8 @@ use rocket::{
 
 use crate::config::{get_app_config, AppConfig};
 
-const WEB_DIST: &str = relative!("../web/dist");
+/// Default dev directory for static files
+pub const WEB_DIST: &str = relative!("../web/dist");
 
 pub fn setup_static_files() -> AdHoc {
     AdHoc::on_ignite("Static files", |rocket| async {

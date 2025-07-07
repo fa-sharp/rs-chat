@@ -5,6 +5,7 @@ pub mod db;
 pub mod errors;
 pub mod provider;
 pub mod redis;
+pub mod storage;
 pub mod utils;
 pub mod web;
 
@@ -17,6 +18,7 @@ use crate::{
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    storage::setup_s3_storage,
     web::setup_static_files,
 };
 
@@ -30,6 +32,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_session())
         .attach(setup_oauth())
         .attach(setup_static_files())
+        .attach(setup_s3_storage())
         .register("/", get_catchers())
         .mount("/api/docs", get_doc_routes())
         .mount("/api/auth", api::oauth_routes());
@@ -42,6 +45,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
+        "/storage" => api::storage_routes(&openapi_settings)
     };
 
     server

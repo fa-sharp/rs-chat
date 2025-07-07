@@ -19,6 +19,8 @@ pub enum ApiError {
     Redis(#[from] fred::error::Error),
     #[error(transparent)]
     Chat(#[from] ChatRsError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize)]

@@ -1,14 +1,14 @@
 use llm::{
     builder::{LLMBackend, LLMBuilder},
-    chat::ChatMessage,
+    chat::{ChatMessage, ImageMime},
     error::LLMError,
     LLMProvider,
 };
 use rocket::{async_trait, futures::TryStreamExt};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+    db::models::{ChatRsFileContentType, ChatRsMessageRole},
+    provider::{ChatRsError, ChatRsProvider, ChatRsProviderMessage, ChatRsStream},
 };
 
 /// LLM API chat provider via the `llm` crate
@@ -64,29 +64,37 @@ impl<'a> LlmApiProvider<'a> {
 impl<'a> ChatRsProvider for LlmApiProvider<'a> {
     async fn chat_stream(
         &self,
-        input: Option<&str>,
-        context: Option<Vec<ChatRsMessage>>,
+        message_history: Vec<ChatRsProviderMessage>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let llm = self.get_llm(true)?;
-
-        let mut messages: Vec<ChatMessage> = match context {
-            None => vec![],
-            Some(message_history) => message_history
-                .into_iter()
-                .filter_map(|message| match message.role {
+        let messages: Vec<ChatMessage> = message_history
+            .into_iter()
+            .filter_map(|message| match message {
+                ChatRsProviderMessage::Message(text) => match text.role {
                     ChatRsMessageRole::User => {
-                        Some(ChatMessage::user().content(message.content).build())
+                        Some(ChatMessage::user().content(text.content).build())
                     }
                     ChatRsMessageRole::Assistant => {
-                        Some(ChatMessage::assistant().content(message.content).build())
+                        Some(ChatMessage::assistant().content(text.content).build())
                     }
                     ChatRsMessageRole::System => None,
-                })
-                .collect(),
-        };
-        if let Some(user_message) = input {
-            messages.push(ChatMessage::user().content(user_message).build());
-        }
+                },
+                ChatRsProviderMessage::Attachment(file) => match file.content_type {
+                    ChatRsFileContentType::Pdf => {
+                        let bytes = std::fs::read(file.path).ok()?;
+                        Some(ChatMessage::user().pdf(bytes).build())
+                    }
+                    _ => {
+                        let bytes = std::fs::read(file.path).ok()?;
+                        Some(
+                            ChatMessage::user()
+                                .image(file.content_type.try_into().ok()?, bytes)
+                                .build(),
+                        )
+                    }
+                },
+            })
+            .collect();
 
         let stream = llm.chat_stream(&messages).await?.map_err(|e| e.into());
 
@@ -101,5 +109,19 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
             .await?
             .text()
             .ok_or(ChatRsError::ChatError("No text response".to_owned()))
+    }
+}
+
+impl TryFrom<ChatRsFileContentType> for ImageMime {
+    type Error = &'static str;
+
+    fn try_from(value: ChatRsFileContentType) -> Result<Self, Self::Error> {
+        match value {
+            ChatRsFileContentType::Jpg => Ok(ImageMime::JPEG),
+            ChatRsFileContentType::Png => Ok(ImageMime::PNG),
+            ChatRsFileContentType::Gif => Ok(ImageMime::GIF),
+            ChatRsFileContentType::Webp => Ok(ImageMime::WEBP),
+            ChatRsFileContentType::Pdf => Err("Not an image"),
+        }
     }
 }

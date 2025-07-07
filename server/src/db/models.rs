@@ -4,6 +4,7 @@ use diesel::{
     Selectable,
 };
 use diesel_as_jsonb::AsJsonb;
+use rocket::FromFormField;
 use rocket_okapi::OpenApiFromRequest;
 use schemars::JsonSchema;
 use uuid::Uuid;
@@ -123,4 +124,52 @@ pub struct NewChatRsApiKey<'r> {
     pub provider: &'r ChatRsApiKeyProviderType,
     pub ciphertext: &'r Vec<u8>,
     pub nonce: &'r Vec<u8>,
+}
+
+#[derive(diesel_derive_enum::DbEnum)]
+#[db_enum(existing_type_path = "crate::db::schema::sql_types::FileStorage")]
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub enum ChatRsFileStorageType {
+    Local,
+    S3,
+}
+
+#[derive(diesel_derive_enum::DbEnum)]
+#[db_enum(existing_type_path = "crate::db::schema::sql_types::FileContentType")]
+#[derive(Debug, JsonSchema, FromFormField, serde::Serialize, serde::Deserialize)]
+pub enum ChatRsFileContentType {
+    Jpg,
+    Png,
+    Gif,
+    Webp,
+    Pdf,
+}
+
+#[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
+#[diesel(table_name = super::schema::files)]
+pub struct ChatRsFile {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub name: String,
+    pub content_type: ChatRsFileContentType,
+    pub storage: ChatRsFileStorageType,
+    pub path: String,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::files)]
+pub struct NewChatRsFile<'r> {
+    pub id: &'r Uuid,
+    pub user_id: &'r Uuid,
+    pub name: &'r str,
+    pub content_type: &'r ChatRsFileContentType,
+    pub storage: &'r ChatRsFileStorageType,
+    pub path: &'r str,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::chat_messages_attachments)]
+pub struct NewChatRsAttachment<'r> {
+    pub message_id: &'r Uuid,
+    pub file_id: &'r Uuid,
 }

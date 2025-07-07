@@ -10,8 +10,8 @@ use openrouter_rs::{
 use rocket::futures::StreamExt;
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+    db::models::ChatRsMessageRole,
+    provider::{ChatRsError, ChatRsProvider, ChatRsProviderMessage, ChatRsStream},
 };
 
 /// OpenRouter chat provider via the `openrouter-rs` crate
@@ -43,18 +43,18 @@ impl<'a> OpenRouterProvider<'a> {
 impl ChatRsProvider for OpenRouterProvider<'_> {
     async fn chat_stream(
         &self,
-        input: Option<&str>,
-        context: Option<Vec<ChatRsMessage>>,
+        messages: Vec<ChatRsProviderMessage>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let client = OpenRouterClient::builder().api_key(&self.api_key).build()?;
-        let mut messages: Vec<_> = context
-            .unwrap_or_default()
+        let messages: Vec<_> = messages
             .into_iter()
-            .map(|msg| Message::new(msg.role.into(), &msg.content))
+            .filter_map(|msg| match msg {
+                ChatRsProviderMessage::Message(message) => {
+                    Some(Message::new(message.role.into(), &message.content))
+                }
+                ChatRsProviderMessage::Attachment(_) => None,
+            })
             .collect();
-        if let Some(user_message) = input {
-            messages.push(Message::new(Role::User, user_message));
-        }
 
         let request = ChatCompletionRequest::builder()
             .model(self.model)

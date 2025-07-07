@@ -1,4 +1,5 @@
 use rocket::{
+    data::ToByteUnit,
     figment::{
         providers::{Env, Format, Toml},
         Figment,
@@ -46,7 +47,10 @@ pub fn get_config_provider() -> Figment {
         println!("Failed to read .env file: {}", e);
     }
 
-    Figment::from(rocket::Config::default())
-        .merge(Toml::file("Rocket.toml").nested())
-        .merge(Env::prefixed("RS_CHAT_").global())
+    Figment::from(rocket::Config {
+        limits: rocket::data::Limits::default().limit("file", 5.mebibytes()),
+        ..Default::default()
+    })
+    .merge(Toml::file("Rocket.toml").nested())
+    .merge(Env::prefixed("RS_CHAT_").global())
 }
