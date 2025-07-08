@@ -75,11 +75,12 @@ async fn login_callback(
         None => {
             let new_user = db_service
                 .create(NewChatRsUser {
-                    github_id: &user_info.id.to_string(),
+                    github_id: Some(&user_info.id.to_string()),
                     name: user_info
                         .name
                         .as_deref()
                         .unwrap_or_else(|| user_info.login.as_str()),
+                    proxy_username: None,
                 })
                 .await?;
             session.set(ChatRsAuthSession {

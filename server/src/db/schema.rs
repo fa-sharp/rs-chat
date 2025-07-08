@@ -52,10 +52,11 @@ diesel::table! {
 diesel::table! {
     users (id) {
         id -> Uuid,
-        github_id -> Varchar,
+        github_id -> Nullable<Varchar>,
         name -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        proxy_username -> Nullable<Text>,
     }
 }
 

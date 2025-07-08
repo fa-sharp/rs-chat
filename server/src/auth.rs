@@ -1,5 +1,5 @@
-mod proxy;
-pub use proxy::setup_proxy_auth;
+mod sso_header;
+pub use sso_header::setup_sso_header_auth;
 
 use std::time::Duration;
 
@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{
     api::GitHubUserInfo,
-    auth::proxy::{get_proxy_user_from_headers, ProxyHeaderConfig},
+    auth::sso_header::{get_sso_auth_outcome, get_sso_user_from_headers, SSOHeaderMergedConfig},
     config::get_app_config,
     db::{models::ChatRsUser, services::user::UserDbService, DbConnection},
     utils::encryption::Encryptor,
@@ -76,11 +76,18 @@ impl<'r> FromRequest<'r> for ChatRsUser {
     type Error = &'r str;
 
     async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
+        let Outcome::Success(mut db) = req.guard::<DbConnection>().await else {
+            rocket::error!("Session guard: database connection failed");
+            return Outcome::Error((Status::InternalServerError, "Server error"));
+        };
+
+        let mut db_service = UserDbService::new(&mut db);
+
         // Try authentication via proxy headers if configured
-        if let Some(config) = req.rocket().state::<ProxyHeaderConfig>() {
-            match get_proxy_user_from_headers(config, req.headers()) {
+        if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
+            match get_sso_user_from_headers(config, req.headers()) {
                 Some(proxy_user) => {
-                    rocket::debug!("Proxy header auth: headers found");
+                    return get_sso_auth_outcome(proxy_user, config, &mut db_service).await;
                 }
                 None => {
                     rocket::debug!("Proxy header auth: headers not found")
@@ -101,11 +108,7 @@ impl<'r> FromRequest<'r> for ChatRsUser {
             return Outcome::Error((Status::Unauthorized, "Unauthorized"));
         };
 
-        let Outcome::Success(mut db) = req.guard::<DbConnection>().await else {
-            rocket::error!("Session guard: database connection failed");
-            return Outcome::Error((Status::InternalServerError, "Server error"));
-        };
-        let user = UserDbService::new(&mut db).find_by_id(&user_id).await;
+        let user = db_service.find_by_id(&user_id).await;
         match user {
             Ok(Some(user)) => Outcome::Success(user),
             Ok(None) => Outcome::Error((Status::NotFound, "User not found")),

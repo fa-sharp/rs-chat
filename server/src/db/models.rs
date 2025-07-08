@@ -14,7 +14,8 @@ use crate::utils::create_provider::ProviderConfigInput;
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,
-    pub github_id: String,
+    pub github_id: Option<String>,
+    pub proxy_username: Option<String>,
     pub name: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -23,7 +24,8 @@ pub struct ChatRsUser {
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::users)]
 pub struct NewChatRsUser<'r> {
-    pub github_id: &'r str,
+    pub github_id: Option<&'r str>,
+    pub proxy_username: Option<&'r str>,
     pub name: &'r str,
 }
 

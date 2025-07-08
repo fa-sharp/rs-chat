@@ -40,6 +40,20 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
+    pub async fn find_by_proxy_username(
+        &mut self,
+        username: &str,
+    ) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::proxy_username.eq(username))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
     pub async fn create(&mut self, user: NewChatRsUser<'_>) -> Result<ChatRsUser, Error> {
         diesel::insert_into(users::table)
             .values(user)
