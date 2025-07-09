@@ -56,19 +56,14 @@ impl<'r> FromRequest<'r> for AuthConfig {
 
     async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
         let rocket = req.rocket();
-        let github = rocket.state::<GitHubOAuthConfig>().is_some();
-        let google = rocket.state::<GoogleOAuthConfig>().is_some();
-        let discord = rocket.state::<DiscordOAuthConfig>().is_some();
         let sso_config = rocket.state::<SSOHeaderMergedConfig>();
-        let sso_enabled = sso_config.is_some();
-        let sso_logout_url = sso_config.and_then(|config| config.logout_url.to_owned());
 
         Outcome::Success(AuthConfig {
-            github,
-            google,
-            discord,
-            sso_enabled,
-            sso_logout_url,
+            github: rocket.state::<GitHubOAuthConfig>().is_some(),
+            google: rocket.state::<GoogleOAuthConfig>().is_some(),
+            discord: rocket.state::<DiscordOAuthConfig>().is_some(),
+            sso_enabled: sso_config.is_some(),
+            sso_logout_url: sso_config.and_then(|config| config.logout_url.to_owned()),
         })
     }
 }

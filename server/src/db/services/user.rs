@@ -29,9 +29,9 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
-    pub async fn find_by_github_id(&mut self, id: u64) -> Result<Option<ChatRsUser>, Error> {
+    pub async fn find_by_github_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
         let user = users::table
-            .filter(users::github_id.eq(id.to_string()))
+            .filter(users::github_id.eq(id))
             .select(ChatRsUser::as_select())
             .first(self.db)
             .await

@@ -14,12 +14,12 @@ use crate::utils::create_provider::ProviderConfigInput;
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,
+    pub name: String,
+    pub avatar_url: Option<String>,
     pub github_id: Option<String>,
     pub google_id: Option<String>,
     pub discord_id: Option<String>,
     pub proxy_username: Option<String>,
-    pub name: String,
-    pub avatar_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
