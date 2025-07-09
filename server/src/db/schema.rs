@@ -59,6 +59,7 @@ diesel::table! {
         proxy_username -> Nullable<Text>,
         google_id -> Nullable<Text>,
         discord_id -> Nullable<Text>,
+        avatar_url -> Nullable<Text>,
     }
 }
 

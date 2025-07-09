@@ -185,6 +185,7 @@ async fn github_login_callback(
                             .name
                             .as_deref()
                             .unwrap_or_else(|| user_info.login.as_str()),
+                        avatar_url: user_info.avatar_url.as_deref(),
                         ..Default::default()
                     })
                     .await?;
@@ -250,6 +251,7 @@ async fn google_login_callback(
                     .create(NewChatRsUser {
                         google_id: Some(&user_info.sub),
                         name: &user_info.name,
+                        avatar_url: user_info.picture.as_deref(),
                         ..Default::default()
                     })
                     .await?;
@@ -315,6 +317,15 @@ async fn discord_login_callback(
                     .create(NewChatRsUser {
                         discord_id: Some(&user_info.id),
                         name: &user_info.global_name.unwrap_or(user_info.username),
+                        avatar_url: user_info
+                            .avatar
+                            .map(|avatar| {
+                                format!(
+                                    "https://cdn.discordapp.com/avatars/{}/{}.png",
+                                    user_info.id, avatar
+                                )
+                            })
+                            .as_deref(),
                         ..Default::default()
                     })
                     .await?;

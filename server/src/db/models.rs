@@ -19,6 +19,7 @@ pub struct ChatRsUser {
     pub discord_id: Option<String>,
     pub proxy_username: Option<String>,
     pub name: String,
+    pub avatar_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -31,6 +32,7 @@ pub struct NewChatRsUser<'r> {
     pub discord_id: Option<&'r str>,
     pub proxy_username: Option<&'r str>,
     pub name: &'r str,
+    pub avatar_url: Option<&'r str>,
 }
 
 #[derive(AsChangeset, Default)]
@@ -41,6 +43,7 @@ pub struct UpdateChatRsUser<'r> {
     pub discord_id: Option<&'r str>,
     pub proxy_username: Option<&'r str>,
     pub name: Option<&'r str>,
+    pub avatar_url: Option<&'r str>,
 }
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]

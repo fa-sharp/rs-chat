@@ -94,7 +94,7 @@ pub async fn get_sso_auth_outcome<'r>(
     match db_service.find_by_proxy_username(proxy_user.username).await {
         Ok(Some(user)) => {
             rocket::debug!("SSO header auth: existing user found");
-            return Outcome::Success(user);
+            Outcome::Success(user)
         }
         Ok(None) => {
             rocket::debug!("SSO header auth: creating new user");
@@ -102,24 +102,20 @@ pub async fn get_sso_auth_outcome<'r>(
                 .create(NewChatRsUser {
                     proxy_username: Some(proxy_user.username),
                     name: proxy_user.name.unwrap_or(proxy_user.username),
-                    github_id: None,
-                    google_id: None,
-                    discord_id: None,
+                    ..Default::default()
                 })
                 .await
             {
-                Ok(user) => {
-                    return Outcome::Success(user);
-                }
+                Ok(user) => Outcome::Success(user),
                 Err(err) => {
                     rocket::error!("SSO header auth: database error: {}", err);
-                    return Outcome::Error((Status::InternalServerError, "Server error"));
+                    Outcome::Error((Status::InternalServerError, "Server error"))
                 }
             }
         }
         Err(err) => {
             rocket::error!("SSO header auth: database error: {}", err);
-            return Outcome::Error((Status::InternalServerError, "Server error"));
+            Outcome::Error((Status::InternalServerError, "Server error"))
         }
     }
 }
