@@ -57,6 +57,8 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         proxy_username -> Nullable<Text>,
+        google_id -> Nullable<Text>,
+        discord_id -> Nullable<Text>,
     }
 }
 

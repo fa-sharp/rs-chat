@@ -1,5 +1,8 @@
+mod oauth;
 mod sso_header;
-pub use sso_header::setup_sso_header_auth;
+
+pub use oauth::{setup_oauth, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig};
+pub use sso_header::{setup_sso_header_auth, SSOHeaderMergedConfig};
 
 use std::time::Duration;
 
@@ -12,12 +15,10 @@ use rocket_flex_session::{
     storage::redis::{RedisFredStorage, RedisType},
     RocketFlexSession, Session,
 };
-use rocket_oauth2::{HyperRustlsAdapter, OAuthConfig, StaticProvider};
 use uuid::Uuid;
 
 use crate::{
-    api::GitHubUserInfo,
-    auth::sso_header::{get_sso_auth_outcome, get_sso_user_from_headers, SSOHeaderMergedConfig},
+    auth::sso_header::{get_sso_auth_outcome, get_sso_user_from_headers},
     config::get_app_config,
     db::{models::ChatRsUser, services::user::UserDbService, DbConnection},
     utils::encryption::Encryptor,
@@ -87,7 +88,7 @@ impl<'r> FromRequest<'r> for ChatRsUser {
         if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
             match get_sso_user_from_headers(config, req.headers()) {
                 Some(proxy_user) => {
-                    return get_sso_auth_outcome(proxy_user, config, &mut db_service).await;
+                    return get_sso_auth_outcome(&proxy_user, config, &mut db_service).await;
                 }
                 None => {
                     rocket::debug!("Proxy header auth: headers not found")
@@ -118,26 +119,6 @@ impl<'r> FromRequest<'r> for ChatRsUser {
             }
         }
     }
-}
-
-/// Fairing that sets up OAuth login
-pub fn setup_oauth() -> AdHoc {
-    AdHoc::on_ignite("OAuth", |rocket| async {
-        let app_config = get_app_config(&rocket);
-        let oauth_config = OAuthConfig::new(
-            StaticProvider::GitHub,
-            app_config.github_client_id.to_owned(),
-            app_config.github_client_secret.to_owned(),
-            Some(format!(
-                "{}/api/auth/login/github/callback",
-                app_config.server_address
-            )),
-        );
-        rocket.attach(rocket_oauth2::OAuth2::<GitHubUserInfo>::custom(
-            HyperRustlsAdapter::default(),
-            oauth_config,
-        ))
-    })
 }
 
 /// Fairing that sets up an encryption service

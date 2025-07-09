@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsUser, NewChatRsUser},
+    models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
     schema::users,
     DbConnection,
 };
@@ -40,6 +40,28 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
+    pub async fn find_by_google_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::google_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
+    pub async fn find_by_discord_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::discord_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
     pub async fn find_by_proxy_username(
         &mut self,
         username: &str,
@@ -60,6 +82,20 @@ impl<'a> UserDbService<'a> {
             .returning(ChatRsUser::as_returning())
             .get_result(self.db)
             .await
+    }
+
+    pub async fn update(
+        &mut self,
+        user_id: &Uuid,
+        data: UpdateChatRsUser<'_>,
+    ) -> Result<Uuid, diesel::result::Error> {
+        let updated_id: Uuid = diesel::update(users::table.find(user_id))
+            .set(data)
+            .returning(users::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(updated_id)
     }
 
     pub async fn delete(&mut self, user_id: &Uuid) -> Result<Uuid, Error> {

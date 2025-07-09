@@ -12,6 +12,7 @@ use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec};
 
 use crate::{
+    api::auth_undocumented_routes,
     auth::{setup_encryption, setup_oauth, setup_session, setup_sso_header_auth},
     config::{get_config_provider, AppConfig},
     db::setup_db,
@@ -29,11 +30,11 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_encryption())
         .attach(setup_session())
         .attach(setup_sso_header_auth())
-        .attach(setup_oauth())
+        .attach(setup_oauth("/api/auth"))
         .attach(setup_static_files())
         .register("/", get_catchers())
-        .mount("/api/docs", get_doc_routes())
-        .mount("/api/auth", api::oauth_routes());
+        .mount("/api/auth", auth_undocumented_routes())
+        .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {

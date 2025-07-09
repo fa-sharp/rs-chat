@@ -1,17 +1,16 @@
 use rocket::{
     fairing::AdHoc,
-    figment::{
-        providers::{Env, Format, Toml},
-        Figment,
-    },
     http::{HeaderMap, Status},
     request::Outcome,
 };
 use serde::Deserialize;
 
-use crate::db::{
-    models::{ChatRsUser, NewChatRsUser},
-    services::user::UserDbService,
+use crate::{
+    config::get_config_provider,
+    db::{
+        models::{ChatRsUser, NewChatRsUser},
+        services::user::UserDbService,
+    },
 };
 
 /// SSO / proxy header configuration. Can be set via environment variables.
@@ -78,13 +77,14 @@ pub fn setup_sso_header_auth() -> AdHoc {
 
 /// Handle login/authentication via SSO headers
 pub async fn get_sso_auth_outcome<'r>(
-    proxy_user: ProxyUser<'_>,
+    proxy_user: &ProxyUser<'_>,
     sso_config: &SSOHeaderMergedConfig,
     db_service: &mut UserDbService<'_>,
 ) -> Outcome<ChatRsUser, &'r str> {
     if let Some(allowed_user_group) = &sso_config.user_group {
         if proxy_user
             .groups
+            .as_ref()
             .is_none_or(|groups| !groups.iter().any(|group| group == allowed_user_group))
         {
             rocket::debug!("SSO header auth: user group not allowed");
@@ -103,6 +103,8 @@ pub async fn get_sso_auth_outcome<'r>(
                     proxy_username: Some(proxy_user.username),
                     name: proxy_user.name.unwrap_or(proxy_user.username),
                     github_id: None,
+                    google_id: None,
+                    discord_id: None,
                 })
                 .await
             {
@@ -136,19 +138,4 @@ pub fn get_sso_user_from_headers<'r>(
                 .get_one(&config.groups_header)
                 .map(|groups_str| groups_str.split(",").map(|group| group.trim()).collect()),
         })
-}
-
-/// Builds and returns a Figment configuration provider that merges variables from:
-/// 1. Rocket.toml file
-/// 1. Environment variables prefixed with `RS_CHAT_`. In debug/dev mode, will also load
-/// variables from local `.env` file
-fn get_config_provider() -> Figment {
-    #[cfg(debug_assertions)]
-    if let Err(e) = dotenvy::dotenv() {
-        println!("Failed to read .env file: {}", e);
-    }
-
-    Figment::new()
-        .merge(Toml::file("Rocket.toml").nested())
-        .merge(Env::prefixed("RS_CHAT_").global())
 }

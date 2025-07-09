@@ -22,10 +22,6 @@ pub struct AppConfig {
     pub redis_url: String,
     /// Redis pool size (default: 2)
     pub redis_pool: Option<usize>,
-    /// GitHub OAuth Client ID
-    pub github_client_id: String,
-    /// GitHub OAuth Client Secret
-    pub github_client_secret: String,
 }
 
 /// Get the server configuration variables from Rocket
