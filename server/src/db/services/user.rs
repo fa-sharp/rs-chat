@@ -62,12 +62,12 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
-    pub async fn find_by_proxy_username(
+    pub async fn find_by_sso_username(
         &mut self,
         username: &str,
     ) -> Result<Option<ChatRsUser>, Error> {
         let user = users::table
-            .filter(users::proxy_username.eq(username))
+            .filter(users::sso_username.eq(username))
             .select(ChatRsUser::as_select())
             .first(self.db)
             .await

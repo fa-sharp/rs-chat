@@ -56,7 +56,7 @@ diesel::table! {
         name -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
-        proxy_username -> Nullable<Text>,
+        sso_username -> Nullable<Text>,
         google_id -> Nullable<Text>,
         discord_id -> Nullable<Text>,
         avatar_url -> Nullable<Text>,

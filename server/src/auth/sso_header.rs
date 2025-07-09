@@ -40,8 +40,8 @@ pub struct SSOHeaderMergedConfig {
     pub logout_url: Option<String>,
 }
 
-/// Proxy user derived from headers
-pub struct ProxyUser<'r> {
+/// SSO user derived from headers
+pub struct SSOUser<'r> {
     pub username: &'r str,
     pub name: Option<&'r str>,
     pub groups: Option<Vec<&'r str>>,
@@ -77,12 +77,12 @@ pub fn setup_sso_header_auth() -> AdHoc {
 
 /// Handle login/authentication via SSO headers
 pub async fn get_sso_auth_outcome<'r>(
-    proxy_user: &ProxyUser<'_>,
+    sso_user: &SSOUser<'_>,
     sso_config: &SSOHeaderMergedConfig,
     db_service: &mut UserDbService<'_>,
 ) -> Outcome<ChatRsUser, &'r str> {
     if let Some(allowed_user_group) = &sso_config.user_group {
-        if proxy_user
+        if sso_user
             .groups
             .as_ref()
             .is_none_or(|groups| !groups.iter().any(|group| group == allowed_user_group))
@@ -91,7 +91,7 @@ pub async fn get_sso_auth_outcome<'r>(
             return Outcome::Error((Status::Unauthorized, "User group not allowed"));
         }
     }
-    match db_service.find_by_proxy_username(proxy_user.username).await {
+    match db_service.find_by_sso_username(sso_user.username).await {
         Ok(Some(user)) => {
             rocket::debug!("SSO header auth: existing user found");
             Outcome::Success(user)
@@ -100,8 +100,8 @@ pub async fn get_sso_auth_outcome<'r>(
             rocket::debug!("SSO header auth: creating new user");
             match db_service
                 .create(NewChatRsUser {
-                    proxy_username: Some(proxy_user.username),
-                    name: proxy_user.name.unwrap_or(proxy_user.username),
+                    sso_username: Some(sso_user.username),
+                    name: sso_user.name.unwrap_or(sso_user.username),
                     ..Default::default()
                 })
                 .await
@@ -124,10 +124,10 @@ pub async fn get_sso_auth_outcome<'r>(
 pub fn get_sso_user_from_headers<'r>(
     config: &SSOHeaderMergedConfig,
     headers: &'r HeaderMap,
-) -> Option<ProxyUser<'r>> {
+) -> Option<SSOUser<'r>> {
     headers
         .get_one(&config.username_header)
-        .map(|username| ProxyUser {
+        .map(|username| SSOUser {
             username,
             name: headers.get_one(&config.name_header),
             groups: headers

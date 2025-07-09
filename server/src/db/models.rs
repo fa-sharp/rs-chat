@@ -15,11 +15,16 @@ use crate::utils::create_provider::ProviderConfigInput;
 pub struct ChatRsUser {
     pub id: Uuid,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub github_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub google_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub discord_id: Option<String>,
-    pub proxy_username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sso_username: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -30,7 +35,7 @@ pub struct NewChatRsUser<'r> {
     pub github_id: Option<&'r str>,
     pub google_id: Option<&'r str>,
     pub discord_id: Option<&'r str>,
-    pub proxy_username: Option<&'r str>,
+    pub sso_username: Option<&'r str>,
     pub name: &'r str,
     pub avatar_url: Option<&'r str>,
 }
@@ -41,7 +46,7 @@ pub struct UpdateChatRsUser<'r> {
     pub github_id: Option<&'r str>,
     pub google_id: Option<&'r str>,
     pub discord_id: Option<&'r str>,
-    pub proxy_username: Option<&'r str>,
+    pub sso_username: Option<&'r str>,
     pub name: Option<&'r str>,
     pub avatar_url: Option<&'r str>,
 }
