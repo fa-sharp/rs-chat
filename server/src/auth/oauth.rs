@@ -33,7 +33,9 @@ struct UserData {
 
 /// Trait for OAuth providers
 trait OAuthProvider {
+    /// OAuth configuration to be extracted from environment
     type Config: for<'de> Deserialize<'de>;
+    /// OAuth user info type from provider's API
     type UserInfo: for<'de> Deserialize<'de> + Send + 'static;
 
     const PROVIDER_NAME: &'static str;
@@ -46,7 +48,7 @@ trait OAuthProvider {
     fn get_routes() -> Vec<Route>;
     fn create_request_headers() -> Vec<(&'static str, &'static str)>;
     fn extract_user_data(user_info: Self::UserInfo) -> UserData;
-    fn find_existing_user(
+    fn find_linked_user(
         db: &mut UserDbService,
         user_data: &UserData,
     ) -> impl Future<Output = Result<Option<ChatRsUser>, ApiError>> + Send;
@@ -111,12 +113,13 @@ where
 }
 
 /// Login redirect for the OAuth provider.
-async fn generic_login<P: OAuthProvider>(
+fn generic_login<P: OAuthProvider>(
     oauth2: OAuth2<P::UserInfo>,
     cookies: &CookieJar<'_>,
+    extra_params: Option<&[(&str, &str)]>,
 ) -> Result<Redirect, ApiError> {
     oauth2
-        .get_redirect(cookies, P::get_scopes())
+        .get_redirect_extras(cookies, P::get_scopes(), extra_params.unwrap_or_default())
         .map_err(|e| ApiError::Authentication(format!("Failed to get redirect: {}", e)))
 }
 
@@ -151,19 +154,19 @@ async fn generic_login_callback<P: OAuthProvider>(
     let user_data = P::extract_user_data(user_info);
 
     let mut db_service = UserDbService::new(&mut db);
-    match P::find_existing_user(&mut db_service, &user_data).await? {
+    match P::find_linked_user(&mut db_service, &user_data).await? {
+        // Existing linked user found: create new session
         Some(existing_user) => {
-            // Existing linked user found: create new session
             session.set(ChatRsAuthSession::new(existing_user.id));
         }
         None => match session.get() {
+            // No linked user and no session found: create new user and session
             None => {
-                // No linked user and no session found: create new user and session
                 let new_user = db_service.create(P::create_new_user(&user_data)).await?;
                 session.set(ChatRsAuthSession::new(new_user.id));
             }
+            // No linked user but there is a current session
             Some(session_data) => {
-                // No linked user but there is a current session
                 let user = db_service
                     .find_by_id(&session_data.user_id)
                     .await?
@@ -174,14 +177,14 @@ async fn generic_login_callback<P: OAuthProvider>(
                         ))
                     })?;
                 match P::is_user_linked(&user) {
+                    // User is not linked: link them to this OAuth provider
                     false => {
-                        // User is not linked: link them to the OAuth provider
                         db_service
                             .update(&session_data.user_id, P::create_update_user(&user_data))
                             .await?;
                     }
+                    // User is already linked to this OAuth provider
                     true => {
-                        // User is already linked to the OAuth provider
                         return Err(ApiError::Authentication(format!(
                             "User already linked to {}",
                             P::PROVIDER_NAME

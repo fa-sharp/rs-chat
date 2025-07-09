@@ -69,7 +69,7 @@ impl OAuthProvider for GoogleProvider {
         }
     }
 
-    async fn find_existing_user(
+    async fn find_linked_user(
         db: &mut UserDbService<'_>,
         user_data: &UserData,
     ) -> Result<Option<ChatRsUser>, ApiError> {
@@ -102,7 +102,7 @@ async fn google_login(
     oauth2: OAuth2<GoogleUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<GoogleProvider>(oauth2, cookies).await
+    generic_login::<GoogleProvider>(oauth2, cookies, None)
 }
 
 #[get("/login/google/callback")]

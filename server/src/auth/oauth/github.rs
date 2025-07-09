@@ -73,7 +73,7 @@ impl OAuthProvider for GitHubProvider {
         }
     }
 
-    async fn find_existing_user(
+    async fn find_linked_user(
         db: &mut UserDbService<'_>,
         user_data: &UserData,
     ) -> Result<Option<ChatRsUser>, ApiError> {
@@ -106,7 +106,7 @@ async fn github_login(
     oauth2: OAuth2<GitHubUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<GitHubProvider>(oauth2, cookies).await
+    generic_login::<GitHubProvider>(oauth2, cookies, None)
 }
 
 #[get("/login/github/callback")]

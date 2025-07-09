@@ -14,6 +14,7 @@ use crate::{
 
 use super::{generic_login, generic_login_callback, ChatRsAuthSession, OAuthProvider, UserData};
 
+/// Discord OAuth provider
 pub struct DiscordProvider;
 
 #[derive(Debug, Deserialize)]
@@ -76,7 +77,7 @@ impl OAuthProvider for DiscordProvider {
         }
     }
 
-    async fn find_existing_user(
+    async fn find_linked_user(
         db: &mut UserDbService<'_>,
         user_data: &UserData,
     ) -> Result<Option<ChatRsUser>, ApiError> {
@@ -109,7 +110,7 @@ async fn discord_login(
     oauth2: OAuth2<DiscordUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<DiscordProvider>(oauth2, cookies).await
+    generic_login::<DiscordProvider>(oauth2, cookies, Some(&[("prompt", "none")]))
 }
 
 #[get("/login/discord/callback")]
