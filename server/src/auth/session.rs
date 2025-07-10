@@ -1,6 +1,8 @@
 use std::time::Duration;
 
 use chrono::Utc;
+use fred::types::Key;
+use get_fields::GetFields;
 use rocket::fairing::AdHoc;
 use rocket_flex_session::{storage::redis::RedisFredStorage, RocketFlexSession};
 use uuid::Uuid;
@@ -8,7 +10,7 @@ use uuid::Uuid;
 use crate::config::get_app_config;
 
 /// Type representing the session data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, GetFields)]
 pub struct ChatRsAuthSession {
     pub user_id: Uuid,
     pub start_time: String,
@@ -42,12 +44,12 @@ impl TryFrom<fred::prelude::Value> for ChatRsAuthSession {
             .into_map()
             .map_err(|_| SessionParseError::ParsingError)?;
         let user_id = map
-            .get(&"user_id".into())
+            .get(&Key::from_static_str(ChatRsAuthSession::get_fields[0]))
             .and_then(|v| v.as_str())
             .ok_or(SessionParseError::MissingField)
             .and_then(|s| Uuid::try_parse(&s).map_err(|_| SessionParseError::InvalidField))?;
         let start_time = map
-            .get(&"start_time".into())
+            .get(&Key::from_static_str(ChatRsAuthSession::get_fields[1]))
             .and_then(|v| v.as_string())
             .ok_or(SessionParseError::MissingField)?;
 
