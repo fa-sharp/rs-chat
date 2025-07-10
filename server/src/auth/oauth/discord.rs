@@ -1,4 +1,4 @@
-use rocket::{get, http::CookieJar, response::Redirect, routes, Route};
+use rocket::{get, http::CookieJar, response::Redirect, routes, Route, State};
 use rocket_flex_session::Session;
 use rocket_oauth2::{OAuth2, StaticProvider, TokenResponse};
 use serde::Deserialize;
@@ -19,8 +19,8 @@ pub struct DiscordProvider;
 
 #[derive(Debug, Deserialize)]
 pub struct DiscordOAuthConfig {
-    pub discord_client_id: u64,
-    pub discord_client_secret: String,
+    discord_client_id: u64,
+    discord_client_secret: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,17 +36,20 @@ impl OAuthProvider for DiscordProvider {
     type UserInfo = DiscordUserInfo;
 
     const PROVIDER_NAME: &'static str = "Discord";
-    const STATIC_PROVIDER: StaticProvider = StaticProvider::Discord;
 
-    fn get_scopes() -> &'static [&'static str] {
-        &["identify"]
+    fn get_static_provider(_config: &Self::Config) -> StaticProvider {
+        StaticProvider::Discord
+    }
+
+    fn get_scopes(_config: Option<&Self::Config>) -> Vec<&str> {
+        vec!["identify"]
     }
 
     fn get_routes() -> Vec<Route> {
         routes![discord_login, discord_login_callback]
     }
 
-    fn get_user_info_url() -> &'static str {
+    fn get_user_info_url(_config: &Self::Config) -> &str {
         "https://discord.com/api/v9/users/@me"
     }
 
@@ -110,14 +113,15 @@ async fn discord_login(
     oauth2: OAuth2<DiscordUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<DiscordProvider>(oauth2, cookies, Some(&[("prompt", "none")]))
+    generic_login::<DiscordProvider>(oauth2, cookies, None, Some(&[("prompt", "none")]))
 }
 
 #[get("/login/discord/callback")]
 async fn discord_login_callback(
     db: DbConnection,
     token: TokenResponse<DiscordUserInfo>,
+    config: &State<DiscordOAuthConfig>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<DiscordProvider>(db, token, session).await
+    generic_login_callback::<DiscordProvider>(db, token, config.inner(), session).await
 }

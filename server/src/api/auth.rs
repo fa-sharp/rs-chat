@@ -14,7 +14,7 @@ use schemars::JsonSchema;
 
 use crate::{
     auth::{
-        ChatRsAuthSession, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig,
+        ChatRsAuthSession, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OIDCConfig,
         SSOHeaderMergedConfig,
     },
     db::{
@@ -51,10 +51,26 @@ struct AuthConfig {
     google: bool,
     /// Whether Discord login is enabled
     discord: bool,
+    /// OIDC configuration
+    oidc: Option<OIDC>,
+    /// SSO configuration
+    sso: Option<SSO>,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct OIDC {
+    /// Whether OIDC login is enabled
+    enabled: bool,
+    /// The name of the OIDC provider
+    name: String,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct SSO {
     /// Whether SSO header authentication is enabled
-    sso_enabled: bool,
+    enabled: bool,
     /// The URL to redirect to after logout
-    sso_logout_url: Option<String>,
+    logout_url: Option<String>,
 }
 
 #[rocket::async_trait]
@@ -69,8 +85,14 @@ impl<'r> FromRequest<'r> for AuthConfig {
             github: rocket.state::<GitHubOAuthConfig>().is_some(),
             google: rocket.state::<GoogleOAuthConfig>().is_some(),
             discord: rocket.state::<DiscordOAuthConfig>().is_some(),
-            sso_enabled: sso_config.is_some(),
-            sso_logout_url: sso_config.and_then(|config| config.logout_url.to_owned()),
+            oidc: rocket.state::<OIDCConfig>().map(|config| OIDC {
+                enabled: true,
+                name: config.oidc_name.clone().unwrap_or("OIDC".to_owned()),
+            }),
+            sso: sso_config.map(|config| SSO {
+                enabled: true,
+                logout_url: config.logout_url.clone(),
+            }),
         })
     }
 }

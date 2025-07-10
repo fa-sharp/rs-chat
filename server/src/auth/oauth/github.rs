@@ -1,4 +1,4 @@
-use rocket::{get, http::CookieJar, response::Redirect, routes, Route};
+use rocket::{get, http::CookieJar, response::Redirect, routes, Route, State};
 use rocket_flex_session::Session;
 use rocket_oauth2::{OAuth2, StaticProvider, TokenResponse};
 use serde::Deserialize;
@@ -19,8 +19,8 @@ pub struct GitHubProvider;
 
 #[derive(Debug, Deserialize)]
 pub struct GitHubOAuthConfig {
-    pub github_client_id: String,
-    pub github_client_secret: String,
+    github_client_id: String,
+    github_client_secret: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,17 +36,20 @@ impl OAuthProvider for GitHubProvider {
     type UserInfo = GitHubUserInfo;
 
     const PROVIDER_NAME: &'static str = "GitHub";
-    const STATIC_PROVIDER: StaticProvider = StaticProvider::GitHub;
 
-    fn get_scopes() -> &'static [&'static str] {
-        &["user:read"]
+    fn get_static_provider(_config: &Self::Config) -> StaticProvider {
+        StaticProvider::GitHub
+    }
+
+    fn get_scopes(_config: Option<&Self::Config>) -> Vec<&str> {
+        vec!["user:read"]
     }
 
     fn get_routes() -> Vec<Route> {
         routes![github_login, github_login_callback]
     }
 
-    fn get_user_info_url() -> &'static str {
+    fn get_user_info_url(_config: &Self::Config) -> &str {
         "https://api.github.com/user"
     }
 
@@ -106,14 +109,15 @@ async fn github_login(
     oauth2: OAuth2<GitHubUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<GitHubProvider>(oauth2, cookies, None)
+    generic_login::<GitHubProvider>(oauth2, cookies, None, None)
 }
 
 #[get("/login/github/callback")]
 async fn github_login_callback(
     db: DbConnection,
     token: TokenResponse<GitHubUserInfo>,
+    config: &State<GitHubOAuthConfig>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<GitHubProvider>(db, token, session).await
+    generic_login_callback::<GitHubProvider>(db, token, config.inner(), session).await
 }

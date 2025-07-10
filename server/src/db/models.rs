@@ -24,6 +24,8 @@ pub struct ChatRsUser {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discord_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub oidc_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sso_username: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -35,6 +37,7 @@ pub struct NewChatRsUser<'r> {
     pub github_id: Option<&'r str>,
     pub google_id: Option<&'r str>,
     pub discord_id: Option<&'r str>,
+    pub oidc_id: Option<&'r str>,
     pub sso_username: Option<&'r str>,
     pub name: &'r str,
     pub avatar_url: Option<&'r str>,
@@ -46,6 +49,7 @@ pub struct UpdateChatRsUser<'r> {
     pub github_id: Option<&'r str>,
     pub google_id: Option<&'r str>,
     pub discord_id: Option<&'r str>,
+    pub oidc_id: Option<&'r str>,
     pub sso_username: Option<&'r str>,
     pub name: Option<&'r str>,
     pub avatar_url: Option<&'r str>,

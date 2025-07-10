@@ -1,4 +1,4 @@
-use rocket::{get, http::CookieJar, response::Redirect, routes, Route};
+use rocket::{get, http::CookieJar, response::Redirect, routes, Route, State};
 use rocket_flex_session::Session;
 use rocket_oauth2::{OAuth2, StaticProvider, TokenResponse};
 use serde::Deserialize;
@@ -35,17 +35,20 @@ impl OAuthProvider for GoogleProvider {
     type UserInfo = GoogleUserInfo;
 
     const PROVIDER_NAME: &'static str = "Google";
-    const STATIC_PROVIDER: StaticProvider = StaticProvider::Google;
 
-    fn get_scopes() -> &'static [&'static str] {
-        &["openid", "profile"]
+    fn get_static_provider(_config: &Self::Config) -> StaticProvider {
+        StaticProvider::Google
+    }
+
+    fn get_scopes(_config: Option<&Self::Config>) -> Vec<&str> {
+        vec!["openid", "profile"]
     }
 
     fn get_routes() -> Vec<Route> {
         routes![google_login, google_login_callback]
     }
 
-    fn get_user_info_url() -> &'static str {
+    fn get_user_info_url(_config: &Self::Config) -> &str {
         "https://www.googleapis.com/oauth2/v3/userinfo"
     }
 
@@ -102,14 +105,15 @@ async fn google_login(
     oauth2: OAuth2<GoogleUserInfo>,
     cookies: &CookieJar<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<GoogleProvider>(oauth2, cookies, None)
+    generic_login::<GoogleProvider>(oauth2, cookies, None, None)
 }
 
 #[get("/login/google/callback")]
 async fn google_login_callback(
     db: DbConnection,
     token: TokenResponse<GoogleUserInfo>,
+    config: &State<GoogleOAuthConfig>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<GoogleProvider>(db, token, session).await
+    generic_login_callback::<GoogleProvider>(db, token, config.inner(), session).await
 }

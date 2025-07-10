@@ -4,7 +4,9 @@ mod session;
 mod sso_header;
 
 pub use guard::ChatRsUserId;
-pub use oauth::{setup_oauth, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig};
+pub use oauth::{
+    setup_oauth, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OIDCConfig,
+};
 pub use session::{setup_session, ChatRsAuthSession};
 pub use sso_header::{setup_sso_header_auth, SSOHeaderMergedConfig};
 

@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN oidc_id TEXT UNIQUE;

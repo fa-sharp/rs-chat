@@ -60,6 +60,7 @@ diesel::table! {
         google_id -> Nullable<Text>,
         discord_id -> Nullable<Text>,
         avatar_url -> Nullable<Text>,
+        oidc_id -> Nullable<Text>,
     }
 }
 
