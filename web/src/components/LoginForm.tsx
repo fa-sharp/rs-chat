@@ -1,13 +1,21 @@
 import { Link } from "@tanstack/react-router";
-import { Github } from "lucide-react";
+import { GlobeLock } from "lucide-react";
 
+import { Discord, GitHub, Google } from "@/components/logos";
 import { Button } from "@/components/ui/button";
+import { API_URL } from "@/lib/api/client";
+import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+
+interface Props {
+  config: components["schemas"]["AuthConfig"];
+}
 
 export function LoginForm({
   className,
+  config,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & Props) {
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <form>
@@ -30,32 +38,54 @@ export function LoginForm({
               </a>
             </div>
           </div>
-          {/* <div className="flex flex-col gap-6">
-            <div className="grid gap-3">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-          </div>
-          <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
-            <span className="bg-background text-muted-foreground relative z-10 px-2">
-              Or
-            </span>
-          </div> */}
-          <div className="flex">
-            <Button asChild variant="outline" type="button" className="w-full">
-              <a href="/api/auth/login/github">
-                <Github className="size-5" />
-                Login with GitHub
-              </a>
-            </Button>
+          <div className="flex flex-col gap-2">
+            {config.github && (
+              <Button asChild variant="outline" type="button">
+                <a href={`${API_URL}/auth/login/github`}>
+                  <GitHub />
+                  Login with GitHub
+                </a>
+              </Button>
+            )}
+            {config.google && (
+              <Button
+                asChild
+                variant="outline"
+                type="button"
+                className="w-full"
+              >
+                <a href={`${API_URL}/auth/login/google`}>
+                  <Google />
+                  Login with Google
+                </a>
+              </Button>
+            )}
+            {config.discord && (
+              <Button
+                asChild
+                variant="outline"
+                type="button"
+                className="w-full"
+              >
+                <a href={`${API_URL}/auth/login/discord`}>
+                  <Discord />
+                  Login with Discord
+                </a>
+              </Button>
+            )}
+            {config.oidc?.enabled && (
+              <Button
+                asChild
+                variant="outline"
+                type="button"
+                className="w-full"
+              >
+                <a href={`${API_URL}/auth/login/oidc`}>
+                  <GlobeLock />
+                  Login with {config.oidc.name}
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </form>

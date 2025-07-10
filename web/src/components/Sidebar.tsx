@@ -105,11 +105,7 @@ export function AppSidebar({
                       <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
                         <Avatar>
                           <AvatarImage
-                            src={
-                              !user
-                                ? ""
-                                : `https://avatars.githubusercontent.com/u/${user.github_id}`
-                            }
+                            src={user?.avatar_url || ""}
                             alt="Avatar"
                           />
                           <AvatarFallback>

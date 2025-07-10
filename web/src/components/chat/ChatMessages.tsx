@@ -71,11 +71,7 @@ export default function ChatMessages({
             variant={message.role === "User" ? "sent" : "received"}
           >
             <ChatBubbleAvatar
-              src={
-                message.role === "User" && user
-                  ? `https://avatars.githubusercontent.com/u/${user.github_id}`
-                  : ""
-              }
+              src={(message.role === "User" && user?.avatar_url) || undefined}
               fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
             />
             <ChatBubbleMessage

@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get the current auth configuration */
+        get: operations["auth_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -62,7 +79,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List chat sessions */
+        /** @description List chat sessions */
         get: operations["get_all_sessions"];
         put?: never;
         /** @description Create a new chat session */
@@ -168,8 +185,13 @@ export interface components {
         ChatRsUser: {
             /** Format: uuid */
             id: string;
-            github_id: string;
             name: string;
+            avatar_url?: string | null;
+            github_id?: string | null;
+            google_id?: string | null;
+            discord_id?: string | null;
+            oidc_id?: string | null;
+            sso_username?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -177,6 +199,31 @@ export interface components {
         };
         Message: {
             message: string;
+        };
+        /** @description The current auth configuration of the server */
+        AuthConfig: {
+            /** @description Whether GitHub login is enabled */
+            github: boolean;
+            /** @description Whether Google login is enabled */
+            google: boolean;
+            /** @description Whether Discord login is enabled */
+            discord: boolean;
+            /** @description OIDC configuration */
+            oidc?: components["schemas"]["OIDC"] | null;
+            /** @description SSO configuration */
+            sso?: components["schemas"]["SSO"] | null;
+        };
+        OIDC: {
+            /** @description Whether OIDC login is enabled */
+            enabled: boolean;
+            /** @description The name of the OIDC provider */
+            name: string;
+        };
+        SSO: {
+            /** @description Whether SSO header authentication is enabled */
+            enabled: boolean;
+            /** @description The URL to redirect to after logout */
+            logout_url?: string | null;
         };
         ChatRsSession: {
             /** Format: uuid */
@@ -344,6 +391,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    auth_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
                 };
             };
         };
