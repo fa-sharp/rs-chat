@@ -36,9 +36,9 @@ struct UserData {
 /// Trait for OAuth providers
 trait OAuthProvider {
     /// OAuth configuration to be extracted from environment and added to Rocket state
-    type Config: for<'de> Deserialize<'de>;
+    type Config: for<'de> Deserialize<'de> + Send + Sync + 'static;
     /// OAuth user info type from provider's API
-    type UserInfo: for<'de> Deserialize<'de> + Send + 'static;
+    type UserInfo: for<'de> Deserialize<'de> + 'static;
 
     const PROVIDER_NAME: &'static str;
 
@@ -80,11 +80,7 @@ fn setup_oauth_provider<P: OAuthProvider>(
     rocket: rocket::Rocket<rocket::Build>,
     base_path: &str,
     config_provider: &Figment,
-) -> rocket::Rocket<rocket::Build>
-where
-    P::Config: Send + Sync + 'static,
-    P::UserInfo: Send + Sync + 'static,
-{
+) -> rocket::Rocket<rocket::Build> {
     if let Ok(config) = config_provider.extract::<P::Config>() {
         rocket::info!("OAuth: {} login enabled!", P::PROVIDER_NAME);
 
