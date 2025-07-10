@@ -15,9 +15,11 @@ use crate::{
 use super::{generic_login, generic_login_callback, ChatRsAuthSession, OAuthProvider, UserData};
 
 /// Discord OAuth provider
-pub struct DiscordProvider;
+pub struct DiscordProvider {
+    config: DiscordOAuthConfig,
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct DiscordOAuthConfig {
     discord_client_id: u64,
     discord_client_secret: String,
@@ -37,11 +39,17 @@ impl OAuthProvider for DiscordProvider {
 
     const PROVIDER_NAME: &'static str = "Discord";
 
-    fn get_static_provider(_config: &Self::Config) -> StaticProvider {
+    fn new(config: &Self::Config) -> Self {
+        Self {
+            config: config.clone(),
+        }
+    }
+
+    fn get_static_provider(&self) -> StaticProvider {
         StaticProvider::Discord
     }
 
-    fn get_scopes(_config: Option<&Self::Config>) -> Vec<&str> {
+    fn get_scopes(&self) -> Vec<&str> {
         vec!["identify"]
     }
 
@@ -49,16 +57,16 @@ impl OAuthProvider for DiscordProvider {
         routes![discord_login, discord_login_callback]
     }
 
-    fn get_user_info_url(_config: &Self::Config) -> &str {
+    fn get_user_info_url(&self) -> &str {
         "https://discord.com/api/v9/users/@me"
     }
 
-    fn get_client_id(config: &Self::Config) -> String {
-        config.discord_client_id.to_string()
+    fn get_client_id(&self) -> String {
+        self.config.discord_client_id.to_string()
     }
 
-    fn get_client_secret(config: &Self::Config) -> String {
-        config.discord_client_secret.clone()
+    fn get_client_secret(&self) -> String {
+        self.config.discord_client_secret.clone()
     }
 
     fn create_request_headers() -> Vec<(&'static str, &'static str)> {
@@ -112,8 +120,9 @@ impl OAuthProvider for DiscordProvider {
 async fn discord_login(
     oauth2: OAuth2<DiscordUserInfo>,
     cookies: &CookieJar<'_>,
+    config: &State<DiscordOAuthConfig>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<DiscordProvider>(oauth2, cookies, None, Some(&[("prompt", "none")]))
+    generic_login::<DiscordProvider>(oauth2, cookies, config, Some(&[("prompt", "none")]))
 }
 
 #[get("/login/discord/callback")]
@@ -123,5 +132,5 @@ async fn discord_login_callback(
     config: &State<DiscordOAuthConfig>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<DiscordProvider>(db, token, config.inner(), session).await
+    generic_login_callback::<DiscordProvider>(db, token, config, session).await
 }

@@ -15,9 +15,11 @@ use crate::{
 use super::{generic_login, generic_login_callback, ChatRsAuthSession, OAuthProvider, UserData};
 
 /// Google OAuth provider
-pub struct GoogleProvider;
+pub struct GoogleProvider {
+    config: GoogleOAuthConfig,
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct GoogleOAuthConfig {
     pub google_client_id: String,
     pub google_client_secret: String,
@@ -36,11 +38,17 @@ impl OAuthProvider for GoogleProvider {
 
     const PROVIDER_NAME: &'static str = "Google";
 
-    fn get_static_provider(_config: &Self::Config) -> StaticProvider {
+    fn new(config: &GoogleOAuthConfig) -> Self {
+        Self {
+            config: config.clone(),
+        }
+    }
+
+    fn get_static_provider(&self) -> StaticProvider {
         StaticProvider::Google
     }
 
-    fn get_scopes(_config: Option<&Self::Config>) -> Vec<&str> {
+    fn get_scopes(&self) -> Vec<&str> {
         vec!["openid", "profile"]
     }
 
@@ -48,16 +56,16 @@ impl OAuthProvider for GoogleProvider {
         routes![google_login, google_login_callback]
     }
 
-    fn get_user_info_url(_config: &Self::Config) -> &str {
+    fn get_user_info_url(&self) -> &str {
         "https://www.googleapis.com/oauth2/v3/userinfo"
     }
 
-    fn get_client_id(config: &Self::Config) -> String {
-        config.google_client_id.clone()
+    fn get_client_id(&self) -> String {
+        self.config.google_client_id.clone()
     }
 
-    fn get_client_secret(config: &Self::Config) -> String {
-        config.google_client_secret.clone()
+    fn get_client_secret(&self) -> String {
+        self.config.google_client_secret.clone()
     }
 
     fn create_request_headers() -> Vec<(&'static str, &'static str)> {
@@ -104,8 +112,9 @@ impl OAuthProvider for GoogleProvider {
 async fn google_login(
     oauth2: OAuth2<GoogleUserInfo>,
     cookies: &CookieJar<'_>,
+    config: &State<GoogleOAuthConfig>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<GoogleProvider>(oauth2, cookies, None, None)
+    generic_login::<GoogleProvider>(oauth2, cookies, config, None)
 }
 
 #[get("/login/google/callback")]

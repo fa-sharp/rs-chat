@@ -42,11 +42,12 @@ trait OAuthProvider {
 
     const PROVIDER_NAME: &'static str;
 
-    fn get_static_provider(config: &Self::Config) -> StaticProvider;
-    fn get_scopes(config: Option<&Self::Config>) -> Vec<&str>;
-    fn get_user_info_url(config: &Self::Config) -> &str;
-    fn get_client_id(config: &Self::Config) -> String;
-    fn get_client_secret(config: &Self::Config) -> String;
+    fn new(config: &Self::Config) -> Self;
+    fn get_static_provider(&self) -> StaticProvider;
+    fn get_scopes(&self) -> Vec<&str>;
+    fn get_user_info_url(&self) -> &str;
+    fn get_client_id(&self) -> String;
+    fn get_client_secret(&self) -> String;
     fn get_routes() -> Vec<Route>;
     fn create_request_headers() -> Vec<(&'static str, &'static str)>;
     fn extract_user_data(user_info: Self::UserInfo) -> UserData;
@@ -87,15 +88,16 @@ where
     if let Ok(config) = config_provider.extract::<P::Config>() {
         rocket::info!("OAuth: {} login enabled!", P::PROVIDER_NAME);
 
+        let provider = P::new(&config);
         let callback_path = format!(
             "{}/login/{}/callback",
             base_path,
             P::PROVIDER_NAME.to_lowercase()
         );
         let oauth_config = OAuthConfig::new(
-            P::get_static_provider(&config),
-            P::get_client_id(&config),
-            P::get_client_secret(&config),
+            provider.get_static_provider(),
+            provider.get_client_id(),
+            provider.get_client_secret(),
             Some(format!(
                 "{}{}",
                 get_app_config(&rocket).server_address,
@@ -119,13 +121,13 @@ where
 fn generic_login<P: OAuthProvider>(
     oauth2: OAuth2<P::UserInfo>,
     cookies: &CookieJar<'_>,
-    config: Option<&P::Config>,
+    config: &P::Config,
     extra_params: Option<&[(&str, &str)]>,
 ) -> Result<Redirect, ApiError> {
     oauth2
         .get_redirect_extras(
             cookies,
-            P::get_scopes(config).as_slice(),
+            P::new(config).get_scopes().as_slice(),
             extra_params.unwrap_or_default(),
         )
         .map_err(|e| ApiError::Authentication(format!("Failed to get redirect: {}", e)))
@@ -145,7 +147,7 @@ async fn generic_login_callback<P: OAuthProvider>(
         .build()
         .map_err(|e| ApiError::Authentication(format!("Failed to build reqwest client: {}", e)))?;
     let mut request = client
-        .get(P::get_user_info_url(config))
+        .get(P::new(config).get_user_info_url())
         .header("Authorization", format!("Bearer {}", token.access_token()));
     for (key, value) in P::create_request_headers() {
         request = request.header(key, value);

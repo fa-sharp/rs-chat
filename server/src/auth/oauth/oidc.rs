@@ -15,9 +15,11 @@ use crate::{
 use super::{generic_login, generic_login_callback, ChatRsAuthSession, OAuthProvider, UserData};
 
 /// Custom OIDC provider
-pub struct OIDCProvider;
+pub struct OIDCProvider {
+    config: OIDCConfig,
+}
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct OIDCConfig {
     oidc_client_id: serde_json::Value,
     oidc_client_secret: String,
@@ -47,16 +49,23 @@ impl OAuthProvider for OIDCProvider {
 
     const PROVIDER_NAME: &'static str = "OIDC";
 
-    fn get_static_provider(config: &Self::Config) -> StaticProvider {
-        StaticProvider {
-            auth_uri: config.oidc_auth_endpoint.clone().into(),
-            token_uri: config.oidc_token_endpoint.clone().into(),
+    fn new(config: &Self::Config) -> Self {
+        Self {
+            config: config.clone(),
         }
     }
 
-    fn get_scopes(config: Option<&Self::Config>) -> Vec<&str> {
-        config
-            .and_then(|config| config.oidc_scopes.as_ref())
+    fn get_static_provider(&self) -> StaticProvider {
+        StaticProvider {
+            auth_uri: self.config.oidc_auth_endpoint.clone().into(),
+            token_uri: self.config.oidc_token_endpoint.clone().into(),
+        }
+    }
+
+    fn get_scopes(&self) -> Vec<&str> {
+        self.config
+            .oidc_scopes
+            .as_ref()
             .map_or(vec!["openid", "profile"], |scopes| {
                 scopes.split(' ').collect()
             })
@@ -66,16 +75,16 @@ impl OAuthProvider for OIDCProvider {
         routes![oidc_login, oidc_login_callback]
     }
 
-    fn get_user_info_url(config: &Self::Config) -> &str {
-        &config.oidc_userinfo_endpoint
+    fn get_user_info_url(&self) -> &str {
+        &self.config.oidc_userinfo_endpoint
     }
 
-    fn get_client_id(config: &Self::Config) -> String {
-        config.oidc_client_id.to_string()
+    fn get_client_id(&self) -> String {
+        self.config.oidc_client_id.to_string()
     }
 
-    fn get_client_secret(config: &Self::Config) -> String {
-        config.oidc_client_secret.clone()
+    fn get_client_secret(&self) -> String {
+        self.config.oidc_client_secret.clone()
     }
 
     fn create_request_headers() -> Vec<(&'static str, &'static str)> {
@@ -127,7 +136,7 @@ async fn oidc_login(
     cookies: &CookieJar<'_>,
     config: &State<OIDCConfig>,
 ) -> Result<Redirect, ApiError> {
-    generic_login::<OIDCProvider>(oauth2, cookies, Some(config.inner()), None)
+    generic_login::<OIDCProvider>(oauth2, cookies, config, None)
 }
 
 #[get("/login/oidc/callback")]
@@ -137,5 +146,5 @@ async fn oidc_login_callback(
     config: &State<OIDCConfig>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<OIDCProvider>(db, token, config.inner(), session).await
+    generic_login_callback::<OIDCProvider>(db, token, config, session).await
 }
