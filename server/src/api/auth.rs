@@ -27,12 +27,19 @@ use crate::{
 
 /// Auth routes
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: auth_config, user, logout]
+    openapi_get_routes_spec![settings: user, auth_config, logout]
 }
 
 /// Undocumented auth routes: account deletion
 pub fn get_undocumented_routes() -> Vec<Route> {
     routes![delete_account]
+}
+
+/// Get the current user info
+#[openapi(tag = "Auth")]
+#[get("/user")]
+async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
+    Ok(Json(user))
 }
 
 /// The current auth configuration of the server
@@ -73,13 +80,6 @@ impl<'r> FromRequest<'r> for AuthConfig {
 #[get("/config")]
 async fn auth_config(config: AuthConfig) -> Json<AuthConfig> {
     Json(config)
-}
-
-/// Get the current user info
-#[openapi(tag = "Auth")]
-#[get("/user")]
-async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
-    Ok(Json(user))
 }
 
 /// Log out

@@ -6,11 +6,9 @@ use rocket::{
 use serde::Deserialize;
 
 use crate::{
+    auth::guard::ChatRsUserId,
     config::get_config_provider,
-    db::{
-        models::{ChatRsUser, NewChatRsUser},
-        services::user::UserDbService,
-    },
+    db::{models::NewChatRsUser, services::user::UserDbService},
 };
 
 /// SSO / proxy header configuration. Can be set via environment variables.
@@ -80,7 +78,7 @@ pub async fn get_sso_auth_outcome<'r>(
     sso_user: &SSOUser<'_>,
     sso_config: &SSOHeaderMergedConfig,
     db_service: &mut UserDbService<'_>,
-) -> Outcome<ChatRsUser, &'r str> {
+) -> Outcome<ChatRsUserId, &'r str> {
     if let Some(allowed_user_group) = &sso_config.user_group {
         if sso_user
             .groups
@@ -92,9 +90,9 @@ pub async fn get_sso_auth_outcome<'r>(
         }
     }
     match db_service.find_by_sso_username(sso_user.username).await {
-        Ok(Some(user)) => {
+        Ok(Some(user_id)) => {
             rocket::debug!("SSO header auth: existing user found");
-            Outcome::Success(user)
+            Outcome::Success(ChatRsUserId(user_id))
         }
         Ok(None) => {
             rocket::debug!("SSO header auth: creating new user");
@@ -106,7 +104,7 @@ pub async fn get_sso_auth_outcome<'r>(
                 })
                 .await
             {
-                Ok(user) => Outcome::Success(user),
+                Ok(user) => Outcome::Success(ChatRsUserId(user.id)),
                 Err(err) => {
                     rocket::error!("SSO header auth: database error: {}", err);
                     Outcome::Error((Status::InternalServerError, "Server error"))

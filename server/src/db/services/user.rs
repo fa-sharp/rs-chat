@@ -62,18 +62,15 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
-    pub async fn find_by_sso_username(
-        &mut self,
-        username: &str,
-    ) -> Result<Option<ChatRsUser>, Error> {
-        let user = users::table
+    pub async fn find_by_sso_username(&mut self, username: &str) -> Result<Option<Uuid>, Error> {
+        let user_id = users::table
             .filter(users::sso_username.eq(username))
-            .select(ChatRsUser::as_select())
+            .select(users::id)
             .first(self.db)
             .await
             .optional()?;
 
-        Ok(user)
+        Ok(user_id)
     }
 
     pub async fn create(&mut self, user: NewChatRsUser<'_>) -> Result<ChatRsUser, Error> {

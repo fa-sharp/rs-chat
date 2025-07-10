@@ -14,8 +14,9 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
+    auth::ChatRsUserId,
     db::{
-        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsUser, NewChatRsMessage},
+        models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
         services::{api_key::ApiKeyDbService, chat::ChatDbService},
         DbConnection, DbPool,
     },
@@ -43,7 +44,7 @@ pub struct SendChatInput<'a> {
 #[openapi(tag = "Chat")]
 #[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
     redis: RedisClient,
@@ -53,13 +54,13 @@ pub async fn send_chat_stream(
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     // Check session exists and user is owner, get message history
     let (_, current_messages) = ChatDbService::new(&mut db)
-        .get_session_with_messages(&user.id, &session_id)
+        .get_session_with_messages(&user_id, &session_id)
         .await?;
     let is_first_message = current_messages.is_empty();
 
     // Get the chat provider
     let provider = create_provider(
-        &user.id,
+        &user_id,
         &input.provider,
         &mut ApiKeyDbService::new(&mut db),
         &encryptor,
@@ -89,7 +90,7 @@ pub async fn send_chat_stream(
             .await?;
         if is_first_message {
             generate_title(
-                &user.id,
+                &user_id,
                 &session_id,
                 user_message,
                 &input.provider,

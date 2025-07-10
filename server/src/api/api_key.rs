@@ -6,8 +6,9 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
+    auth::ChatRsUserId,
     db::{
-        models::{ChatRsApiKey, ChatRsApiKeyProviderType, ChatRsUser, NewChatRsApiKey},
+        models::{ChatRsApiKey, ChatRsApiKeyProviderType, NewChatRsApiKey},
         services::api_key::ApiKeyDbService,
         DbConnection,
     },
@@ -23,11 +24,11 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 #[openapi(tag = "API Keys")]
 #[get("/")]
 async fn get_all_api_keys(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
 ) -> Result<Json<Vec<ChatRsApiKey>>, ApiError> {
     let keys = ApiKeyDbService::new(&mut db)
-        .find_by_user_id(&user.id)
+        .find_by_user_id(&user_id)
         .await?;
 
     Ok(Json(keys))
@@ -43,7 +44,7 @@ struct ApiKeyInput {
 #[openapi(tag = "API Keys")]
 #[post("/", data = "<input>")]
 async fn create_api_key(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     encryptor: &State<Encryptor>,
     input: Json<ApiKeyInput>,
@@ -51,7 +52,7 @@ async fn create_api_key(
     let (ciphertext, nonce) = encryptor.encrypt_string(&input.key)?;
     let id = ApiKeyDbService::new(&mut db)
         .create(NewChatRsApiKey {
-            user_id: &user.id,
+            user_id: &user_id,
             provider: &input.provider,
             ciphertext: &ciphertext,
             nonce: &nonce,
@@ -65,12 +66,12 @@ async fn create_api_key(
 #[openapi(tag = "API Keys")]
 #[delete("/<api_key_id>")]
 async fn delete_api_key(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     api_key_id: Uuid,
 ) -> Result<(), ApiError> {
     let _ = ApiKeyDbService::new(&mut db)
-        .delete(&user.id, &api_key_id)
+        .delete(&user_id, &api_key_id)
         .await?;
 
     Ok(())

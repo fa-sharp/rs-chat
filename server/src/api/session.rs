@@ -8,10 +8,11 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
+    auth::ChatRsUserId,
     db::{
         models::{
-            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, ChatRsUser,
-            NewChatRsSession, UpdateChatRsSession,
+            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, NewChatRsSession,
+            UpdateChatRsSession,
         },
         services::chat::ChatDbService,
         DbConnection,
@@ -41,11 +42,11 @@ struct SessionIdResponse {
 #[openapi(tag = "Chat Session")]
 #[get("/")]
 async fn get_all_sessions(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
 ) -> Result<Json<Vec<ChatRsSession>>, ApiError> {
     let sessions = ChatDbService::new(&mut db)
-        .get_all_sessions(&user.id)
+        .get_all_sessions(&user_id)
         .await?;
 
     Ok(Json(sessions))
@@ -55,12 +56,12 @@ async fn get_all_sessions(
 #[openapi(tag = "Chat Session")]
 #[post("/")]
 async fn create_session(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
 ) -> Result<Json<SessionIdResponse>, ApiError> {
     let id = ChatDbService::new(&mut db)
         .create_session(NewChatRsSession {
-            user_id: &user.id,
+            user_id: &user_id,
             title: "New Chat",
         })
         .await?;
@@ -78,13 +79,13 @@ struct GetSessionResponse {
 #[openapi(tag = "Chat Session")]
 #[get("/<session_id>")]
 async fn get_session(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     redis: RedisClient,
     session_id: Uuid,
 ) -> Result<Json<GetSessionResponse>, ApiError> {
     let (session, mut messages) = ChatDbService::new(&mut db)
-        .get_session_with_messages(&user.id, &session_id)
+        .get_session_with_messages(&user_id, &session_id)
         .await?;
 
     // Check for a cached response if the session is interrupted
@@ -117,14 +118,14 @@ struct UpdateSessionInput {
 #[openapi(tag = "Chat Session")]
 #[patch("/<session_id>", data = "<body>")]
 async fn update_session(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     session_id: Uuid,
     body: Json<UpdateSessionInput>,
 ) -> Result<Json<SessionIdResponse>, ApiError> {
     let updated_id = ChatDbService::new(&mut db)
         .update_session(
-            &user.id,
+            &user_id,
             &session_id,
             UpdateChatRsSession { title: &body.title },
         )
@@ -139,13 +140,13 @@ async fn update_session(
 #[openapi(tag = "Chat Session")]
 #[delete("/<session_id>/<message_id>")]
 async fn delete_message(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     session_id: Uuid,
     message_id: Uuid,
 ) -> Result<(), ApiError> {
     let mut db_service = ChatDbService::new(&mut db);
-    let _ = db_service.get_session(&user.id, &session_id).await?;
+    let _ = db_service.get_session(&user_id, &session_id).await?;
     let _ = db_service.delete_message(&session_id, &message_id).await?;
 
     Ok(())
@@ -155,12 +156,12 @@ async fn delete_message(
 #[openapi(tag = "Chat Session")]
 #[delete("/<session_id>")]
 async fn delete_session(
-    user: ChatRsUser,
+    user_id: ChatRsUserId,
     mut db: DbConnection,
     session_id: Uuid,
 ) -> Result<Json<SessionIdResponse>, ApiError> {
     let deleted_id = ChatDbService::new(&mut db)
-        .delete_session(&user.id, &session_id)
+        .delete_session(&user_id, &session_id)
         .await?;
 
     Ok(Json(SessionIdResponse {
