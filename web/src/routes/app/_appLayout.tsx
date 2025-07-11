@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import ErrorComponent from "@/components/Error";
 import Header from "@/components/Header";
+import SearchDialog from "@/components/SearchDialog";
 import { AppSidebar } from "@/components/Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import {
@@ -43,6 +44,7 @@ function RouteComponent() {
 
   return (
     <SidebarProvider>
+      <SearchDialog />
       <AppSidebar user={user} sessions={data} streamedChats={streamedChats} />
       <SidebarInset className="overflow-hidden">
         <Header />
