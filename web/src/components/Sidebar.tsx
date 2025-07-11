@@ -8,6 +8,7 @@ import {
 import {
   ChevronsUpDown,
   KeyRound,
+  LockKeyhole,
   LogOut,
   MessageCircleHeart,
   Minus,
@@ -132,6 +133,12 @@ export function AppSidebar({
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
                     <Link to="/app/api-keys">
+                      <LockKeyhole />
+                      Provider Keys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/app-keys">
                       <KeyRound />
                       API Keys
                     </Link>

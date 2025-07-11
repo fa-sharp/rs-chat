@@ -15,7 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useApiKeys } from "@/lib/api/apiKey";
+import { useProviderKeys } from "@/lib/api/providerKey";
 import { type ProviderKey, providers } from "@/lib/providerInfo";
 import { cn } from "@/lib/utils";
 import {
@@ -45,7 +45,7 @@ export function ChatModelSelect({
   currentTemperature: number;
   onSelectTemperature: (temperature: number) => void;
 }) {
-  const { data: apiKeys } = useApiKeys();
+  const { data: apiKeys } = useProviderKeys();
 
   const currentProvider = React.useMemo(() => {
     return providers.find((p) => p.value === currentProviderKey);

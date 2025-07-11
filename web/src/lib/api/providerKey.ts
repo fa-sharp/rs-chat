@@ -3,13 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "./client";
 import type { components } from "./types";
 
-const queryKey = ["apiKeys"];
+const queryKey = ["providerKeys"];
 
-export const useApiKeys = () =>
+export const useProviderKeys = () =>
   useQuery({
     queryKey,
     queryFn: async () => {
-      const response = await client.GET("/api_key/");
+      const response = await client.GET("/provider_key/");
       if (response.error) {
         throw new Error(response.error.message);
       }
@@ -17,14 +17,15 @@ export const useApiKeys = () =>
     },
   });
 
-export const useCreateApiKey = () => {
+export const useCreateProviderKey = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
-      name,
-    }: components["schemas"]["ApiKeyCreateInput"]) => {
-      const response = await client.POST("/api_key/", {
-        body: { name },
+      key,
+      provider,
+    }: components["schemas"]["ProviderKeyInput"]) => {
+      const response = await client.POST("/provider_key/", {
+        body: { key, provider },
       });
       if (response.error) {
         throw new Error(response.error.message);
@@ -35,11 +36,11 @@ export const useCreateApiKey = () => {
   });
 };
 
-export const useDeleteApiKey = () => {
+export const useDeleteProviderKey = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await client.DELETE("/api_key/{api_key_id}", {
+      const response = await client.DELETE("/provider_key/{api_key_id}", {
         params: { path: { api_key_id: id } },
       });
       if (response.error) {

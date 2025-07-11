@@ -17,6 +17,7 @@ import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
 import { Route as AppAppLayoutRouteImport } from './routes/app/_appLayout'
 import { Route as AppAppLayoutIndexRouteImport } from './routes/app/_appLayout/index'
 import { Route as AppAppLayoutProfileRouteImport } from './routes/app/_appLayout/profile'
+import { Route as AppAppLayoutAppKeysRouteImport } from './routes/app/_appLayout/app-keys'
 import { Route as AppAppLayoutApiKeysRouteImport } from './routes/app/_appLayout/api-keys'
 import { Route as AppAppLayoutSessionSessionIdRouteImport } from './routes/app/_appLayout/session/$sessionId'
 
@@ -56,6 +57,11 @@ const AppAppLayoutProfileRoute = AppAppLayoutProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppAppLayoutRoute,
 } as any)
+const AppAppLayoutAppKeysRoute = AppAppLayoutAppKeysRouteImport.update({
+  id: '/app-keys',
+  path: '/app-keys',
+  getParentRoute: () => AppAppLayoutRoute,
+} as any)
 const AppAppLayoutApiKeysRoute = AppAppLayoutApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/app-keys': typeof AppAppLayoutAppKeysRoute
   '/app/profile': typeof AppAppLayoutProfileRoute
   '/app/': typeof AppAppLayoutIndexRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/app-keys': typeof AppAppLayoutAppKeysRoute
   '/app/profile': typeof AppAppLayoutProfileRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/_appLayout/api-keys': typeof AppAppLayoutApiKeysRoute
+  '/app/_appLayout/app-keys': typeof AppAppLayoutAppKeysRoute
   '/app/_appLayout/profile': typeof AppAppLayoutProfileRoute
   '/app/_appLayout/': typeof AppAppLayoutIndexRoute
   '/app/_appLayout/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/api-keys'
+    | '/app/app-keys'
     | '/app/profile'
     | '/app/'
     | '/app/session/$sessionId'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/api-keys'
+    | '/app/app-keys'
     | '/app/profile'
     | '/app/session/$sessionId'
   id:
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/_appLayout/api-keys'
+    | '/app/_appLayout/app-keys'
     | '/app/_appLayout/profile'
     | '/app/_appLayout/'
     | '/app/_appLayout/session/$sessionId'
@@ -190,6 +202,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAppLayoutProfileRouteImport
       parentRoute: typeof AppAppLayoutRoute
     }
+    '/app/_appLayout/app-keys': {
+      id: '/app/_appLayout/app-keys'
+      path: '/app-keys'
+      fullPath: '/app/app-keys'
+      preLoaderRoute: typeof AppAppLayoutAppKeysRouteImport
+      parentRoute: typeof AppAppLayoutRoute
+    }
     '/app/_appLayout/api-keys': {
       id: '/app/_appLayout/api-keys'
       path: '/api-keys'
@@ -209,6 +228,7 @@ declare module '@tanstack/react-router' {
 
 interface AppAppLayoutRouteChildren {
   AppAppLayoutApiKeysRoute: typeof AppAppLayoutApiKeysRoute
+  AppAppLayoutAppKeysRoute: typeof AppAppLayoutAppKeysRoute
   AppAppLayoutProfileRoute: typeof AppAppLayoutProfileRoute
   AppAppLayoutIndexRoute: typeof AppAppLayoutIndexRoute
   AppAppLayoutSessionSessionIdRoute: typeof AppAppLayoutSessionSessionIdRoute
@@ -216,6 +236,7 @@ interface AppAppLayoutRouteChildren {
 
 const AppAppLayoutRouteChildren: AppAppLayoutRouteChildren = {
   AppAppLayoutApiKeysRoute: AppAppLayoutApiKeysRoute,
+  AppAppLayoutAppKeysRoute: AppAppLayoutAppKeysRoute,
   AppAppLayoutProfileRoute: AppAppLayoutProfileRoute,
   AppAppLayoutIndexRoute: AppAppLayoutIndexRoute,
   AppAppLayoutSessionSessionIdRoute: AppAppLayoutSessionSessionIdRoute,

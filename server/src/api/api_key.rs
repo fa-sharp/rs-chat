@@ -35,7 +35,7 @@ async fn get_all_provider_keys(
 }
 
 #[derive(JsonSchema, serde::Deserialize)]
-struct ApiKeyInput {
+struct ProviderKeyInput {
     provider: ChatRsProviderKeyType,
     key: String,
 }
@@ -47,7 +47,7 @@ async fn create_provider_key(
     user_id: ChatRsUserId,
     mut db: DbConnection,
     encryptor: &State<Encryptor>,
-    input: Json<ApiKeyInput>,
+    input: Json<ProviderKeyInput>,
 ) -> Result<String, ApiError> {
     let (ciphertext, nonce) = encryptor.encrypt_string(&input.key)?;
     let id = ProviderKeyDbService::new(&mut db)

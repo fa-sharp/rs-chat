@@ -11,7 +11,7 @@ export type ProviderKey =
 /** Provider and model information. TODO should fetch models rather than list them manually */
 export const providers: Array<{
   value: ProviderKey;
-  apiKeyType?: components["schemas"]["ChatRsApiKeyProviderType"];
+  apiKeyType?: components["schemas"]["ChatRsProviderKeyType"];
   label: string;
   defaultModel: string;
   models: string[];
