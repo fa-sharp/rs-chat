@@ -4,7 +4,9 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsProviderKeyType, ChatRsProviderKey, NewChatRsProviderKey},
+    models::{
+        ChatRsProviderKey, ChatRsProviderKeyMeta, ChatRsProviderKeyType, NewChatRsProviderKey,
+    },
     schema::api_keys,
     DbConnection,
 };
@@ -21,10 +23,10 @@ impl<'a> ProviderKeyDbService<'a> {
     pub async fn find_by_user_id(
         &mut self,
         user_id: &Uuid,
-    ) -> Result<Vec<ChatRsProviderKey>, Error> {
+    ) -> Result<Vec<ChatRsProviderKeyMeta>, Error> {
         let keys = api_keys::table
             .filter(api_keys::user_id.eq(user_id))
-            .select(ChatRsProviderKey::as_select())
+            .select(ChatRsProviderKeyMeta::as_select())
             .load(self.db)
             .await?;
 

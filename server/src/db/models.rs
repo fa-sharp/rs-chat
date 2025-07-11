@@ -130,16 +130,14 @@ pub enum ChatRsProviderKeyType {
     Openrouter,
 }
 
-#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[derive(Identifiable, Queryable, Selectable, Associations)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::api_keys)]
 pub struct ChatRsProviderKey {
     pub id: Uuid,
     pub user_id: Uuid,
     pub provider: ChatRsProviderKeyType,
-    #[serde(skip)]
     pub ciphertext: Vec<u8>,
-    #[serde(skip)]
     pub nonce: Vec<u8>,
     pub created_at: DateTime<Utc>,
 }
@@ -149,6 +147,7 @@ pub struct ChatRsProviderKey {
 #[diesel(table_name = super::schema::api_keys)]
 pub struct ChatRsProviderKeyMeta {
     pub id: Uuid,
+    #[serde(skip)]
     pub user_id: Uuid,
     pub provider: ChatRsProviderKeyType,
     pub created_at: DateTime<Utc>,
@@ -168,6 +167,7 @@ pub struct NewChatRsProviderKey<'r> {
 #[diesel(table_name = super::schema::app_api_keys)]
 pub struct ChatRsApiKey {
     pub id: Uuid,
+    #[serde(skip)]
     pub user_id: Uuid,
     pub name: String,
     pub created_at: DateTime<Utc>,

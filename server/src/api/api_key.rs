@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsProviderKey, ChatRsProviderKeyType, NewChatRsProviderKey},
+        models::{ChatRsProviderKeyMeta, ChatRsProviderKeyType, NewChatRsProviderKey},
         services::ProviderKeyDbService,
         DbConnection,
     },
@@ -26,7 +26,7 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 async fn get_all_provider_keys(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-) -> Result<Json<Vec<ChatRsProviderKey>>, ApiError> {
+) -> Result<Json<Vec<ChatRsProviderKeyMeta>>, ApiError> {
     let keys = ProviderKeyDbService::new(&mut db)
         .find_by_user_id(&user_id)
         .await?;
