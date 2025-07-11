@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::{
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-        services::user::UserDbService,
+        services::UserDbService,
         DbConnection,
     },
     errors::ApiError,

@@ -11,15 +11,18 @@ use uuid::Uuid;
 
 use crate::{
     auth::{
+        api_key::get_api_key_auth_outcome,
         sso_header::{get_sso_auth_outcome, get_sso_user_from_headers},
         ChatRsAuthSession, SSOHeaderMergedConfig,
     },
-    db::{models::ChatRsUser, services::user::UserDbService, DbConnection},
+    db::{models::ChatRsUser, services::UserDbService, DbConnection},
+    utils::encryption::Encryptor,
 };
 
 /// User ID request guard to ensure a logged-in user.
 #[derive(OpenApiFromRequest)]
 pub struct ChatRsUserId(pub Uuid);
+
 impl Deref for ChatRsUserId {
     type Target = Uuid;
 
@@ -38,19 +41,19 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
         if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
             if let Some(proxy_user) = get_sso_user_from_headers(config, req.headers()) {
                 let mut db = try_outcome!(req.guard::<DbConnection>().await);
-                let mut db_service = UserDbService::new(&mut db);
-                return get_sso_auth_outcome(&proxy_user, config, &mut db_service).await;
-            } else {
-                rocket::debug!("SSO header auth: headers not found");
+                return get_sso_auth_outcome(&proxy_user, config, &mut db).await;
             }
         };
 
-        // Try authentication via session
-        let session = req
-            .guard::<Session<ChatRsAuthSession>>()
-            .await
-            .expect("session guard should always succeed");
+        // Try authentication via API key
+        if let Some(auth_header) = req.headers().get_one("Authorization") {
+            let encryptor = req.rocket().state::<Encryptor>().expect("should exist");
+            let mut db = try_outcome!(req.guard::<DbConnection>().await);
+            return get_api_key_auth_outcome(auth_header, encryptor, &mut db).await;
+        }
 
+        // Try authentication via session
+        let session = try_outcome!(req.guard::<Session<ChatRsAuthSession>>().await);
         match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
             Some(user_id) => Outcome::Success(ChatRsUserId(user_id)),
             None => Outcome::Error((Status::Unauthorized, "Unauthorized")),

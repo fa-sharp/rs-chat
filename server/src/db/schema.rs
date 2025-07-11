@@ -25,6 +25,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    app_api_keys (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::ChatMessageRole;
 
@@ -65,11 +74,13 @@ diesel::table! {
 }
 
 diesel::joinable!(api_keys -> users (user_id));
+diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     api_keys,
+    app_api_keys,
     chat_messages,
     chat_sessions,
     users,

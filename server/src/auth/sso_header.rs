@@ -8,7 +8,7 @@ use serde::Deserialize;
 use crate::{
     auth::guard::ChatRsUserId,
     config::get_config_provider,
-    db::{models::NewChatRsUser, services::user::UserDbService},
+    db::{models::NewChatRsUser, services::UserDbService, DbConnection},
 };
 
 /// SSO / proxy header configuration. Can be set via environment variables.
@@ -77,7 +77,7 @@ pub fn setup_sso_header_auth() -> AdHoc {
 pub async fn get_sso_auth_outcome<'r>(
     sso_user: &SSOUser<'_>,
     sso_config: &SSOHeaderMergedConfig,
-    db_service: &mut UserDbService<'_>,
+    db: &mut DbConnection,
 ) -> Outcome<ChatRsUserId, &'r str> {
     if let Some(allowed_user_group) = &sso_config.user_group {
         if sso_user
@@ -89,6 +89,7 @@ pub async fn get_sso_auth_outcome<'r>(
             return Outcome::Error((Status::Unauthorized, "User group not allowed"));
         }
     }
+    let mut db_service = UserDbService::new(db);
     match db_service.find_by_sso_username(sso_user.username).await {
         Ok(Some(user_id)) => {
             rocket::debug!("SSO header auth: existing user found");

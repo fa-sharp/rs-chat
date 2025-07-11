@@ -14,7 +14,7 @@ use crate::{
             ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, NewChatRsSession,
             UpdateChatRsSession,
         },
-        services::chat::ChatDbService,
+        services::ChatDbService,
         DbConnection,
     },
     errors::ApiError,

@@ -8,7 +8,7 @@ use rocket::futures::Stream;
 use uuid::Uuid;
 
 use crate::db::models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage};
-use crate::db::services::chat::ChatDbService;
+use crate::db::services::ChatDbService;
 use crate::db::{DbConnection, DbPool};
 use crate::utils::create_provider::ProviderConfigInput;
 

@@ -17,7 +17,7 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
-        services::{api_key::ApiKeyDbService, chat::ChatDbService},
+        services::{ChatDbService, ProviderKeyDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
@@ -62,7 +62,7 @@ pub async fn send_chat_stream(
     let provider = create_provider(
         &user_id,
         &input.provider,
-        &mut ApiKeyDbService::new(&mut db),
+        &mut ProviderKeyDbService::new(&mut db),
         &encryptor,
     )
     .await?;

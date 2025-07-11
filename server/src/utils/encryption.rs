@@ -29,6 +29,16 @@ impl Encryptor {
         Ok((ciphertext, nonce.to_vec()))
     }
 
+    pub fn encrypt_bytes(&self, bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), ChatRsError> {
+        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let ciphertext = self
+            .cipher
+            .encrypt(&nonce, bytes)
+            .map_err(|_| ChatRsError::EncryptionError)?;
+
+        Ok((ciphertext, nonce.to_vec()))
+    }
+
     pub fn decrypt_string(&self, ciphertext: &[u8], nonce: &[u8]) -> Result<String, ChatRsError> {
         let nonce = Nonce::from_slice(nonce);
         let plaintext = self
@@ -37,5 +47,15 @@ impl Encryptor {
             .map_err(|_| ChatRsError::DecryptionError)?;
 
         Ok(String::from_utf8(plaintext).map_err(|_| ChatRsError::DecryptionError)?)
+    }
+
+    pub fn decrypt_bytes(&self, ciphertext: &[u8], nonce: &[u8]) -> Result<Vec<u8>, ChatRsError> {
+        let nonce = Nonce::from_slice(nonce);
+        let bytes = self
+            .cipher
+            .decrypt(nonce, ciphertext)
+            .map_err(|_| ChatRsError::DecryptionError)?;
+
+        Ok(bytes)
     }
 }

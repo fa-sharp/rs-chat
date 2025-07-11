@@ -1,8 +1,10 @@
+mod api_key;
 mod guard;
 mod oauth;
 mod session;
 mod sso_header;
 
+pub use api_key::build_api_key_string;
 pub use guard::ChatRsUserId;
 pub use oauth::{
     setup_oauth, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OIDCConfig,

@@ -19,7 +19,7 @@ use crate::{
     config::{get_app_config, get_config_provider},
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-        services::user::UserDbService,
+        services::UserDbService,
         DbConnection,
     },
     errors::ApiError,
