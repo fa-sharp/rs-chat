@@ -18,14 +18,13 @@ Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your 
 - **Dark Mode**: Dark/light theme support
 - **Responsive Design**: Mobile-friendly layout
 - **Fast and Memory Efficient**: Rust backend using the [Rocket framework](https://rocket.rs/)
-- **Users & Authentication**: Login with GitHub, and persistent sessions in Redis
-- **OpenAPI Docs**: API documentation at `/api/docs` for developers to integrate with RsChat
+- **Users & Authentication**: Login via OAuth providers (Google, GitHub, etc.), custom OIDC, and SSO header authentication
+- **API Key Access and OpenAPI Docs**: API key access and documentation at `/api/docs` for developers to integrate with RsChat
 - **Fully Type-Safe**: End-to-end type safety with auto-generated client from OpenAPI spec
 
 ### ⚡ Convenience Features
 
 - **Smart Titles**: Auto-generation of chat titles
-- **Auto-Focus**: Auto-focus on input when opening and switching between chats
 - **Smart Scrolling**: Auto-scroll during streaming and when opening previous chats
 - **Secure Key Storage**: Your API keys are saved and encrypted
 
@@ -44,13 +43,13 @@ rs-chat/
 ├── server/                 # Rust backend
 │   ├── src/
 │   │   ├── api/           # API route handlers
-│   │   ├── db/            # Database models and queries
+│   │   ├── auth/          # Authentication services
+│   │   ├── db/            # Database models and services
 │   │   ├── provider/      # AI provider integrations
 │   │   ├── utils/         # Utility functions
+│   │   ├── config.rs      # Reading configuration / env variables
 │   │   ├── lib.rs         # Server setup
 │   │   ├── main.rs        # Server entry point
-│   │   ├── auth.rs        # Authentication stuff
-│   │   ├── config.rs      # Reading configuration / env variables
 │   │   └── ...            # Other modules
 │   ├── migrations/         # Database migrations
 │   └── Cargo.toml          # Rust dependencies
@@ -154,9 +153,16 @@ services:
       RS_CHAT_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
       RS_CHAT_REDIS_URL: redis://myredis:6379 # Your Redis URL
       RS_CHAT_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
-      # GitHub callback URL should be {your_server_address}/api/auth/login/github/callback
-      RS_CHAT_GITHUB_CLIENT_ID: your-github-client-id
-      RS_CHAT_GITHUB_CLIENT_SECRET: your-github-client-secret
+      ## For GitHub login: callback URL should be {your_server_address}/api/auth/login/github/callback
+      # RS_CHAT_GITHUB_CLIENT_ID: your-github-client-id
+      # RS_CHAT_GITHUB_CLIENT_SECRET: your-github-client-secret
+      ## Similar config for other OAuth providers - see server/src/auth/oauth/ folder
+      # RS_CHAT_DISCORD_CLIENT_ID: your-discord-client-id
+      # ...
+      ## For SSO header auth - see server/src/auth/sso_header.rs for all config options
+      # RS_CHAT_SSO_HEADER_ENABLED: true
+      # RS_CHAT_SSO_USERNAME_HEADER: X-Remote-User
+      # ...
 ```
 
 ## 🔒 Security & Privacy
