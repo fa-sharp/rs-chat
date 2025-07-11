@@ -207,8 +207,8 @@ export function AppSidebar({
                               </span>
                               <span className="shrink-0 text-muted-foreground ml-auto">
                                 {group === "today" || group === "yesterday"
-                                  ? formatTime(session.created_at)
-                                  : formatDate(session.created_at)}
+                                  ? formatTime(session.updated_at)
+                                  : formatDate(session.updated_at)}
                               </span>
                             </Link>
                           </SidebarMenuSubButton>
@@ -261,7 +261,7 @@ function groupSessionsByDate(
   };
 
   sessions?.forEach((session) => {
-    const sessionDate = new Date(session.created_at);
+    const sessionDate = new Date(session.updated_at);
     const sessionDateOnly = new Date(
       sessionDate.getFullYear(),
       sessionDate.getMonth(),

@@ -19,7 +19,7 @@ use crate::{
     },
     errors::ApiError,
     redis::RedisClient,
-    utils::stored_stream::CACHE_KEY_PREFIX,
+    utils::{full_text_search::SessionSearchResult, stored_stream::CACHE_KEY_PREFIX},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -27,6 +27,7 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
         settings: get_all_sessions,
         create_session,
         get_session,
+        search_sessions,
         update_session,
         delete_session,
         delete_message
@@ -109,6 +110,21 @@ async fn get_session(
     }
 
     Ok(Json(GetSessionResponse { session, messages }))
+}
+
+/// Search chat sessions by title and messages
+#[openapi(tag = "Chat Session")]
+#[get("/search?<query>")]
+async fn search_sessions(
+    user_id: ChatRsUserId,
+    mut db: DbConnection,
+    query: &str,
+) -> Result<Json<Vec<SessionSearchResult>>, ApiError> {
+    let sessions = ChatDbService::new(&mut db)
+        .search_sessions(&user_id, &query)
+        .await?;
+
+    Ok(Json(sessions))
 }
 
 #[derive(Deserialize, JsonSchema)]
