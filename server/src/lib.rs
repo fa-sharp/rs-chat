@@ -13,11 +13,12 @@ use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_
 
 use crate::{
     api::auth_undocumented_routes,
-    auth::{setup_encryption, setup_oauth, setup_session, setup_sso_header_auth},
+    auth::setup_auth,
     config::{get_config_provider, AppConfig},
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    utils::encryption::setup_encryption,
     web::setup_static_files,
 };
 
@@ -28,9 +29,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_db())
         .attach(setup_redis())
         .attach(setup_encryption())
-        .attach(setup_session())
-        .attach(setup_sso_header_auth())
-        .attach(setup_oauth("/api/auth"))
+        .attach(setup_auth("/api/auth"))
         .attach(setup_static_files())
         .register("/", get_catchers())
         .mount("/api/auth", auth_undocumented_routes())

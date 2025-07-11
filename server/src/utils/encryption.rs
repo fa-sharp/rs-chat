@@ -2,8 +2,9 @@ use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
     AeadCore, Aes256Gcm, Nonce,
 };
+use rocket::fairing::AdHoc;
 
-use crate::provider::ChatRsError;
+use crate::{config::get_app_config, provider::ChatRsError};
 
 /// Encryption service for encrypting and decrypting API keys
 #[derive(Clone)]
@@ -58,4 +59,15 @@ impl Encryptor {
 
         Ok(bytes)
     }
+}
+
+/// Fairing that sets up an encryption service
+pub fn setup_encryption() -> AdHoc {
+    AdHoc::on_ignite("Encryption setup", |rocket| async {
+        let app_config = get_app_config(&rocket);
+        let encryptor = Encryptor::new(&app_config.secret_key)
+            .expect("Invalid secret key: must be 64-character hexadecimal string");
+
+        rocket.manage(encryptor)
+    })
 }

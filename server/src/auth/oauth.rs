@@ -3,11 +3,6 @@ mod github;
 mod google;
 mod oidc;
 
-pub use discord::{DiscordOAuthConfig, DiscordProvider};
-pub use github::{GitHubOAuthConfig, GitHubProvider};
-pub use google::{GoogleOAuthConfig, GoogleProvider};
-pub use oidc::{OIDCConfig, OIDCProvider};
-
 use rocket::{fairing::AdHoc, figment::Figment, http::CookieJar, response::Redirect, Route};
 use rocket_flex_session::Session;
 use rocket_oauth2::{HyperRustlsAdapter, OAuth2, OAuthConfig, StaticProvider, TokenResponse};
@@ -24,6 +19,10 @@ use crate::{
     },
     errors::ApiError,
 };
+pub use discord::{DiscordOAuthConfig, DiscordProvider};
+pub use github::{GitHubOAuthConfig, GitHubProvider};
+pub use google::{GoogleOAuthConfig, GoogleProvider};
+pub use oidc::{OIDCConfig, OIDCProvider};
 
 /// Common OAuth user data structure
 #[derive(Debug)]
@@ -61,8 +60,7 @@ trait OAuthProvider {
 }
 
 /// Fairing that sets up OAuth login and routes
-pub fn setup_oauth(base_path: &str) -> AdHoc {
-    let base_path = base_path.to_owned();
+pub fn setup_oauth(base_path: String) -> AdHoc {
     let config_provider = get_config_provider();
 
     AdHoc::on_ignite("OAuth", |mut rocket| async move {
