@@ -143,6 +143,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provider/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get provider details */
+        get: operations["get_provider_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api_key/": {
         parameters: {
             query?: never;
@@ -236,16 +253,16 @@ export interface components {
         };
         LLMConfig: {
             backend: components["schemas"]["LLMBackendInput"];
-            model: string;
+            model?: string | null;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
         };
         /** @enum {string} */
-        LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
+        LLMBackendInput: "OpenAI" | "Anthropic";
         OpenRouterConfig: {
-            model: string;
+            model?: string | null;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
@@ -271,6 +288,9 @@ export interface components {
             message?: string | null;
             provider: components["schemas"]["ProviderConfigInput"];
         };
+        ProviderInfo: {
+            models: string[];
+        };
         ChatRsApiKey: {
             /** Format: uuid */
             id: string;
@@ -281,7 +301,7 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsApiKeyProviderType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
+        ChatRsApiKeyProviderType: "Anthropic" | "Openai" | "Openrouter";
         ApiKeyInput: {
             provider: components["schemas"]["ChatRsApiKeyProviderType"];
             key: string;
@@ -924,6 +944,72 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": number[];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_provider_info: {
+        parameters: {
+            query: {
+                provider_type: "Anthropic" | "Openai" | "Openrouter";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderInfo"];
                 };
             };
             /** @description Bad request */

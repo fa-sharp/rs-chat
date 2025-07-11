@@ -17,7 +17,7 @@ pub struct LlmApiProvider<'a> {
     api_key: String,
     base_url: Option<&'a str>,
 
-    model: &'a str,
+    model: Option<&'a str>,
     max_tokens: Option<u32>,
     temperature: Option<f32>,
 }
@@ -26,7 +26,7 @@ impl<'a> LlmApiProvider<'a> {
     pub fn new(
         backend: LLMBackend,
         api_key: String,
-        model: &'a str,
+        model: Option<&'a str>,
         max_tokens: Option<u32>,
         temperature: Option<f32>,
     ) -> Self {
@@ -44,8 +44,10 @@ impl<'a> LlmApiProvider<'a> {
         let mut llm_builder = LLMBuilder::new()
             .backend(self.backend.to_owned())
             .api_key(&self.api_key)
-            .model(self.model)
             .stream(stream);
+        if let Some(model) = self.model {
+            llm_builder = llm_builder.model(model);
+        }
         if let Some(max_tokens) = self.max_tokens {
             llm_builder = llm_builder.max_tokens(max_tokens);
         }
@@ -101,5 +103,13 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
             .await?
             .text()
             .ok_or(ChatRsError::ChatError("No text response".to_owned()))
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>, ChatRsError> {
+        let llm = self.get_llm(false)?;
+        let mut models = llm.list_models(None).await?.get_models_raw();
+        models.sort_by(|a, b| b.get_created_at().cmp(&a.get_created_at()));
+
+        Ok(models.into_iter().map(|model| model.get_id()).collect())
     }
 }

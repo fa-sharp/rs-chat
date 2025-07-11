@@ -4,6 +4,7 @@ use diesel::{
     Selectable,
 };
 use diesel_as_jsonb::AsJsonb;
+use rocket::FromFormField;
 use rocket_okapi::OpenApiFromRequest;
 use schemars::JsonSchema;
 use uuid::Uuid;
@@ -92,14 +93,14 @@ pub struct NewChatRsMessage<'r> {
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::LlmProvider")]
-#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, FromFormField, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub enum ChatRsApiKeyProviderType {
     Anthropic,
     Openai,
-    Ollama,
-    Deepseek,
-    Google,
     Openrouter,
+    // Ollama,
+    // Deepseek,
+    // Google,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
