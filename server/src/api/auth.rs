@@ -19,7 +19,7 @@ use crate::{
     },
     db::{
         models::ChatRsUser,
-        services::{ChatDbService, ProviderKeyDbService, UserDbService},
+        services::{ApiKeyDbService, ChatDbService, ProviderKeyDbService, UserDbService},
         DbConnection,
     },
     errors::ApiError,
@@ -116,8 +116,13 @@ async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, A
 /// Delete account
 #[delete("/user/delete-but-only-if-you-are-sure")]
 async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String, ApiError> {
+    // Delete Provider keys
+    let provider_keys = ProviderKeyDbService::new(&mut db)
+        .delete_by_user(&user.id)
+        .await?;
+
     // Delete API keys
-    let api_keys = ProviderKeyDbService::new(&mut db)
+    let api_keys = ApiKeyDbService::new(&mut db)
         .delete_by_user(&user.id)
         .await?;
 
@@ -129,9 +134,10 @@ async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String
     let user_id = UserDbService::new(&mut db).delete(&user.id).await?;
 
     Ok(format!(
-        "Deleted user {}: {} sessions and {} API keys",
+        "Deleted user {}: {} sessions, {} provider keys, {} API keys",
         user_id,
         sessions.len(),
+        provider_keys.len(),
         api_keys.len()
     ))
 }
