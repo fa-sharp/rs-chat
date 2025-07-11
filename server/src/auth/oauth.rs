@@ -166,28 +166,22 @@ async fn generic_login_callback<P: OAuthProvider>(
         Some(existing_user) => {
             session.set(ChatRsAuthSession::new(existing_user.id));
         }
-        None => match session.get() {
+        None => match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
             // No linked user and no session found: create new user and session
             None => {
                 let new_user = db_service.create(P::create_new_user(&user_data)).await?;
                 session.set(ChatRsAuthSession::new(new_user.id));
             }
             // No linked user but there is a current session
-            Some(session_data) => {
-                let user = db_service
-                    .find_by_id(&session_data.user_id)
-                    .await?
-                    .ok_or_else(|| {
-                        ApiError::Authentication(format!(
-                            "User not found: {}",
-                            session_data.user_id
-                        ))
-                    })?;
+            Some(user_id) => {
+                let user = db_service.find_by_id(&user_id).await?.ok_or_else(|| {
+                    ApiError::Authentication(format!("User not found: {}", user_id))
+                })?;
                 match P::is_user_linked(&user) {
                     // User is not linked: link them to this OAuth provider
                     false => {
                         db_service
-                            .update(&session_data.user_id, P::create_update_user(&user_data))
+                            .update(&user_id, P::create_update_user(&user_data))
                             .await?;
                     }
                     // User is already linked to this OAuth provider

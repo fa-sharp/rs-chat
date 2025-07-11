@@ -49,11 +49,12 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
         let session = req
             .guard::<Session<ChatRsAuthSession>>()
             .await
-            .expect("should not fail");
-        session.tap(|session| match session {
-            Some(data) => Outcome::Success(ChatRsUserId(data.user_id)),
+            .expect("session guard should always succeed");
+
+        match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
+            Some(user_id) => Outcome::Success(ChatRsUserId(user_id)),
             None => Outcome::Error((Status::Unauthorized, "Unauthorized")),
-        })
+        }
     }
 }
 

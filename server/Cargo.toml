@@ -34,7 +34,6 @@ fred = { version = "10.1.0", default-features = false, features = [
     "i-keys",
     "i-lists",
 ] }
-get_fields = "0.1.0"
 hex = "0.4.3"
 llm = { version = "1.3.1", default-features = false, features = [
     "default-tls",

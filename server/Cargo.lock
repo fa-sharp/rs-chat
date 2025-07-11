@@ -486,7 +486,6 @@ dependencies = [
  "diesel_async_migrations",
  "dotenvy",
  "fred",
- "get_fields",
  "hex",
  "llm",
  "openrouter-rs",
@@ -1386,17 +1385,6 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
-]
-
-[[package]]
-name = "get_fields"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fe8f7d930180be23f1fb00ad4cb9f3715f6fee2c077b33ee4da4969e1c60202"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
