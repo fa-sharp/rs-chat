@@ -22,16 +22,19 @@ interface Props {
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   streamedResponse?: string;
   error?: string;
+  sessionId?: string;
 }
 
 const proseClasses =
-  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-li:my-1";
+  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-headings:not-[:first-child]:mt-3 prose-headings:mb-2 " +
+  "prose-h1:text-3xl prose-ul:my-3 prose-ol:my-3 prose-p:leading-4 md:prose-p:leading-5.5 prose-li:my-1 prose-li:leading-4 md:prose-li:leading-5.5";
 const proseUserClasses = "prose-code:text-primary-foreground";
 const proseAssistantClasses = "prose-code:text-secondary-foreground";
 
 export default function ChatMessages({
   user,
   messages,
+  sessionId,
   isGenerating,
   isCompleted,
   streamedResponse,
@@ -48,13 +51,16 @@ export default function ChatMessages({
   useEffect(() => {
     if (!streamedResponse) reset();
   }, [streamedResponse, reset]);
+  useEffect(() => {
+    if (sessionId) reset();
+  }, [sessionId, reset]);
 
   const { mutate: deleteMessage } = useDeleteChatMessage();
   const onDeleteMessage = useCallback(
-    (sessionId: string, messageId: string) => {
-      deleteMessage({ sessionId, messageId });
+    (messageId: string) => {
+      sessionId && deleteMessage({ sessionId, messageId });
     },
-    [deleteMessage],
+    [deleteMessage, sessionId],
   );
 
   return (
@@ -88,11 +94,7 @@ export default function ChatMessages({
                 <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                   <InfoButton meta={message.meta} />
                   <CopyButton message={message.content} />
-                  <DeleteButton
-                    onDelete={() =>
-                      onDeleteMessage(message.session_id, message.id)
-                    }
-                  />
+                  <DeleteButton onDelete={() => onDeleteMessage(message.id)} />
                 </div>
               )}
             </ChatBubbleMessage>
