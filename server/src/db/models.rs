@@ -4,13 +4,12 @@ use diesel::{
     Selectable,
 };
 use diesel_as_jsonb::AsJsonb;
-use rocket_okapi::OpenApiFromRequest;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::utils::create_provider::ProviderConfigInput;
 
-#[derive(Identifiable, Queryable, Selectable, JsonSchema, OpenApiFromRequest, serde::Serialize)]
+#[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,

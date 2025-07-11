@@ -6,7 +6,11 @@ use rocket::{
     request::{FromRequest, Outcome},
 };
 use rocket_flex_session::Session;
-use rocket_okapi::OpenApiFromRequest;
+use rocket_okapi::{
+    gen::OpenApiGenerator,
+    okapi::openapi3,
+    request::{OpenApiFromRequest, RequestHeaderInput},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -20,7 +24,6 @@ use crate::{
 };
 
 /// User ID request guard to ensure a logged-in user.
-#[derive(OpenApiFromRequest)]
 pub struct ChatRsUserId(pub Uuid);
 
 impl Deref for ChatRsUserId {
@@ -74,9 +77,49 @@ impl<'r> FromRequest<'r> for ChatRsUser {
             Ok(Some(user)) => Outcome::Success(user),
             Ok(None) => Outcome::Error((Status::NotFound, "User not found")),
             Err(e) => {
-                rocket::error!("Session guard: database error: {}", e);
-                Outcome::Error((Status::InternalServerError, "Server error"))
+                rocket::error!("User guard: database error: {}", e);
+                Outcome::Error((Status::InternalServerError, "Database error"))
             }
         }
     }
+}
+
+/// OpenAPI documentation for API key authentication when using the ChatRsUserId guard.
+impl<'a> OpenApiFromRequest<'a> for ChatRsUserId {
+    fn from_request_input(
+        _gen: &mut OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<RequestHeaderInput> {
+        api_key_docs()
+    }
+}
+
+/// OpenAPI documentation for API key authentication when using the ChatRsUser guard.
+impl<'a> OpenApiFromRequest<'a> for ChatRsUser {
+    fn from_request_input(
+        _gen: &mut OpenApiGenerator,
+        _name: String,
+        _required: bool,
+    ) -> rocket_okapi::Result<RequestHeaderInput> {
+        api_key_docs()
+    }
+}
+
+fn api_key_docs() -> Result<RequestHeaderInput, rocket_okapi::OpenApiError> {
+    let security_scheme = openapi3::SecurityScheme {
+        description: Some("Requires an API key to access.".to_owned()),
+        data: openapi3::SecuritySchemeData::Http {
+            scheme: "bearer".to_owned(),
+            bearer_format: Some("bearer".to_owned()),
+        },
+        extensions: openapi3::Object::default(),
+    };
+    let mut security_req = openapi3::SecurityRequirement::new();
+    security_req.insert("API Key".to_owned(), Vec::new());
+    Ok(RequestHeaderInput::Security(
+        "API Key".to_owned(),
+        security_scheme,
+        security_req,
+    ))
 }

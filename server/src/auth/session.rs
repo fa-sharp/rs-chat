@@ -70,7 +70,7 @@ impl From<ChatRsAuthSession> for fred::prelude::Value {
 
 /// Fairing that sets up persistent sessions via Redis.
 pub fn setup_session() -> AdHoc {
-    AdHoc::on_ignite("Session setup", |rocket| async {
+    AdHoc::on_ignite("Sessions", |rocket| async {
         let app_config = get_app_config(&rocket);
         let config = fred::prelude::Config::from_url(&app_config.redis_url)
             .expect("RS_CHAT_REDIS_URL should be valid Redis URL");
