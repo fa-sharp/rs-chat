@@ -32,6 +32,8 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
     ]
 }
 
+pub const DEFAULT_SESSION_TITLE: &str = "New Chat";
+
 #[derive(JsonSchema, serde::Serialize)]
 struct SessionIdResponse {
     session_id: String,
@@ -61,7 +63,7 @@ async fn create_session(
     let id = ChatDbService::new(&mut db)
         .create_session(NewChatRsSession {
             user_id: &user.id,
-            title: "New Chat",
+            title: DEFAULT_SESSION_TITLE,
         })
         .await?;
 
