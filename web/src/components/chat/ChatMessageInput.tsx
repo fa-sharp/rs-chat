@@ -85,6 +85,16 @@ export default function ChatMessageInput(props: Props) {
         )}
 
         <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          title="Toggle Enter key behavior"
+          onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
+        >
+          <CornerDownLeft className="size-3.5" />
+          <span className="sr-only">Toggle Enter key</span>
+        </Button>
+        <Button
           disabled={props.isGenerating}
           type="submit"
           size="sm"
@@ -93,16 +103,6 @@ export default function ChatMessageInput(props: Props) {
           Send Message
           {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
           <CornerDownLeft className="size-3.5" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          title="Toggle Enter key behavior"
-          onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
-        >
-          <CornerDownLeft className="size-3.5" />
-          <span className="sr-only">Toggle Enter key</span>
         </Button>
       </div>
     </form>
