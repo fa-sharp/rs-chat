@@ -52,7 +52,7 @@ pub async fn full_text_query(
             WHERE cm.search_vector @@ sq.query
                 AND cs.user_id = $2
         )
-        SELECT DISTINCT ON (session_id)
+        SELECT
             session_id,
             rank * (1 + LOG(message_matches) * 0.1) AS session_rank,
             updated_at AS session_updated_at,
@@ -62,7 +62,7 @@ pub async fn full_text_query(
         FROM message_stats ms
         CROSS JOIN search_query sq
         WHERE rank_in_session = 1  -- Only best message per session
-        ORDER BY session_id, rank * (1 + LOG(message_matches) * 0.1) DESC
+        ORDER BY session_rank DESC
         LIMIT $3;
     "#,
     )
