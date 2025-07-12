@@ -1,105 +1,111 @@
 use rocket::{
-    delete, get, http::CookieJar, post, response::Redirect, routes, serde::json::Json, Route,
+    delete, get, post,
+    request::{FromRequest, Outcome},
+    routes,
+    serde::json::Json,
+    Route,
 };
 use rocket_flex_session::Session;
-use rocket_oauth2::{OAuth2, TokenResponse};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
+    OpenApiFromRequest,
 };
+use schemars::JsonSchema;
 
 use crate::{
-    auth::ChatRsAuthSession,
+    auth::{
+        ChatRsAuthSession, DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OIDCConfig,
+        SSOHeaderMergedConfig,
+    },
     db::{
-        models::{ChatRsUser, NewChatRsUser},
-        services::{api_key::ApiKeyDbService, chat::ChatDbService, user::UserDbService},
+        models::ChatRsUser,
+        services::{ApiKeyDbService, ChatDbService, ProviderKeyDbService, UserDbService},
         DbConnection,
     },
     errors::ApiError,
 };
 
+/// Auth routes
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: user, logout]
+    openapi_get_routes_spec![settings: user, auth_config, logout]
 }
 
-/// Undocumented routes: GitHub OAuth and account deletion
-pub fn get_oauth_routes() -> Vec<Route> {
-    routes![login, login_callback, delete_account]
-}
-
-/// User information to be retrieved from the GitHub API.
-#[derive(serde::Deserialize)]
-pub struct GitHubUserInfo {
-    id: u64,
-    name: Option<String>,
-    login: String,
-}
-
-#[get("/login/github")]
-async fn login(
-    oauth2: OAuth2<GitHubUserInfo>,
-    cookies: &CookieJar<'_>,
-) -> Result<Redirect, ApiError> {
-    oauth2
-        .get_redirect(cookies, &["user:read"])
-        .map_err(|e| ApiError::Authentication(format!("Failed to get redirect: {}", e)))
-}
-
-#[get("/login/github/callback")]
-async fn login_callback(
-    mut db: DbConnection,
-    token: TokenResponse<GitHubUserInfo>,
-    mut session: Session<'_, ChatRsAuthSession>,
-) -> Result<Redirect, ApiError> {
-    let user_info_res = reqwest::Client::builder()
-        .build()
-        .map_err(|e| ApiError::Authentication(format!("Failed to build reqwest client: {}", e)))?
-        .get("https://api.github.com/user")
-        .header("Authorization", format!("Bearer {}", token.access_token()))
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "fa-sharp/rs-chat")
-        .send()
-        .await
-        .map_err(|e| ApiError::Authentication(format!("Failed to get GitHub user: {}", e)))?;
-    let user_info: GitHubUserInfo = user_info_res
-        .json()
-        .await
-        .map_err(|e| ApiError::Authentication(format!("Failed to deserialize response: {}", e)))?;
-
-    let mut db_service = UserDbService::new(&mut db);
-    match db_service.find_by_github_id(user_info.id).await? {
-        Some(existing_user) => {
-            session.set(ChatRsAuthSession {
-                user_id: existing_user.id,
-            });
-        }
-        None => {
-            let new_user = db_service
-                .create(NewChatRsUser {
-                    github_id: &user_info.id.to_string(),
-                    name: user_info
-                        .name
-                        .as_deref()
-                        .unwrap_or_else(|| user_info.login.as_str()),
-                })
-                .await?;
-            session.set(ChatRsAuthSession {
-                user_id: new_user.id,
-            });
-        }
-    }
-
-    Ok(Redirect::to("/"))
+/// Undocumented auth routes: account deletion
+pub fn get_undocumented_routes() -> Vec<Route> {
+    routes![delete_account]
 }
 
 /// Get the current user info
-#[openapi(tag = "User")]
+#[openapi(tag = "Auth")]
 #[get("/user")]
 async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
     Ok(Json(user))
 }
 
+/// The current auth configuration of the server
+#[derive(Debug, JsonSchema, OpenApiFromRequest, serde::Serialize)]
+struct AuthConfig {
+    /// Whether GitHub login is enabled
+    github: bool,
+    /// Whether Google login is enabled
+    google: bool,
+    /// Whether Discord login is enabled
+    discord: bool,
+    /// OIDC configuration
+    oidc: Option<OIDC>,
+    /// SSO configuration
+    sso: Option<SSO>,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct OIDC {
+    /// Whether OIDC login is enabled
+    enabled: bool,
+    /// The name of the OIDC provider
+    name: String,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct SSO {
+    /// Whether SSO header authentication is enabled
+    enabled: bool,
+    /// The URL to redirect to after logout
+    logout_url: Option<String>,
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AuthConfig {
+    type Error = &'r str;
+
+    async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
+        let rocket = req.rocket();
+        let sso_config = rocket.state::<SSOHeaderMergedConfig>();
+
+        Outcome::Success(AuthConfig {
+            github: rocket.state::<GitHubOAuthConfig>().is_some(),
+            google: rocket.state::<GoogleOAuthConfig>().is_some(),
+            discord: rocket.state::<DiscordOAuthConfig>().is_some(),
+            oidc: rocket.state::<OIDCConfig>().map(|config| OIDC {
+                enabled: true,
+                name: config.oidc_name.clone().unwrap_or("OIDC".to_owned()),
+            }),
+            sso: sso_config.map(|config| SSO {
+                enabled: true,
+                logout_url: config.logout_url.clone(),
+            }),
+        })
+    }
+}
+
+/// Get the current auth configuration
+#[openapi(tag = "Auth")]
+#[get("/config")]
+async fn auth_config(config: AuthConfig) -> Json<AuthConfig> {
+    Json(config)
+}
+
 /// Log out
-#[openapi(tag = "User")]
+#[openapi(tag = "Auth")]
 #[post("/logout")]
 async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
     session.delete();
@@ -110,6 +116,11 @@ async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, A
 /// Delete account
 #[delete("/user/delete-but-only-if-you-are-sure")]
 async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String, ApiError> {
+    // Delete Provider keys
+    let provider_keys = ProviderKeyDbService::new(&mut db)
+        .delete_by_user(&user.id)
+        .await?;
+
     // Delete API keys
     let api_keys = ApiKeyDbService::new(&mut db)
         .delete_by_user(&user.id)
@@ -123,9 +134,10 @@ async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String
     let user_id = UserDbService::new(&mut db).delete(&user.id).await?;
 
     Ok(format!(
-        "Deleted user {}: {} sessions and {} API keys",
+        "Deleted user {}: {} sessions, {} provider keys, {} API keys",
         user_id,
         sessions.len(),
+        provider_keys.len(),
         api_keys.len()
     ))
 }

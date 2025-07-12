@@ -3,7 +3,7 @@ use uuid::Uuid;
 use crate::{
     db::{
         models::UpdateChatRsSession,
-        services::{api_key::ApiKeyDbService, chat::ChatDbService},
+        services::{ChatDbService, ProviderKeyDbService},
         DbConnection, DbPool,
     },
     utils::encryption::Encryptor,
@@ -36,7 +36,7 @@ pub fn generate_title(
         let Ok(provider) = create_provider(
             &user_id,
             &config,
-            &mut ApiKeyDbService::new(&mut db),
+            &mut ProviderKeyDbService::new(&mut db),
             &encryptor,
         )
         .await

@@ -31,11 +31,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useApiKeys, useCreateApiKey, useDeleteApiKey } from "@/lib/api/apiKey";
+import {
+  useCreateProviderKey,
+  useDeleteProviderKey,
+  useProviderKeys,
+} from "@/lib/api/providerKey";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-type AIProvider = components["schemas"]["ChatRsApiKeyProviderType"];
+type AIProvider = components["schemas"]["ChatRsProviderKeyType"];
 
 interface ApiKey {
   provider: AIProvider;
@@ -76,13 +80,13 @@ const PROVIDERS: Record<ApiKey["provider"], ProviderInfo> = {
 
 const availableProviders = Object.keys(PROVIDERS) as AIProvider[];
 
-export function ApiKeysManager({
+export function ProviderKeysManager({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { data: apiKeys } = useApiKeys();
-  const createKey = useCreateApiKey();
-  const deleteKey = useDeleteApiKey();
+  const { data: apiKeys } = useProviderKeys();
+  const createKey = useCreateProviderKey();
+  const deleteKey = useDeleteProviderKey();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(
@@ -126,7 +130,7 @@ export function ApiKeysManager({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">API Keys</h1>
+          <h1 className="text-3xl font-bold">Provider Keys</h1>
         </div>
         <p className="text-muted-foreground">
           Manage your API keys for different AI providers. Each provider can
@@ -142,8 +146,8 @@ export function ApiKeysManager({
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="size-4 mr-2" />
-              Add API Key
+              <Plus className="size-4" />
+              Add Provider Key
             </Button>
           </DialogTrigger>
           <DialogContent>

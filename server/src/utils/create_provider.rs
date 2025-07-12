@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
-    db::{models::ChatRsApiKeyProviderType, services::api_key::ApiKeyDbService},
+    db::{models::ChatRsProviderKeyType, services::ProviderKeyDbService},
     provider::{
         llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
@@ -41,7 +41,7 @@ pub struct OpenRouterConfig {
 pub async fn create_provider<'a>(
     user_id: &Uuid,
     provider_config: &'a ProviderConfigInput,
-    db: &mut ApiKeyDbService<'_>,
+    db: &mut ProviderKeyDbService<'_>,
     encryptor: &Encryptor,
 ) -> Result<Box<dyn ChatRsProvider + Send + 'a>, ChatRsError> {
     let provider: Box<dyn ChatRsProvider + Send> = match provider_config {
@@ -67,7 +67,7 @@ pub async fn create_provider<'a>(
         }
         ProviderConfigInput::OpenRouter(llm_config) => {
             let api_key_secret = db
-                .find_by_user_and_provider(user_id, &ChatRsApiKeyProviderType::Openrouter)
+                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Openrouter)
                 .await
                 .map_err(|e| ChatRsError::DatabaseError(e.to_string()))?
                 .ok_or(ChatRsError::MissingApiKey)?;
@@ -105,13 +105,13 @@ impl From<LLMBackendInput> for LLMBackend {
     }
 }
 
-impl From<LLMBackendInput> for ChatRsApiKeyProviderType {
+impl From<LLMBackendInput> for ChatRsProviderKeyType {
     fn from(value: LLMBackendInput) -> Self {
         match value {
-            LLMBackendInput::OpenAI => ChatRsApiKeyProviderType::Openai,
-            LLMBackendInput::Anthropic => ChatRsApiKeyProviderType::Anthropic,
-            LLMBackendInput::Deepseek => ChatRsApiKeyProviderType::Deepseek,
-            LLMBackendInput::Google => ChatRsApiKeyProviderType::Google,
+            LLMBackendInput::OpenAI => ChatRsProviderKeyType::Openai,
+            LLMBackendInput::Anthropic => ChatRsProviderKeyType::Anthropic,
+            LLMBackendInput::Deepseek => ChatRsProviderKeyType::Deepseek,
+            LLMBackendInput::Google => ChatRsProviderKeyType::Google,
         }
     }
 }

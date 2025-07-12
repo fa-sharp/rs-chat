@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { AlertTriangle, Trash2, User } from "lucide-react";
+import { AlertTriangle, GlobeLock, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
+import { Discord, GitHub, Google } from "@/components/logos";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,13 +24,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { API_URL, client } from "@/lib/api/client";
 import { deleteAccount, getUser } from "@/lib/api/user";
 
 export const Route = createFileRoute("/app/_appLayout/profile")({
+  loader: async () => {
+    const response = await client.GET("/auth/config");
+    if (response.error) throw new Error("Failed to fetch auth configuration");
+    return { authConfig: response.data };
+  },
   component: ProfilePage,
 });
 
 function ProfilePage() {
+  const { authConfig } = Route.useLoaderData();
   const queryClient = useQueryClient();
   const router = useRouter();
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
@@ -99,7 +107,7 @@ function ProfilePage() {
               <div className="flex items-center gap-4">
                 <Avatar>
                   <AvatarImage
-                    src={`https://avatars.githubusercontent.com/u/${user.github_id}`}
+                    src={user?.avatar_url || undefined}
                     alt="Avatar"
                   />
                 </Avatar>
@@ -108,10 +116,66 @@ function ProfilePage() {
                   <p className="text-sm text-muted-foreground">
                     User ID: {user.id}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    GitHub ID: {user.github_id}
-                  </p>
+                  {user.github_id && (
+                    <p className="text-sm text-muted-foreground">
+                      GitHub ID: {user.github_id}
+                    </p>
+                  )}
+                  {user.google_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Google ID: {user.google_id}
+                    </p>
+                  )}
+                  {user.discord_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Discord ID: {user.discord_id}
+                    </p>
+                  )}
+                  {user.oidc_id && (
+                    <p className="text-sm text-muted-foreground">
+                      {authConfig.oidc?.name || "OIDC"} ID: {user.oidc_id}
+                    </p>
+                  )}
+                  {user.sso_username && (
+                    <p className="text-sm text-muted-foreground">
+                      SSO Username: {user.sso_username}
+                    </p>
+                  )}
                 </div>
+              </div>
+              <div className="flex gap-2">
+                {!user.github_id && authConfig.github && (
+                  <Button asChild variant="outline">
+                    <a href={`${API_URL}/auth/login/github`}>
+                      <GitHub />
+                      Connect GitHub
+                    </a>
+                  </Button>
+                )}
+                {!user.google_id && authConfig.google && (
+                  <Button asChild variant="outline">
+                    <a href={`${API_URL}/auth/login/google`}>
+                      <Google />
+                      Connect Google
+                    </a>
+                  </Button>
+                )}
+                {!user.discord_id && authConfig.discord && (
+                  <Button asChild variant="outline">
+                    <a href={`${API_URL}/auth/login/discord`}>
+                      <Discord />
+                      Connect Discord
+                    </a>
+                  </Button>
+                )}
+                {!user.oidc_id && authConfig.oidc?.enabled && (
+                  <Button asChild variant="outline">
+                    <a href={`${API_URL}/auth/login/oidc`}>
+                      <GlobeLock />
+                      Connect {authConfig.oidc.name}
+                    </a>
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -124,13 +188,20 @@ function ProfilePage() {
                 Access other parts of your account
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               <Button
                 asChild
                 variant="outline"
                 className="w-full justify-start"
               >
-                <Link to="/app/api-keys">Manage API Keys</Link>
+                <Link to="/app/api-keys">Manage Provider Keys</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full justify-start"
+              >
+                <Link to="/app/app-keys">Manage API Keys</Link>
               </Button>
             </CardContent>
           </Card>

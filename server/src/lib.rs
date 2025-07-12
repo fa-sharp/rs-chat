@@ -12,11 +12,13 @@ use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec};
 
 use crate::{
-    auth::{setup_encryption, setup_oauth, setup_session},
+    api::auth_undocumented_routes,
+    auth::setup_auth,
     config::{get_config_provider, AppConfig},
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    utils::encryption::setup_encryption,
     web::setup_static_files,
 };
 
@@ -27,12 +29,11 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_db())
         .attach(setup_redis())
         .attach(setup_encryption())
-        .attach(setup_session())
-        .attach(setup_oauth())
+        .attach(setup_auth("/api/auth"))
         .attach(setup_static_files())
         .register("/", get_catchers())
-        .mount("/api/docs", get_doc_routes())
-        .mount("/api/auth", api::oauth_routes());
+        .mount("/api/auth", auth_undocumented_routes())
+        .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
     mount_endpoints_and_merged_docs! {
@@ -41,6 +42,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/auth" => api::auth_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
+        "/provider_key" => api::provider_key_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };
 
@@ -62,7 +64,9 @@ fn get_doc_routes() -> impl Into<Vec<rocket::Route>> {
     };
 
     make_rapidoc(&RapiDocConfig {
+        title: Some(String::from("RsChat API Documentation")),
         general: GeneralConfig {
+            heading_text: String::from("RsChat API"),
             spec_urls: vec![UrlObject::new("OpenAPI Schema", "/api/openapi.json")],
             ..Default::default()
         },

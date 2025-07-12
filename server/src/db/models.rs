@@ -4,27 +4,54 @@ use diesel::{
     Selectable,
 };
 use diesel_as_jsonb::AsJsonb;
-use rocket_okapi::OpenApiFromRequest;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::utils::create_provider::ProviderConfigInput;
 
-#[derive(Identifiable, Queryable, Selectable, JsonSchema, OpenApiFromRequest, serde::Serialize)]
+#[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,
-    pub github_id: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub github_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discord_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oidc_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sso_username: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Insertable)]
+#[derive(Insertable, Default)]
 #[diesel(table_name = super::schema::users)]
 pub struct NewChatRsUser<'r> {
-    pub github_id: &'r str,
+    pub github_id: Option<&'r str>,
+    pub google_id: Option<&'r str>,
+    pub discord_id: Option<&'r str>,
+    pub oidc_id: Option<&'r str>,
+    pub sso_username: Option<&'r str>,
     pub name: &'r str,
+    pub avatar_url: Option<&'r str>,
+}
+
+#[derive(AsChangeset, Default)]
+#[diesel(table_name = super::schema::users)]
+pub struct UpdateChatRsUser<'r> {
+    pub github_id: Option<&'r str>,
+    pub google_id: Option<&'r str>,
+    pub discord_id: Option<&'r str>,
+    pub oidc_id: Option<&'r str>,
+    pub sso_username: Option<&'r str>,
+    pub name: Option<&'r str>,
+    pub avatar_url: Option<&'r str>,
 }
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
@@ -93,7 +120,7 @@ pub struct NewChatRsMessage<'r> {
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::LlmProvider")]
 #[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
-pub enum ChatRsApiKeyProviderType {
+pub enum ChatRsProviderKeyType {
     Anthropic,
     Openai,
     Ollama,
@@ -102,25 +129,52 @@ pub enum ChatRsApiKeyProviderType {
     Openrouter,
 }
 
+#[derive(Identifiable, Queryable, Selectable, Associations)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::api_keys)]
+pub struct ChatRsProviderKey {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub provider: ChatRsProviderKeyType,
+    pub ciphertext: Vec<u8>,
+    pub nonce: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::api_keys)]
-pub struct ChatRsApiKey {
+pub struct ChatRsProviderKeyMeta {
     pub id: Uuid,
+    #[serde(skip)]
     pub user_id: Uuid,
-    pub provider: ChatRsApiKeyProviderType,
-    #[serde(skip)]
-    pub ciphertext: Vec<u8>,
-    #[serde(skip)]
-    pub nonce: Vec<u8>,
+    pub provider: ChatRsProviderKeyType,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::api_keys)]
-pub struct NewChatRsApiKey<'r> {
+pub struct NewChatRsProviderKey<'r> {
     pub user_id: &'r Uuid,
-    pub provider: &'r ChatRsApiKeyProviderType,
+    pub provider: &'r ChatRsProviderKeyType,
     pub ciphertext: &'r Vec<u8>,
     pub nonce: &'r Vec<u8>,
+}
+
+#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::app_api_keys)]
+pub struct ChatRsApiKey {
+    pub id: Uuid,
+    #[serde(skip)]
+    pub user_id: Uuid,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::app_api_keys)]
+pub struct NewChatRsApiKey<'r> {
+    pub user_id: &'r Uuid,
+    pub name: &'r str,
 }

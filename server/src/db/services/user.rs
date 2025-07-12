@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsUser, NewChatRsUser},
+    models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
     schema::users,
     DbConnection,
 };
@@ -29,9 +29,9 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
-    pub async fn find_by_github_id(&mut self, id: u64) -> Result<Option<ChatRsUser>, Error> {
+    pub async fn find_by_github_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
         let user = users::table
-            .filter(users::github_id.eq(id.to_string()))
+            .filter(users::github_id.eq(id))
             .select(ChatRsUser::as_select())
             .first(self.db)
             .await
@@ -40,12 +40,70 @@ impl<'a> UserDbService<'a> {
         Ok(user)
     }
 
+    pub async fn find_by_google_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::google_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
+    pub async fn find_by_discord_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::discord_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
+    pub async fn find_by_oidc_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::oidc_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user)
+    }
+
+    pub async fn find_by_sso_username(&mut self, username: &str) -> Result<Option<Uuid>, Error> {
+        let user_id = users::table
+            .filter(users::sso_username.eq(username))
+            .select(users::id)
+            .first(self.db)
+            .await
+            .optional()?;
+
+        Ok(user_id)
+    }
+
     pub async fn create(&mut self, user: NewChatRsUser<'_>) -> Result<ChatRsUser, Error> {
         diesel::insert_into(users::table)
             .values(user)
             .returning(ChatRsUser::as_returning())
             .get_result(self.db)
             .await
+    }
+
+    pub async fn update(
+        &mut self,
+        user_id: &Uuid,
+        data: UpdateChatRsUser<'_>,
+    ) -> Result<Uuid, diesel::result::Error> {
+        let updated_id: Uuid = diesel::update(users::table.find(user_id))
+            .set(data)
+            .returning(users::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(updated_id)
     }
 
     pub async fn delete(&mut self, user_id: &Uuid) -> Result<Uuid, Error> {

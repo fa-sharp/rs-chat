@@ -55,11 +55,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
   const handleCopy = async () => {
     if (ref.current) {
       try {
-        await navigator.clipboard.writeText(
-          ref.current.innerText
-            .slice(5)
-            .trim(), // Slice off the text of the copy button
-        );
+        await navigator.clipboard.writeText(ref.current.innerText.trim());
         setIsCopied(true);
         setTimeout(() => setIsCopied(false), 2000);
       } catch (error) {
@@ -74,7 +70,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
       {/* `not-prose` disables the Tailwind typography styles */}
       <Button
         aria-label="Copy code"
-        className="absolute top-1 right-1 size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
+        className="absolute top-1.5 right-1.5 size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
         onClick={handleCopy}
         variant="outline"
         size="icon"

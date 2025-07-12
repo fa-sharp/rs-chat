@@ -8,6 +8,7 @@ import {
 import {
   ChevronsUpDown,
   KeyRound,
+  LockKeyhole,
   LogOut,
   MessageCircleHeart,
   Minus,
@@ -105,11 +106,7 @@ export function AppSidebar({
                       <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
                         <Avatar>
                           <AvatarImage
-                            src={
-                              !user
-                                ? ""
-                                : `https://avatars.githubusercontent.com/u/${user.github_id}`
-                            }
+                            src={user?.avatar_url || ""}
                             alt="Avatar"
                           />
                           <AvatarFallback>
@@ -136,6 +133,12 @@ export function AppSidebar({
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
                     <Link to="/app/api-keys">
+                      <LockKeyhole />
+                      Provider Keys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/app-keys">
                       <KeyRound />
                       API Keys
                     </Link>

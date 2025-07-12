@@ -3,9 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { client } from "./client";
 import type { components } from "./types";
 
+const queryKey = ["apiKeys"];
+
 export const useApiKeys = () =>
   useQuery({
-    queryKey: ["apiKeys"],
+    queryKey,
     queryFn: async () => {
       const response = await client.GET("/api_key/");
       if (response.error) {
@@ -19,18 +21,17 @@ export const useCreateApiKey = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
-      key,
-      provider,
-    }: components["schemas"]["ApiKeyInput"]) => {
+      name,
+    }: components["schemas"]["ApiKeyCreateInput"]) => {
       const response = await client.POST("/api_key/", {
-        body: { key, provider },
+        body: { name },
       });
       if (response.error) {
         throw new Error(response.error.message);
       }
       return response.data;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["apiKeys"] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 };
 
@@ -46,6 +47,6 @@ export const useDeleteApiKey = () => {
       }
       return response.data;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ["apiKeys"] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 };

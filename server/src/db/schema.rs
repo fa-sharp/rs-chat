@@ -29,6 +29,15 @@ diesel::table! {
 }
 
 diesel::table! {
+    app_api_keys (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::ChatMessageRole;
     use super::sql_types::Tsvector;
@@ -58,19 +67,26 @@ diesel::table! {
 diesel::table! {
     users (id) {
         id -> Uuid,
-        github_id -> Varchar,
+        github_id -> Nullable<Varchar>,
         name -> Varchar,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
+        sso_username -> Nullable<Text>,
+        google_id -> Nullable<Text>,
+        discord_id -> Nullable<Text>,
+        oidc_id -> Nullable<Text>,
+        avatar_url -> Nullable<Text>,
     }
 }
 
 diesel::joinable!(api_keys -> users (user_id));
+diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     api_keys,
+    app_api_keys,
     chat_messages,
     chat_sessions,
     users,

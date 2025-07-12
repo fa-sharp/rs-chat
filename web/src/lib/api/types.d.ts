@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Get the current auth configuration */
+        get: operations["auth_config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -143,6 +160,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/provider_key/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all Provider API keys */
+        get: operations["get_all_provider_keys"];
+        put?: never;
+        /** @description Create a new Provider API key */
+        post: operations["create_provider_key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider_key/{api_key_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a Provider API key */
+        delete: operations["delete_provider_key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api_key/": {
         parameters: {
             query?: never;
@@ -185,8 +237,13 @@ export interface components {
         ChatRsUser: {
             /** Format: uuid */
             id: string;
-            github_id: string;
             name: string;
+            avatar_url?: string | null;
+            github_id?: string | null;
+            google_id?: string | null;
+            discord_id?: string | null;
+            oidc_id?: string | null;
+            sso_username?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -194,6 +251,31 @@ export interface components {
         };
         Message: {
             message: string;
+        };
+        /** @description The current auth configuration of the server */
+        AuthConfig: {
+            /** @description Whether GitHub login is enabled */
+            github: boolean;
+            /** @description Whether Google login is enabled */
+            google: boolean;
+            /** @description Whether Discord login is enabled */
+            discord: boolean;
+            /** @description OIDC configuration */
+            oidc?: components["schemas"]["OIDC"] | null;
+            /** @description SSO configuration */
+            sso?: components["schemas"]["SSO"] | null;
+        };
+        OIDC: {
+            /** @description Whether OIDC login is enabled */
+            enabled: boolean;
+            /** @description The name of the OIDC provider */
+            name: string;
+        };
+        SSO: {
+            /** @description Whether SSO header authentication is enabled */
+            enabled: boolean;
+            /** @description The URL to redirect to after logout */
+            logout_url?: string | null;
         };
         ChatRsSession: {
             /** Format: uuid */
@@ -271,20 +353,33 @@ export interface components {
             message?: string | null;
             provider: components["schemas"]["ProviderConfigInput"];
         };
-        ChatRsApiKey: {
+        ChatRsProviderKeyMeta: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            user_id: string;
-            provider: components["schemas"]["ChatRsApiKeyProviderType"];
+            provider: components["schemas"]["ChatRsProviderKeyType"];
             /** Format: date-time */
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsApiKeyProviderType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
-        ApiKeyInput: {
-            provider: components["schemas"]["ChatRsApiKeyProviderType"];
+        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
+        ProviderKeyInput: {
+            provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;
+        };
+        ChatRsApiKey: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ApiKeyCreateResponse: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+        };
+        ApiKeyCreateInput: {
+            name: string;
         };
     };
     responses: never;
@@ -374,6 +469,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    auth_config: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfig"];
                 };
             };
         };
@@ -973,6 +1087,202 @@ export interface operations {
             };
         };
     };
+    get_all_provider_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProviderKeyMeta"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_provider_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderKeyInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_provider_key: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                api_key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
     get_all_api_keys: {
         parameters: {
             query?: never;
@@ -1046,7 +1356,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ApiKeyInput"];
+                "application/json": components["schemas"]["ApiKeyCreateInput"];
             };
         };
         responses: {
@@ -1055,7 +1365,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/plain": string;
+                    "application/json": components["schemas"]["ApiKeyCreateResponse"];
                 };
             };
             /** @description Bad request */

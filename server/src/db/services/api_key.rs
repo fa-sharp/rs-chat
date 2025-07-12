@@ -4,24 +4,29 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsApiKey, ChatRsApiKeyProviderType, NewChatRsApiKey},
+    models::{
+        ChatRsProviderKey, ChatRsProviderKeyMeta, ChatRsProviderKeyType, NewChatRsProviderKey,
+    },
     schema::api_keys,
     DbConnection,
 };
 
-pub struct ApiKeyDbService<'a> {
+pub struct ProviderKeyDbService<'a> {
     pub db: &'a mut DbConnection,
 }
 
-impl<'a> ApiKeyDbService<'a> {
+impl<'a> ProviderKeyDbService<'a> {
     pub fn new(db: &'a mut DbConnection) -> Self {
-        ApiKeyDbService { db }
+        ProviderKeyDbService { db }
     }
 
-    pub async fn find_by_user_id(&mut self, user_id: &Uuid) -> Result<Vec<ChatRsApiKey>, Error> {
+    pub async fn find_by_user_id(
+        &mut self,
+        user_id: &Uuid,
+    ) -> Result<Vec<ChatRsProviderKeyMeta>, Error> {
         let keys = api_keys::table
             .filter(api_keys::user_id.eq(user_id))
-            .select(ChatRsApiKey::as_select())
+            .select(ChatRsProviderKeyMeta::as_select())
             .load(self.db)
             .await?;
 
@@ -31,12 +36,12 @@ impl<'a> ApiKeyDbService<'a> {
     pub async fn find_by_user_and_provider(
         &mut self,
         user_id: &Uuid,
-        provider: &ChatRsApiKeyProviderType,
-    ) -> Result<Option<ChatRsApiKey>, Error> {
+        provider: &ChatRsProviderKeyType,
+    ) -> Result<Option<ChatRsProviderKey>, Error> {
         let key = api_keys::table
             .filter(api_keys::user_id.eq(user_id))
             .filter(api_keys::provider.eq(provider))
-            .select(ChatRsApiKey::as_select())
+            .select(ChatRsProviderKey::as_select())
             .first(self.db)
             .await
             .optional()?;
@@ -44,7 +49,7 @@ impl<'a> ApiKeyDbService<'a> {
         Ok(key)
     }
 
-    pub async fn create(&mut self, api_key: NewChatRsApiKey<'_>) -> Result<Uuid, Error> {
+    pub async fn create(&mut self, api_key: NewChatRsProviderKey<'_>) -> Result<Uuid, Error> {
         let id: Uuid = diesel::insert_into(api_keys::table)
             .values(api_key)
             .returning(api_keys::id)

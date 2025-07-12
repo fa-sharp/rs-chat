@@ -42,21 +42,18 @@ impl DerefMut for DbConnection {
 /// internal server error if a connection couldn't be retrieved.
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for DbConnection {
-    type Error = String;
+    type Error = &'static str;
 
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let Some(pool) = req.rocket().state::<DbPool>() else {
-            return Outcome::Error((
-                Status::InternalServerError,
-                "Database not initialized".to_owned(),
-            ));
+            return Outcome::Error((Status::InternalServerError, "Database not initialized"));
         };
         match pool.get().await {
-            Err(e) => Outcome::Error((
-                Status::InternalServerError,
-                format!("Couldn't get connection: {}", e),
-            )),
             Ok(conn) => Outcome::Success(DbConnection(conn)),
+            Err(e) => {
+                rocket::error!("Couldn't get database connection: {}", e);
+                Outcome::Error((Status::InternalServerError, "Couldn't get connection"))
+            }
         }
     }
 }

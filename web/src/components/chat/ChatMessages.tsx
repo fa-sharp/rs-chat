@@ -26,8 +26,8 @@ interface Props {
 }
 
 const proseClasses =
-  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-headings:not-[:first-child]:mt-3 prose-headings:mb-2 " +
-  "prose-h1:text-3xl prose-ul:my-3 prose-ol:my-3 prose-p:leading-4 md:prose-p:leading-5.5 prose-li:my-1 prose-li:leading-4 md:prose-li:leading-5.5";
+  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-headings:not-[:first-child]:mt-4 prose-headings:mb-3 " +
+  "prose-h1:text-3xl prose-ul:my-3 prose-ol:my-3 prose-p:leading-5 md:prose-p:leading-6 prose-li:my-1 prose-li:leading-5 md:prose-li:leading-6";
 const proseUserClasses = "prose-code:text-primary-foreground";
 const proseAssistantClasses = "prose-code:text-secondary-foreground";
 
@@ -77,11 +77,7 @@ export default function ChatMessages({
             variant={message.role === "User" ? "sent" : "received"}
           >
             <ChatBubbleAvatar
-              src={
-                message.role === "User" && user
-                  ? `https://avatars.githubusercontent.com/u/${user.github_id}`
-                  : ""
-              }
+              src={(message.role === "User" && user?.avatar_url) || undefined}
               fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
             />
             <ChatBubbleMessage
