@@ -188,13 +188,20 @@ function ProfilePage() {
                 Access other parts of your account
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               <Button
                 asChild
                 variant="outline"
                 className="w-full justify-start"
               >
-                <Link to="/app/api-keys">Manage API Keys</Link>
+                <Link to="/app/api-keys">Manage Provider Keys</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full justify-start"
+              >
+                <Link to="/app/app-keys">Manage API Keys</Link>
               </Button>
             </CardContent>
           </Card>
