@@ -1,4 +1,12 @@
-import { Bot, Check, Copy, Plus, Trash2 } from "lucide-react";
+import {
+  Bot,
+  Check,
+  Copy,
+  ExternalLink,
+  Link,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -32,6 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApiKeys, useCreateApiKey, useDeleteApiKey } from "@/lib/api/apiKey";
+import { API_URL } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 export function ApiKeysManager({
@@ -98,79 +107,90 @@ export function ApiKeysManager({
         <div className="text-sm text-muted-foreground">
           {apiKeys?.length} API keys configured
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="size-4 mr-2" />
-              Add API Key
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add API Key</DialogTitle>
-              <DialogDescription>
-                Enter a name for your API key.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="api-key">Name</Label>
-                <Input
-                  autoFocus
-                  id="api-key-name"
-                  type="text"
-                  placeholder="My API Key"
-                  value={newApiKeyName}
-                  onChange={(e) => setNewApiKeyName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleCreateKey();
-                    }
-                  }}
-                  disabled={createKey.isPending || !!newApiKeyValue}
-                />
-              </div>
-              {newApiKeyValue && (
-                <div className="grid gap-2">
-                  <Label htmlFor="api-key">
-                    Key (copy and save this - won't be shown again!)
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="api-key-value"
-                      type="text"
-                      readOnly
-                      value={newApiKeyValue}
-                    />
-                    <Button onClick={handleCopyKey} variant="outline">
-                      {copied ? <Check /> : <Copy />}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setNewApiKeyName("");
-                  setNewApiKeyValue("");
-                }}
-              >
-                {newApiKeyValue ? "Close" : "Cancel"}
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <a href={`${API_URL}/docs`} target="_blank">
+              <ExternalLink />
+              API Docs
+            </a>
+          </Button>
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="size-4" />
+                Add API Key
               </Button>
-              {!newApiKeyValue && (
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add API Key</DialogTitle>
+                <DialogDescription>
+                  Enter a name for your API key.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="api-key">Name</Label>
+                  <Input
+                    autoFocus
+                    id="api-key-name"
+                    type="text"
+                    placeholder="My API Key"
+                    value={newApiKeyName}
+                    onChange={(e) => setNewApiKeyName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleCreateKey();
+                      }
+                    }}
+                    disabled={createKey.isPending || !!newApiKeyValue}
+                  />
+                </div>
+                {newApiKeyValue && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="api-key">
+                      Key (copy and save this - won't be shown again!)
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="api-key-value"
+                        type="text"
+                        readOnly
+                        value={newApiKeyValue}
+                      />
+                      <Button onClick={handleCopyKey} variant="outline">
+                        {copied ? <Check /> : <Copy />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
                 <Button
-                  onClick={handleCreateKey}
-                  disabled={!newApiKeyName.trim() || createKey.isPending}
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setNewApiKeyName("");
+                    setNewApiKeyValue("");
+                  }}
                 >
-                  {createKey.isPending ? "Creating..." : "Create Key"}
+                  {newApiKeyValue ? "Close" : "Cancel"}
                 </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                {!newApiKeyValue && (
+                  <Button
+                    onClick={handleCreateKey}
+                    disabled={!newApiKeyName.trim() || createKey.isPending}
+                  >
+                    {createKey.isPending ? "Creating..." : "Create Key"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* API Keys List */}

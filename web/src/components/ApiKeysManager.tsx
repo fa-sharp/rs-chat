@@ -146,7 +146,7 @@ export function ProviderKeysManager({
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Add Provider Key
             </Button>
           </DialogTrigger>
