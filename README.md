@@ -17,6 +17,7 @@ Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your 
 - **Code Highlighting**: Beautiful syntax highlighting for code blocks using [`rehype-highlight`](https://github.com/rehypejs/rehype-highlight)
 - **Dark Mode**: Dark/light theme support
 - **Responsive Design**: Mobile-friendly layout
+- **Search Chats**: Full-text search of chat session titles and messages
 - **Fast and Memory Efficient**: Rust backend using the [Rocket framework](https://rocket.rs/)
 - **Users & Authentication**: Login via OAuth providers (Google, GitHub, etc.), custom OIDC, and SSO header authentication
 - **API Key Access and OpenAPI Docs**: API key access and documentation at `/api/docs` for developers to integrate with RsChat
