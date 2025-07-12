@@ -64,7 +64,9 @@ fn get_doc_routes() -> impl Into<Vec<rocket::Route>> {
     };
 
     make_rapidoc(&RapiDocConfig {
+        title: Some(String::from("RsChat API Documentation")),
         general: GeneralConfig {
+            heading_text: String::from("RsChat API"),
             spec_urls: vec![UrlObject::new("OpenAPI Schema", "/api/openapi.json")],
             ..Default::default()
         },
