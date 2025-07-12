@@ -53,11 +53,18 @@ update_version_files() {
     local new_version=$1
 
     # Update Cargo.toml
-    # if [[ -f "server/Cargo.toml" ]]; then
-    #     sed -i.bak "s/^version = \".*\"/version = \"${new_version}\"/" server/Cargo.toml
-    #     rm server/Cargo.toml.bak
-    #     log_success "Updated server/Cargo.toml"
-    # fi
+    if [[ -f "server/Cargo.toml" ]]; then
+        sed -i.bak "s/^version = \".*\"/version = \"${new_version}\"/" server/Cargo.toml
+        rm server/Cargo.toml.bak
+        log_success "Updated server/Cargo.toml"
+    fi
+
+    # Update Cargo.lock by running cargo check
+    if [[ -f "server/Cargo.lock" ]]; then
+        cd server && cargo check --quiet
+        cd ..
+        log_success "Updated server/Cargo.lock"
+    fi
 
     # Update package.json
     if [[ -f "web/package.json" ]]; then
@@ -104,7 +111,7 @@ create_release() {
     update_version_files "$new_version"
 
     # Commit version changes
-    git add server/Cargo.toml web/package.json 2>/dev/null || true
+    git add server/Cargo.toml server/Cargo.lock web/package.json 2>/dev/null || true
     git commit -m "chore: bump version to v${new_version}" || log_warning "No version files to commit"
 
     # Create and push tag
