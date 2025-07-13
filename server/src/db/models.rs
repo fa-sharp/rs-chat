@@ -165,6 +165,30 @@ pub struct NewChatRsProviderKey<'r> {
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::tools)]
+pub struct ChatRsTool {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::tools)]
+pub struct NewChatRsTool<'r> {
+    pub user_id: &'r Uuid,
+    pub name: &'r str,
+    pub description: &'r str,
+    pub url: &'r str,
+    pub method: &'r str,
+    pub query: Option<&'r serde_json::Value>,
+    pub body: Option<&'r serde_json::Value>,
+}
+
+#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::app_api_keys)]
 pub struct ChatRsApiKey {
     pub id: Uuid,

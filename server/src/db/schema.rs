@@ -65,6 +65,21 @@ diesel::table! {
 }
 
 diesel::table! {
+    tools (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        name -> Text,
+        description -> Text,
+        url -> Text,
+        method -> Text,
+        query -> Nullable<Jsonb>,
+        body -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Uuid,
         github_id -> Nullable<Varchar>,
@@ -83,11 +98,13 @@ diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
+diesel::joinable!(tools -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     api_keys,
     app_api_keys,
     chat_messages,
     chat_sessions,
+    tools,
     users,
 );
