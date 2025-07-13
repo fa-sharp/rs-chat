@@ -12,11 +12,12 @@ use crate::{
         llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
         openai::OpenAIProvider,
-        openrouter::OpenRouterProvider,
         ChatRsError, ChatRsProvider,
     },
     utils::encryption::Encryptor,
 };
+
+const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
 /// Provider configuration input from API
 // WARNING: This enum is also used to store metadata for chat messages in the database.
@@ -95,15 +96,17 @@ pub async fn create_provider<'a>(
                 openai_config.base_url.as_deref(),
             )?)
         }
-        ProviderConfigInput::OpenRouter(llm_config) => {
+        ProviderConfigInput::OpenRouter(config) => {
             let api_key =
                 find_key(user_id, ChatRsProviderKeyType::Openrouter, db, encryptor).await?;
-            Box::new(OpenRouterProvider::new(
-                api_key,
-                &llm_config.model,
-                llm_config.max_tokens,
-                llm_config.temperature,
-            ))
+            Box::new(OpenAIProvider::new(
+                http_client,
+                &api_key,
+                &config.model,
+                config.max_tokens,
+                config.temperature,
+                Some(OPENROUTER_API_BASE_URL),
+            )?)
         }
         ProviderConfigInput::Llm(llm_config) => {
             let api_key =

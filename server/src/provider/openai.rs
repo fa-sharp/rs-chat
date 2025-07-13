@@ -6,6 +6,8 @@ use crate::{
     provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsUsage},
 };
 
+const API_BASE_URL: &str = "https://api.openai.com/v1";
+
 /// OpenAI chat provider
 pub struct OpenAIProvider<'a> {
     client: reqwest::Client,
@@ -31,7 +33,7 @@ impl<'a> OpenAIProvider<'a> {
             model,
             max_tokens,
             temperature,
-            base_url: base_url.unwrap_or("https://api.openai.com"),
+            base_url: base_url.unwrap_or(API_BASE_URL),
         })
     }
 
@@ -141,7 +143,7 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
 
         let response = self
             .client
-            .post(format!("{}/v1/chat/completions", self.base_url))
+            .post(format!("{}/chat/completions", self.base_url))
             .header("authorization", format!("Bearer {}", self.api_key))
             .header("content-type", "application/json")
             .json(&request)
@@ -175,7 +177,7 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
 
         let response = self
             .client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(format!("{}/chat/completions", self.base_url))
             .header("authorization", format!("Bearer {}", self.api_key))
             .header("content-type", "application/json")
             .json(&request)

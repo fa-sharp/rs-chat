@@ -1,4 +1,3 @@
-use llm::async_trait;
 use openrouter_rs::{
     api::{
         chat::{ChatCompletionRequest, Message},
@@ -7,7 +6,7 @@ use openrouter_rs::{
     types::Role,
     OpenRouterClient,
 };
-use rocket::futures::StreamExt;
+use rocket::{async_trait, futures::StreamExt};
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole},
@@ -17,7 +16,6 @@ use crate::{
 /// OpenRouter chat provider via the `openrouter-rs` crate
 pub struct OpenRouterProvider<'a> {
     api_key: String,
-
     model: &'a str,
     max_tokens: Option<u32>,
     temperature: Option<f32>,
