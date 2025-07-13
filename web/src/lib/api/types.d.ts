@@ -309,6 +309,7 @@ export interface components {
         ChatRsMessageMeta: {
             provider_config?: components["schemas"]["ProviderConfigInput"] | null;
             interrupted?: boolean | null;
+            usage?: components["schemas"]["ChatRsUsage"] | null;
         };
         /** @description Provider configuration input from API */
         ProviderConfigInput: "Lorem" | {
@@ -344,15 +345,21 @@ export interface components {
         };
         /** @deprecated */
         LLMConfig: {
-            backend: components["schemas"]["LLMBackendInput"];
+            backend: string;
             model: string;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
         };
-        /** @enum {string} */
-        LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
+        ChatRsUsage: {
+            /** Format: uint32 */
+            input_tokens?: number | null;
+            /** Format: uint32 */
+            output_tokens?: number | null;
+            /** Format: float */
+            cost?: number | null;
+        };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
             /** Format: uuid */
@@ -381,7 +388,7 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
+        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
         ProviderKeyInput: {
             provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;

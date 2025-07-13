@@ -295,6 +295,7 @@ impl From<AnthropicUsage> for ChatRsUsage {
         ChatRsUsage {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
+            cost: None,
         }
     }
 }

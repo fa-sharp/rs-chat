@@ -5,6 +5,7 @@ pub mod openai;
 use std::pin::Pin;
 
 use rocket::{async_trait, futures::Stream};
+use schemars::JsonSchema;
 
 use crate::db::models::ChatRsMessage;
 
@@ -31,10 +32,11 @@ pub enum ChatRsError {
     DecryptionError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct ChatRsUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    pub cost: Option<f32>,
 }
 
 pub struct ChatRsStreamChunk {

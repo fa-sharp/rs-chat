@@ -1,17 +1,25 @@
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+    time::{Duration, Instant},
+};
 
-use fred::prelude::{Client, KeysInterface};
-use fred::types::Expiration;
+use fred::{
+    prelude::{Client, KeysInterface},
+    types::Expiration,
+};
 use rocket::futures::Stream;
 use uuid::Uuid;
 
-use crate::db::models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage};
-use crate::db::services::ChatDbService;
-use crate::db::{DbConnection, DbPool};
-use crate::provider::ChatRsUsage;
-use crate::utils::create_provider::ProviderConfigInput;
+use crate::{
+    db::{
+        models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
+        services::ChatDbService,
+        DbConnection, DbPool,
+    },
+    provider::ChatRsUsage,
+    utils::create_provider::ProviderConfigInput,
+};
 
 /// A wrapper around the chat assistant stream that intermittently caches output in Redis, and
 /// saves the assistant's response to the database at the end of the stream.
@@ -27,6 +35,7 @@ pub struct StoredChatRsStream<
     last_cache_time: Instant,
     input_tokens: u32,
     output_tokens: u32,
+    cost: Option<f32>,
 }
 
 pub const CACHE_KEY_PREFIX: &str = "chat_session:";
@@ -53,6 +62,7 @@ where
             last_cache_time: Instant::now(),
             input_tokens: 0,
             output_tokens: 0,
+            cost: None,
         }
     }
 
@@ -66,14 +76,12 @@ where
         let session_id = self.session_id.clone();
         let config = self.provider_config.take();
         let content = self.buffer.join("");
+        let usage = Some(ChatRsUsage {
+            input_tokens: Some(self.input_tokens),
+            output_tokens: Some(self.output_tokens),
+            cost: self.cost,
+        });
         self.buffer.clear();
-        println!(
-            "Stream usage: {:?}",
-            ChatRsUsage {
-                input_tokens: Some(self.input_tokens),
-                output_tokens: Some(self.output_tokens),
-            }
-        );
 
         tokio::spawn(async move {
             let Ok(db) = pool.get().await else {
@@ -88,6 +96,7 @@ where
                     meta: &ChatRsMessageMeta {
                         provider_config: config,
                         interrupted,
+                        usage,
                     },
                 })
                 .await
@@ -126,6 +135,9 @@ where
                     }
                     if let Some(output_tokens) = usage.output_tokens {
                         self.output_tokens = output_tokens;
+                    }
+                    if let Some(cost) = usage.cost {
+                        self.cost = Some(cost);
                     }
                 }
 

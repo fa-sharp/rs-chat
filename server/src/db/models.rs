@@ -7,7 +7,7 @@ use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
-use crate::utils::create_provider::ProviderConfigInput;
+use crate::{provider::ChatRsUsage, utils::create_provider::ProviderConfigInput};
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
@@ -106,6 +106,8 @@ pub struct ChatRsMessageMeta {
     pub provider_config: Option<ProviderConfigInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interrupted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<ChatRsUsage>,
 }
 
 #[derive(Insertable)]
