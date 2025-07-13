@@ -257,7 +257,7 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
 /// Anthropic API request message
 #[derive(Debug, Serialize)]
 struct AnthropicMessage<'a> {
-    role: &'static str,
+    role: &'a str,
     content: &'a str,
 }
 
