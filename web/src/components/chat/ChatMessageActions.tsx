@@ -167,6 +167,14 @@ function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
         interrupted: !!meta.interrupted,
         maxTokens: meta.provider_config.Llm.max_tokens,
       };
+    } else if (meta.provider_config && "Anthropic" in meta.provider_config) {
+      return {
+        provider: "Anthropic",
+        model: meta.provider_config.Anthropic.model,
+        temperature: meta.provider_config.Anthropic.temperature,
+        maxTokens: meta.provider_config.Anthropic.max_tokens,
+        interrupted: !!meta.interrupted,
+      };
     } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
       return {
         provider: "OpenRouter",

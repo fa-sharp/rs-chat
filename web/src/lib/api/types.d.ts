@@ -312,10 +312,27 @@ export interface components {
         };
         /** @description Provider configuration input from API */
         ProviderConfigInput: "Lorem" | {
-            Llm: components["schemas"]["LLMConfig"];
+            Anthropic: components["schemas"]["AnthropicConfig"];
         } | {
             OpenRouter: components["schemas"]["OpenRouterConfig"];
+        } | {
+            Llm: components["schemas"]["LLMConfig"];
         };
+        AnthropicConfig: {
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
+        };
+        OpenRouterConfig: {
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
+        };
+        /** @deprecated */
         LLMConfig: {
             backend: components["schemas"]["LLMBackendInput"];
             model: string;
@@ -326,13 +343,6 @@ export interface components {
         };
         /** @enum {string} */
         LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
-        OpenRouterConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-        };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
             /** Format: uuid */

@@ -181,8 +181,7 @@ const useChatMessageInputState = ({
         onSubmit({
           message: inputRef.current.value,
           provider: {
-            Llm: {
-              backend: provider,
+            Anthropic: {
               model,
               temperature: temperature,
               max_tokens: maxTokens,
@@ -242,6 +241,13 @@ const getCommonSettingsFromConfig = (
     return {
       provider: providerConfig,
       model: "",
+    };
+  if ("Anthropic" in providerConfig)
+    return {
+      provider: "Anthropic",
+      model: providerConfig.Anthropic.model,
+      maxTokens: providerConfig.Anthropic.max_tokens,
+      temperature: providerConfig.Anthropic.temperature,
     };
   if ("OpenRouter" in providerConfig)
     return {
