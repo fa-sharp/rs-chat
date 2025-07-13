@@ -6,7 +6,7 @@ use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
 use crate::{
-    db::models::ChatRsMessage,
+    db::models::{ChatRsMessage, ChatRsTool},
     provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk},
 };
 
@@ -42,7 +42,8 @@ impl Stream for LoremStream {
                 self.index += 1;
                 if self.index == 0 || self.index % 10 != 0 {
                     std::task::Poll::Ready(Some(Ok(ChatRsStreamChunk {
-                        text: word.to_owned(),
+                        text: Some(word.to_owned()),
+                        tool_calls: None,
                         usage: None,
                     })))
                 } else {
@@ -59,6 +60,7 @@ impl ChatRsProvider for LoremProvider {
     async fn chat_stream(
         &self,
         _messages: Vec<ChatRsMessage>,
+        _tools: Option<Vec<ChatRsTool>>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let lorem_words = vec![
             "Lorem ipsum ",

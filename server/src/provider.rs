@@ -7,7 +7,10 @@ use std::pin::Pin;
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
 
-use crate::db::models::ChatRsMessage;
+use crate::{
+    db::models::{ChatRsMessage, ChatRsTool},
+    tools::ChatRsToolError,
+};
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
 pub const DEFAULT_TEMPERATURE: f32 = 0.7;
@@ -24,12 +27,20 @@ pub enum ChatRsError {
     OpenAIError(String),
     #[error("No chat response")]
     NoResponse,
+    #[error("Tool error: {0}")]
+    ToolError(ChatRsToolError),
     #[error("Unsupported provider")]
     UnsupportedProvider,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]
     DecryptionError,
+}
+
+pub struct ChatRsStreamChunk {
+    pub text: Option<String>,
+    pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    pub usage: Option<ChatRsUsage>,
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
@@ -39,9 +50,11 @@ pub struct ChatRsUsage {
     pub cost: Option<f32>,
 }
 
-pub struct ChatRsStreamChunk {
-    pub text: String,
-    pub usage: Option<ChatRsUsage>,
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct ChatRsToolCall {
+    pub id: String,
+    pub name: String,
+    pub parameters: serde_json::Value,
 }
 
 pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<ChatRsStreamChunk, ChatRsError>> + Send>>;
@@ -50,7 +63,11 @@ pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<ChatRsStreamChunk, Chat
 #[async_trait]
 pub trait ChatRsProvider {
     /// Stream a chat response given the message history
-    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError>;
+    async fn chat_stream(
+        &self,
+        messages: Vec<ChatRsMessage>,
+        tools: Option<Vec<ChatRsTool>>,
+    ) -> Result<ChatRsStream, ChatRsError>;
 
     /// Submit a prompt to the provider (not streamed)
     async fn prompt(&self, message: &str) -> Result<String, ChatRsError>;

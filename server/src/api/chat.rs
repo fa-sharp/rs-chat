@@ -18,7 +18,7 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
-        services::{ChatDbService, ProviderKeyDbService},
+        services::{ChatDbService, ProviderKeyDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
@@ -69,6 +69,11 @@ pub async fn send_chat_stream(
     )
     .await?;
 
+    // Fetch user's tools
+    let user_tools = ToolDbService::new(&mut db)
+        .find_by_user_id(&user_id)
+        .await?;
+
     // Save user message to session, and generate title if needed
     if let Some(user_message) = &input.message {
         if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
@@ -96,7 +101,9 @@ pub async fn send_chat_stream(
 
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
-        provider.chat_stream(current_messages).await?,
+        provider
+            .chat_stream(current_messages, Some(user_tools))
+            .await?,
         input.provider.clone(),
         db_pool.inner().clone(),
         redis.clone(),

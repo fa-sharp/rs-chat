@@ -97,6 +97,7 @@ where
                         provider_config: config,
                         interrupted,
                         usage,
+                        ..Default::default()
                     },
                 })
                 .await
@@ -126,7 +127,9 @@ where
         match self.inner.as_mut().poll_next(cx) {
             Poll::Ready(Some(Ok(chunk))) => {
                 // Add text to buffer
-                self.buffer.push(chunk.text.clone());
+                if let Some(text) = &chunk.text {
+                    self.buffer.push(text.clone());
+                }
 
                 // Record usage
                 if let Some(usage) = chunk.usage {
@@ -168,7 +171,15 @@ where
                     self.last_cache_time = Instant::now();
                 }
 
-                Poll::Ready(Some(Ok(chunk.text)))
+                // Only return chunks with text content for now
+                // TODO: Handle tool calls separately
+                if let Some(text) = chunk.text {
+                    Poll::Ready(Some(Ok(text)))
+                } else {
+                    // Skip chunks without text (e.g., tool calls, usage-only chunks)
+                    // Continue polling for the next chunk
+                    self.poll_next(cx)
+                }
             }
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => {

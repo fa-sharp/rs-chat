@@ -7,7 +7,10 @@ use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
-use crate::{provider::ChatRsUsage, utils::create_provider::ProviderConfigInput};
+use crate::{
+    provider::{ChatRsToolCall, ChatRsUsage},
+    utils::create_provider::ProviderConfigInput,
+};
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
@@ -86,6 +89,7 @@ pub enum ChatRsMessageRole {
     User,
     Assistant,
     System,
+    Tool,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
@@ -108,6 +112,10 @@ pub struct ChatRsMessageMeta {
     pub interrupted: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<ChatRsUsage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -171,6 +179,10 @@ pub struct ChatRsTool {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
+    pub url: String,
+    pub method: String,
+    pub query: Option<serde_json::Value>,
+    pub body: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -203,4 +215,12 @@ pub struct ChatRsApiKey {
 pub struct NewChatRsApiKey<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct ToolParameterSchema {
+    #[serde(rename = "type")]
+    pub param_type: String,
+    pub properties: serde_json::Value,
+    pub required: Vec<String>,
 }

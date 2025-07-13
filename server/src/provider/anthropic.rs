@@ -2,7 +2,7 @@ use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool},
     provider::{
         ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsUsage,
         DEFAULT_MAX_TOKENS,
@@ -54,6 +54,7 @@ impl<'a> AnthropicProvider<'a> {
                     ChatRsMessageRole::User => "user",
                     ChatRsMessageRole::Assistant => "assistant",
                     ChatRsMessageRole::System => return None,
+                    ChatRsMessageRole::Tool => return None,
                 };
                 Some(AnthropicMessage {
                     role,
@@ -92,7 +93,8 @@ impl<'a> AnthropicProvider<'a> {
                                             AnthropicStreamEvent::MessageStart { message } => {
                                                 if let Some(usage) = message.usage {
                                                     yield Ok(ChatRsStreamChunk {
-                                                        text: String::new(),
+                                                        text: Some(String::new()),
+                                                        tool_calls: None,
                                                         usage: Some(usage.into()),
                                                     });
                                                 }
@@ -100,7 +102,8 @@ impl<'a> AnthropicProvider<'a> {
                                             AnthropicStreamEvent::ContentBlockStart { content_block } => {
                                                 if content_block.block_type == "text" {
                                                     yield Ok(ChatRsStreamChunk {
-                                                        text: content_block.text,
+                                                        text: Some(content_block.text),
+                                                        tool_calls: None,
                                                         usage: None,
                                                     });
                                                 }
@@ -109,7 +112,8 @@ impl<'a> AnthropicProvider<'a> {
                                                 match delta {
                                                     AnthropicDelta::TextDelta { text } => {
                                                         yield Ok(ChatRsStreamChunk {
-                                                            text,
+                                                            text: Some(text),
+                                                            tool_calls: None,
                                                             usage: None,
                                                         });
                                                     }
@@ -121,7 +125,8 @@ impl<'a> AnthropicProvider<'a> {
                                             AnthropicStreamEvent::MessageDelta { usage } => {
                                                 if let Some(usage) = usage {
                                                     yield Ok(ChatRsStreamChunk {
-                                                        text: String::new(),
+                                                        text: Some(String::new()),
+                                                        tool_calls: None,
                                                         usage: Some(usage.into()),
                                                     });
                                                 }
@@ -165,7 +170,11 @@ impl<'a> AnthropicProvider<'a> {
 
 #[async_trait]
 impl<'a> ChatRsProvider for AnthropicProvider<'a> {
-    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError> {
+    async fn chat_stream(
+        &self,
+        messages: Vec<ChatRsMessage>,
+        _tools: Option<Vec<ChatRsTool>>,
+    ) -> Result<ChatRsStream, ChatRsError> {
         let (anthropic_messages, system_prompt) = self.build_messages(&messages);
 
         let request = AnthropicRequest {

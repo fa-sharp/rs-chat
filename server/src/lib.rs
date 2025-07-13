@@ -5,6 +5,7 @@ pub mod db;
 pub mod errors;
 pub mod provider;
 pub mod redis;
+pub mod tools;
 pub mod utils;
 pub mod web;
 
