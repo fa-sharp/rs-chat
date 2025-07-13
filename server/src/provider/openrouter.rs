@@ -11,7 +11,7 @@ use rocket::futures::StreamExt;
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+    provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsUsage},
 };
 
 /// OpenRouter chat provider via the `openrouter-rs` crate
@@ -41,20 +41,12 @@ impl<'a> OpenRouterProvider<'a> {
 
 #[async_trait]
 impl ChatRsProvider for OpenRouterProvider<'_> {
-    async fn chat_stream(
-        &self,
-        input: Option<&str>,
-        context: Option<Vec<ChatRsMessage>>,
-    ) -> Result<ChatRsStream, ChatRsError> {
+    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError> {
         let client = OpenRouterClient::builder().api_key(&self.api_key).build()?;
-        let mut messages: Vec<_> = context
-            .unwrap_or_default()
+        let messages: Vec<Message> = messages
             .into_iter()
             .map(|msg| Message::new(msg.role.into(), &msg.content))
             .collect();
-        if let Some(user_message) = input {
-            messages.push(Message::new(Role::User, user_message));
-        }
 
         let request = ChatCompletionRequest::builder()
             .model(self.model)
@@ -67,12 +59,19 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
             .stream_chat_completion(&request)
             .await?
             .map(|chunk| match chunk {
-                Ok(res) => Ok(res
-                    .choices
-                    .first()
-                    .and_then(|choice| choice.content())
-                    .unwrap_or_default()
-                    .to_owned()),
+                Ok(res) => {
+                    let text = res
+                        .choices
+                        .first()
+                        .and_then(|choice| choice.content())
+                        .unwrap_or_default()
+                        .to_owned();
+                    let usage = res.usage.map(|usage| ChatRsUsage {
+                        input_tokens: Some(usage.prompt_tokens),
+                        output_tokens: Some(usage.completion_tokens),
+                    });
+                    Ok(ChatRsStreamChunk { text, usage })
+                }
                 Err(err) => Err(err.into()),
             });
 

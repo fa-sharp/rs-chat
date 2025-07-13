@@ -18,14 +18,16 @@ pub fn generate_title(
     user_message: &str,
     provider_config: &ProviderConfigInput,
     encryptor: &Encryptor,
-    pool: &rocket::State<DbPool>,
+    http_client: &reqwest::Client,
+    pool: &DbPool,
 ) {
     let user_id = user_id.to_owned();
     let session_id = session_id.to_owned();
     let message = user_message.to_string();
     let config = provider_config.clone();
     let encryptor = encryptor.clone();
-    let pool = pool.inner().clone();
+    let http_client = http_client.clone();
+    let pool = pool.clone();
 
     tokio::spawn(async move {
         let Ok(conn) = pool.get().await else {
@@ -38,6 +40,7 @@ pub fn generate_title(
             &config,
             &mut ProviderKeyDbService::new(&mut db),
             &encryptor,
+            &http_client,
         )
         .await
         else {

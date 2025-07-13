@@ -1,10 +1,14 @@
+#![allow(deprecated)]
+
 use llm::builder::LLMBackend;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
 use crate::{
     db::{models::ChatRsProviderKeyType, services::ProviderKeyDbService},
+    errors::ApiError,
     provider::{
+        anthropic::AnthropicProvider,
         llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
         openrouter::OpenRouterProvider,
@@ -19,13 +23,14 @@ use crate::{
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub enum ProviderConfigInput {
     Lorem,
-    Llm(LLMConfig),
+    Anthropic(AnthropicConfig),
     OpenRouter(OpenRouterConfig),
+    #[deprecated]
+    Llm(LLMConfig),
 }
 
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
-pub struct LLMConfig {
-    pub backend: LLMBackendInput,
+pub struct AnthropicConfig {
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -38,16 +43,55 @@ pub struct OpenRouterConfig {
     pub max_tokens: Option<u32>,
 }
 
+#[deprecated]
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct LLMConfig {
+    pub backend: LLMBackendInput,
+    pub model: String,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
+}
+
 pub async fn create_provider<'a>(
     user_id: &Uuid,
     provider_config: &'a ProviderConfigInput,
     db: &mut ProviderKeyDbService<'_>,
     encryptor: &Encryptor,
-) -> Result<Box<dyn ChatRsProvider + Send + 'a>, ChatRsError> {
+    http_client: &reqwest::Client,
+) -> Result<Box<dyn ChatRsProvider + Send + 'a>, ApiError> {
     let provider: Box<dyn ChatRsProvider + Send> = match provider_config {
         ProviderConfigInput::Lorem => Box::new(LoremProvider {
             config: LoremConfig { interval: 400 },
         }),
+        ProviderConfigInput::Anthropic(anthropic_config) => {
+            let api_key = db
+                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Anthropic)
+                .await?
+                .ok_or(ChatRsError::MissingApiKey)
+                .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
+
+            Box::new(AnthropicProvider::new(
+                http_client,
+                &api_key,
+                &anthropic_config.model,
+                anthropic_config.max_tokens,
+                anthropic_config.temperature,
+            )?)
+        }
+        ProviderConfigInput::OpenRouter(llm_config) => {
+            let api_key = db
+                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Openrouter)
+                .await?
+                .ok_or(ChatRsError::MissingApiKey)
+                .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
+
+            Box::new(OpenRouterProvider::new(
+                api_key,
+                &llm_config.model,
+                llm_config.max_tokens,
+                llm_config.temperature,
+            ))
+        }
         ProviderConfigInput::Llm(llm_config) => {
             let api_key_secret = db
                 .find_by_user_and_provider(user_id, &llm_config.backend.clone().into())
@@ -60,22 +104,6 @@ pub async fn create_provider<'a>(
             Box::new(LlmApiProvider::new(
                 llm_config.backend.clone().into(),
                 api_key.to_owned(),
-                &llm_config.model,
-                llm_config.max_tokens,
-                llm_config.temperature,
-            ))
-        }
-        ProviderConfigInput::OpenRouter(llm_config) => {
-            let api_key_secret = db
-                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Openrouter)
-                .await
-                .map_err(|e| ChatRsError::DatabaseError(e.to_string()))?
-                .ok_or(ChatRsError::MissingApiKey)?;
-            let api_key =
-                encryptor.decrypt_string(&api_key_secret.ciphertext, &api_key_secret.nonce)?;
-
-            Box::new(OpenRouterProvider::new(
-                api_key,
                 &llm_config.model,
                 llm_config.max_tokens,
                 llm_config.temperature,

@@ -4,11 +4,11 @@ use llm::{
     error::LLMError,
     LLMProvider,
 };
-use rocket::{async_trait, futures::TryStreamExt};
+use rocket::{async_trait, futures::StreamExt};
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+    provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk},
 };
 
 /// LLM API chat provider via the `llm` crate
@@ -62,33 +62,26 @@ impl<'a> LlmApiProvider<'a> {
 
 #[async_trait]
 impl<'a> ChatRsProvider for LlmApiProvider<'a> {
-    async fn chat_stream(
-        &self,
-        input: Option<&str>,
-        context: Option<Vec<ChatRsMessage>>,
-    ) -> Result<ChatRsStream, ChatRsError> {
+    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError> {
         let llm = self.get_llm(true)?;
 
-        let mut messages: Vec<ChatMessage> = match context {
-            None => vec![],
-            Some(message_history) => message_history
-                .into_iter()
-                .filter_map(|message| match message.role {
-                    ChatRsMessageRole::User => {
-                        Some(ChatMessage::user().content(message.content).build())
-                    }
-                    ChatRsMessageRole::Assistant => {
-                        Some(ChatMessage::assistant().content(message.content).build())
-                    }
-                    ChatRsMessageRole::System => None,
-                })
-                .collect(),
-        };
-        if let Some(user_message) = input {
-            messages.push(ChatMessage::user().content(user_message).build());
-        }
+        let messages: Vec<ChatMessage> = messages
+            .into_iter()
+            .filter_map(|message| match message.role {
+                ChatRsMessageRole::User => {
+                    Some(ChatMessage::user().content(message.content).build())
+                }
+                ChatRsMessageRole::Assistant => {
+                    Some(ChatMessage::assistant().content(message.content).build())
+                }
+                ChatRsMessageRole::System => None,
+            })
+            .collect();
 
-        let stream = llm.chat_stream(&messages).await?.map_err(|e| e.into());
+        let stream = llm.chat_stream(&messages).await?.map(|event| match event {
+            Ok(text) => Ok(ChatRsStreamChunk { text, usage: None }),
+            Err(e) => Err(e.into()),
+        });
 
         Ok(Box::pin(stream))
     }

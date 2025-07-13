@@ -10,11 +10,14 @@ use uuid::Uuid;
 use crate::db::models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage};
 use crate::db::services::ChatDbService;
 use crate::db::{DbConnection, DbPool};
+use crate::provider::ChatRsUsage;
 use crate::utils::create_provider::ProviderConfigInput;
 
 /// A wrapper around the chat assistant stream that intermittently caches output in Redis, and
 /// saves the assistant's response to the database at the end of the stream.
-pub struct StoredChatRsStream<S: Stream<Item = Result<String, crate::provider::ChatRsError>>> {
+pub struct StoredChatRsStream<
+    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
+> {
     inner: Pin<Box<S>>,
     provider_config: Option<ProviderConfigInput>,
     redis_client: Client,
@@ -22,6 +25,8 @@ pub struct StoredChatRsStream<S: Stream<Item = Result<String, crate::provider::C
     session_id: Uuid,
     buffer: Vec<String>,
     last_cache_time: Instant,
+    input_tokens: u32,
+    output_tokens: u32,
 }
 
 pub const CACHE_KEY_PREFIX: &str = "chat_session:";
@@ -29,7 +34,7 @@ const CACHE_INTERVAL: Duration = Duration::from_secs(1); // cache the response e
 
 impl<S> StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
 {
     pub fn new(
         stream: S,
@@ -46,6 +51,8 @@ where
             session_id: session_id.unwrap_or_else(|| Uuid::new_v4()),
             buffer: Vec::new(),
             last_cache_time: Instant::now(),
+            input_tokens: 0,
+            output_tokens: 0,
         }
     }
 
@@ -60,6 +67,13 @@ where
         let config = self.provider_config.take();
         let content = self.buffer.join("");
         self.buffer.clear();
+        println!(
+            "Stream usage: {:?}",
+            ChatRsUsage {
+                input_tokens: Some(self.input_tokens),
+                output_tokens: Some(self.output_tokens),
+            }
+        );
 
         tokio::spawn(async move {
             let Ok(db) = pool.get().await else {
@@ -95,15 +109,25 @@ where
 
 impl<S> Stream for StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
 {
     type Item = Result<String, crate::provider::ChatRsError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.inner.as_mut().poll_next(cx) {
-            Poll::Ready(Some(Ok(message))) => {
-                // Add to buffer
-                self.buffer.push(message.clone());
+            Poll::Ready(Some(Ok(chunk))) => {
+                // Add text to buffer
+                self.buffer.push(chunk.text.clone());
+
+                // Record usage
+                if let Some(usage) = chunk.usage {
+                    if let Some(input_tokens) = usage.input_tokens {
+                        self.input_tokens = input_tokens;
+                    }
+                    if let Some(output_tokens) = usage.output_tokens {
+                        self.output_tokens = output_tokens;
+                    }
+                }
 
                 // Check if we should cache
                 if self.should_cache() {
@@ -132,7 +156,7 @@ where
                     self.last_cache_time = Instant::now();
                 }
 
-                Poll::Ready(Some(Ok(message)))
+                Poll::Ready(Some(Ok(chunk.text)))
             }
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => {
@@ -149,7 +173,7 @@ where
 
 impl<S> Drop for StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<String, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
 {
     /// Stream was interrupted. Save response and mark as interrupted
     fn drop(&mut self) {
