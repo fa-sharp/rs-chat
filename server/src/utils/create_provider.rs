@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 
-use llm::builder::LLMBackend;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
@@ -9,7 +8,6 @@ use crate::{
     errors::ApiError,
     provider::{
         anthropic::AnthropicProvider,
-        llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
         openai::OpenAIProvider,
         ChatRsError, ChatRsProvider,
@@ -57,7 +55,7 @@ pub struct OpenRouterConfig {
 #[deprecated]
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LLMConfig {
-    pub backend: LLMBackendInput,
+    pub backend: String,
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -83,7 +81,7 @@ pub async fn create_provider<'a>(
                 &anthropic_config.model,
                 anthropic_config.max_tokens,
                 anthropic_config.temperature,
-            )?)
+            ))
         }
         ProviderConfigInput::OpenAI(openai_config) => {
             let api_key = find_key(user_id, ChatRsProviderKeyType::Openai, db, encryptor).await?;
@@ -94,7 +92,7 @@ pub async fn create_provider<'a>(
                 openai_config.max_tokens,
                 openai_config.temperature,
                 openai_config.base_url.as_deref(),
-            )?)
+            ))
         }
         ProviderConfigInput::OpenRouter(config) => {
             let api_key =
@@ -106,20 +104,9 @@ pub async fn create_provider<'a>(
                 config.max_tokens,
                 config.temperature,
                 Some(OPENROUTER_API_BASE_URL),
-            )?)
-        }
-        ProviderConfigInput::Llm(llm_config) => {
-            let api_key =
-                find_key(user_id, llm_config.backend.clone().into(), db, encryptor).await?;
-
-            Box::new(LlmApiProvider::new(
-                llm_config.backend.clone().into(),
-                api_key.to_owned(),
-                &llm_config.model,
-                llm_config.max_tokens,
-                llm_config.temperature,
             ))
         }
+        ProviderConfigInput::Llm(_config) => Err(ApiError::Chat(ChatRsError::UnsupportedProvider))?,
     };
 
     Ok(provider)
@@ -137,34 +124,4 @@ async fn find_key(
         .ok_or(ChatRsError::MissingApiKey)
         .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
     Ok(api_key)
-}
-
-#[derive(Clone, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
-pub enum LLMBackendInput {
-    OpenAI,
-    Anthropic,
-    Deepseek,
-    Google,
-}
-
-impl From<LLMBackendInput> for LLMBackend {
-    fn from(value: LLMBackendInput) -> Self {
-        match value {
-            LLMBackendInput::OpenAI => LLMBackend::OpenAI,
-            LLMBackendInput::Anthropic => LLMBackend::Anthropic,
-            LLMBackendInput::Deepseek => LLMBackend::DeepSeek,
-            LLMBackendInput::Google => LLMBackend::Google,
-        }
-    }
-}
-
-impl From<LLMBackendInput> for ChatRsProviderKeyType {
-    fn from(value: LLMBackendInput) -> Self {
-        match value {
-            LLMBackendInput::OpenAI => ChatRsProviderKeyType::Openai,
-            LLMBackendInput::Anthropic => ChatRsProviderKeyType::Anthropic,
-            LLMBackendInput::Deepseek => ChatRsProviderKeyType::Deepseek,
-            LLMBackendInput::Google => ChatRsProviderKeyType::Google,
-        }
-    }
 }

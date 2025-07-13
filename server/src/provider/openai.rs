@@ -26,15 +26,15 @@ impl<'a> OpenAIProvider<'a> {
         max_tokens: Option<u32>,
         temperature: Option<f32>,
         base_url: Option<&'a str>,
-    ) -> Result<Self, ChatRsError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             client: http_client.clone(),
             api_key: api_key.to_string(),
             model,
             max_tokens,
             temperature,
             base_url: base_url.unwrap_or(API_BASE_URL),
-        })
+        }
     }
 
     fn build_messages(&self, messages: &'a [ChatRsMessage]) -> Vec<OpenAIMessage<'a>> {

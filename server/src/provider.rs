@@ -1,13 +1,9 @@
 pub mod anthropic;
-pub mod llm;
 pub mod lorem;
 pub mod openai;
-pub mod openrouter;
 
 use std::pin::Pin;
 
-use ::llm::error::LLMError;
-use openrouter_rs::error::OpenRouterError;
 use rocket::{async_trait, futures::Stream};
 
 use crate::db::models::ChatRsMessage;
@@ -19,18 +15,16 @@ pub const DEFAULT_TEMPERATURE: f32 = 0.7;
 pub enum ChatRsError {
     #[error("Missing API key")]
     MissingApiKey,
-    #[error(transparent)]
-    LlmError(#[from] LLMError),
     #[error("Lorem ipsum error: {0}")]
     LoremError(&'static str),
     #[error("Anthropic error: {0}")]
     AnthropicError(String),
     #[error("OpenAI error: {0}")]
     OpenAIError(String),
-    #[error(transparent)]
-    OpenRouterError(#[from] OpenRouterError),
     #[error("No chat response")]
     NoResponse,
+    #[error("Unsupported provider")]
+    UnsupportedProvider,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]

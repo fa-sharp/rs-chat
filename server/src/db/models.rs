@@ -123,10 +123,10 @@ pub struct NewChatRsMessage<'r> {
 pub enum ChatRsProviderKeyType {
     Anthropic,
     Openai,
-    Ollama,
-    Deepseek,
-    Google,
     Openrouter,
+    // Ollama,
+    // Deepseek,
+    // Google,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations)]

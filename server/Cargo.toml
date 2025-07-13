@@ -36,12 +36,6 @@ fred = { version = "10.1.0", default-features = false, features = [
     "i-lists",
 ] }
 hex = "0.4.3"
-llm = { version = "1.3.1", default-features = false, features = [
-    "default-tls",
-    "openai",
-    "anthropic",
-] }
-openrouter-rs = "0.4.4"
 rand = "0.9.1"
 reqwest = { version = "0.12.20", default-features = false, features = [
     "json",

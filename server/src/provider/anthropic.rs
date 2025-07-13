@@ -28,14 +28,14 @@ impl<'a> AnthropicProvider<'a> {
         model: &'a str,
         max_tokens: Option<u32>,
         temperature: Option<f32>,
-    ) -> Result<Self, ChatRsError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             client: http_client.clone(),
             api_key: api_key.to_string(),
             model,
             max_tokens,
             temperature,
-        })
+        }
     }
 
     fn build_messages(
