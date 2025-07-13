@@ -93,6 +93,6 @@ impl<'a> ChatRsProvider for LlmApiProvider<'a> {
         llm.chat(&messages)
             .await?
             .text()
-            .ok_or(ChatRsError::ChatError("No text response".to_owned()))
+            .ok_or(ChatRsError::NoResponse)
     }
 }

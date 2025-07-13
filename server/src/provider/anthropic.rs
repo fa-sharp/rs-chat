@@ -82,6 +82,7 @@ impl<'a> AnthropicProvider<'a> {
                             if line.starts_with("data: ") {
                                 let data = &line[6..]; // Remove "data: " prefix
                                 if data.trim().is_empty() || data == "[DONE]" {
+                                    buffer.drain(..=line_end_idx);
                                     continue;
                                 }
 
@@ -92,7 +93,7 @@ impl<'a> AnthropicProvider<'a> {
                                                 if let Some(usage) = message.usage {
                                                     yield Ok(ChatRsStreamChunk {
                                                         text: String::new(),
-                                                        usage: Some(extract_usage(usage)),
+                                                        usage: Some(usage.into()),
                                                     });
                                                 }
                                             }
@@ -121,7 +122,7 @@ impl<'a> AnthropicProvider<'a> {
                                                 if let Some(usage) = usage {
                                                     yield Ok(ChatRsStreamChunk {
                                                         text: String::new(),
-                                                        usage: Some(extract_usage(usage)),
+                                                        usage: Some(usage.into()),
                                                     });
                                                 }
                                             }
@@ -134,7 +135,6 @@ impl<'a> AnthropicProvider<'a> {
                                         }
                                     }
                                     Err(e) => {
-                                        // Log malformed events for debugging
                                         rocket::warn!("Failed to parse SSE event: {} | Data: {}", e, data);
                                     }
                                 }
@@ -149,7 +149,7 @@ impl<'a> AnthropicProvider<'a> {
                         }
                     }
                     Err(e) => {
-                        rocket::error!("Stream chunk error: {}", e);
+                        rocket::warn!("Stream chunk error: {}", e);
                         yield Err(ChatRsError::AnthropicError(format!("Stream error: {}", e)));
                         break;
                     }
@@ -169,7 +169,7 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
         let (anthropic_messages, system_prompt) = self.build_messages(&messages);
 
         let request = AnthropicRequest {
-            model: self.model.to_string(),
+            model: self.model,
             messages: anthropic_messages,
             max_tokens: self.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
             temperature: self.temperature,
@@ -202,7 +202,7 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
 
     async fn prompt(&self, message: &str) -> Result<String, ChatRsError> {
         let request = AnthropicRequest {
-            model: self.model.to_string(),
+            model: self.model,
             messages: vec![AnthropicMessage {
                 role: "user",
                 content: message,
@@ -243,10 +243,10 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
             .first()
             .filter(|block| block.block_type == "text")
             .map(|block| block.text.clone())
-            .ok_or_else(|| ChatRsError::ChatError("No text response".to_owned()))?;
+            .ok_or_else(|| ChatRsError::NoResponse)?;
 
         if let Some(usage) = anthropic_response.usage {
-            let usage = extract_usage(usage);
+            let usage: ChatRsUsage = usage.into();
             println!("Prompt usage: {:?}", usage);
         }
 
@@ -264,7 +264,7 @@ struct AnthropicMessage<'a> {
 /// Anthropic API request body
 #[derive(Debug, Serialize)]
 struct AnthropicRequest<'a> {
-    model: String,
+    model: &'a str,
     messages: Vec<AnthropicMessage<'a>>,
     max_tokens: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -290,10 +290,12 @@ struct AnthropicUsage {
     output_tokens: Option<u32>,
 }
 
-fn extract_usage(usage: AnthropicUsage) -> ChatRsUsage {
-    ChatRsUsage {
-        input_tokens: usage.input_tokens,
-        output_tokens: usage.output_tokens,
+impl From<AnthropicUsage> for ChatRsUsage {
+    fn from(usage: AnthropicUsage) -> Self {
+        ChatRsUsage {
+            input_tokens: usage.input_tokens,
+            output_tokens: usage.output_tokens,
+        }
     }
 }
 

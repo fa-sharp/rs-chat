@@ -59,6 +59,16 @@ pub async fn send_chat_stream(
         .get_session_with_messages(&user_id, &session_id)
         .await?;
 
+    // Build the chat provider
+    let provider = create_provider(
+        &user_id,
+        &input.provider,
+        &mut ProviderKeyDbService::new(&mut db),
+        encryptor,
+        http_client,
+    )
+    .await?;
+
     // Save user message to session, and generate title if needed
     if let Some(user_message) = &input.message {
         if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
@@ -83,16 +93,6 @@ pub async fn send_chat_stream(
             .await?;
         current_messages.push(new_message);
     }
-
-    // Get the chat provider
-    let provider = create_provider(
-        &user_id,
-        &input.provider,
-        &mut ProviderKeyDbService::new(&mut db),
-        encryptor,
-        http_client,
-    )
-    .await?;
 
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(

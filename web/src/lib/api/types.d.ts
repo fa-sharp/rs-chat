@@ -314,6 +314,8 @@ export interface components {
         ProviderConfigInput: "Lorem" | {
             Anthropic: components["schemas"]["AnthropicConfig"];
         } | {
+            OpenAI: components["schemas"]["OpenAIConfig"];
+        } | {
             OpenRouter: components["schemas"]["OpenRouterConfig"];
         } | {
             Llm: components["schemas"]["LLMConfig"];
@@ -324,6 +326,14 @@ export interface components {
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+        };
+        OpenAIConfig: {
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
+            base_url?: string | null;
         };
         OpenRouterConfig: {
             model: string;

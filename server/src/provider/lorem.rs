@@ -46,9 +46,7 @@ impl Stream for LoremStream {
                         usage: None,
                     })))
                 } else {
-                    std::task::Poll::Ready(Some(Err(ChatRsError::ChatError(
-                        "Test error".to_string(),
-                    ))))
+                    std::task::Poll::Ready(Some(Err(ChatRsError::LoremError("Test error"))))
                 }
             }
             std::task::Poll::Pending => std::task::Poll::Pending,

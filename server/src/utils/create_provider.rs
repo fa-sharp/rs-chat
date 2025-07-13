@@ -11,6 +11,7 @@ use crate::{
         anthropic::AnthropicProvider,
         llm::LlmApiProvider,
         lorem::{LoremConfig, LoremProvider},
+        openai::OpenAIProvider,
         openrouter::OpenRouterProvider,
         ChatRsError, ChatRsProvider,
     },
@@ -24,6 +25,7 @@ use crate::{
 pub enum ProviderConfigInput {
     Lorem,
     Anthropic(AnthropicConfig),
+    OpenAI(OpenAIConfig),
     OpenRouter(OpenRouterConfig),
     #[deprecated]
     Llm(LLMConfig),
@@ -34,6 +36,14 @@ pub struct AnthropicConfig {
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct OpenAIConfig {
+    pub model: String,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
+    pub base_url: Option<String>,
 }
 
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
@@ -64,12 +74,8 @@ pub async fn create_provider<'a>(
             config: LoremConfig { interval: 400 },
         }),
         ProviderConfigInput::Anthropic(anthropic_config) => {
-            let api_key = db
-                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Anthropic)
-                .await?
-                .ok_or(ChatRsError::MissingApiKey)
-                .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
-
+            let api_key =
+                find_key(user_id, ChatRsProviderKeyType::Anthropic, db, encryptor).await?;
             Box::new(AnthropicProvider::new(
                 http_client,
                 &api_key,
@@ -78,13 +84,20 @@ pub async fn create_provider<'a>(
                 anthropic_config.temperature,
             )?)
         }
+        ProviderConfigInput::OpenAI(openai_config) => {
+            let api_key = find_key(user_id, ChatRsProviderKeyType::Openai, db, encryptor).await?;
+            Box::new(OpenAIProvider::new(
+                http_client,
+                &api_key,
+                &openai_config.model,
+                openai_config.max_tokens,
+                openai_config.temperature,
+                openai_config.base_url.as_deref(),
+            )?)
+        }
         ProviderConfigInput::OpenRouter(llm_config) => {
-            let api_key = db
-                .find_by_user_and_provider(user_id, &ChatRsProviderKeyType::Openrouter)
-                .await?
-                .ok_or(ChatRsError::MissingApiKey)
-                .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
-
+            let api_key =
+                find_key(user_id, ChatRsProviderKeyType::Openrouter, db, encryptor).await?;
             Box::new(OpenRouterProvider::new(
                 api_key,
                 &llm_config.model,
@@ -93,13 +106,8 @@ pub async fn create_provider<'a>(
             ))
         }
         ProviderConfigInput::Llm(llm_config) => {
-            let api_key_secret = db
-                .find_by_user_and_provider(user_id, &llm_config.backend.clone().into())
-                .await
-                .map_err(|e| ChatRsError::DatabaseError(e.to_string()))?
-                .ok_or(ChatRsError::MissingApiKey)?;
             let api_key =
-                encryptor.decrypt_string(&api_key_secret.ciphertext, &api_key_secret.nonce)?;
+                find_key(user_id, llm_config.backend.clone().into(), db, encryptor).await?;
 
             Box::new(LlmApiProvider::new(
                 llm_config.backend.clone().into(),
@@ -112,6 +120,20 @@ pub async fn create_provider<'a>(
     };
 
     Ok(provider)
+}
+
+async fn find_key(
+    user_id: &Uuid,
+    key_type: ChatRsProviderKeyType,
+    db: &mut ProviderKeyDbService<'_>,
+    encryptor: &Encryptor,
+) -> Result<String, ApiError> {
+    let api_key = db
+        .find_by_user_and_provider(user_id, &key_type)
+        .await?
+        .ok_or(ChatRsError::MissingApiKey)
+        .map(|key| encryptor.decrypt_string(&key.ciphertext, &key.nonce))??;
+    Ok(api_key)
 }
 
 #[derive(Clone, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]

@@ -1,6 +1,7 @@
 pub mod anthropic;
 pub mod llm;
 pub mod lorem;
+pub mod openai;
 pub mod openrouter;
 
 use std::pin::Pin;
@@ -16,20 +17,20 @@ pub const DEFAULT_TEMPERATURE: f32 = 0.7;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ChatRsError {
-    #[error("Provider error: {0}")]
-    ChatError(String),
-    #[error("Configuration error: {0}")]
-    ConfigurationError(String),
-    #[error("Unexpected database error: {0}")]
-    DatabaseError(String),
     #[error("Missing API key")]
     MissingApiKey,
     #[error(transparent)]
     LlmError(#[from] LLMError),
+    #[error("Lorem ipsum error: {0}")]
+    LoremError(&'static str),
     #[error("Anthropic error: {0}")]
     AnthropicError(String),
+    #[error("OpenAI error: {0}")]
+    OpenAIError(String),
     #[error(transparent)]
     OpenRouterError(#[from] OpenRouterError),
+    #[error("No chat response")]
+    NoResponse,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]

@@ -119,7 +119,7 @@ pub struct NewChatRsMessage<'r> {
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::LlmProvider")]
-#[derive(Debug, PartialEq, Eq, Hash, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub enum ChatRsProviderKeyType {
     Anthropic,
     Openai,

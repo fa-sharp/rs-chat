@@ -93,7 +93,7 @@ impl ChatRsProvider for OpenRouterProvider<'_> {
             .choices
             .first()
             .and_then(|choice| choice.content())
-            .ok_or(ChatRsError::ChatError("No text response".to_owned()))?;
+            .ok_or(ChatRsError::NoResponse)?;
 
         Ok(content.to_string())
     }
