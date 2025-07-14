@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use diesel::{
     prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
@@ -187,11 +189,27 @@ pub struct ChatRsTool {
     pub name: String,
     pub description: String,
     /// JSON Schema of the tool's input parameters
-    pub input_schema: serde_json::Value,
+    pub input_schema: ChatRsToolJsonSchema,
     /// Tool-specific data and configuration
     pub data: ChatRsToolData,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, AsJsonb)]
+pub struct ChatRsToolJsonSchema {
+    pub r#type: ChatRsToolJsonSchemaType,
+    pub properties: HashMap<String, serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<Vec<String>>,
+    #[serde(rename = "additionalProperties")]
+    pub additional_properties: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub enum ChatRsToolJsonSchemaType {
+    #[serde(rename = "object")]
+    Object,
 }
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
@@ -206,7 +224,7 @@ pub struct NewChatRsTool<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
     pub description: &'r str,
-    pub input_schema: &'r serde_json::Value,
+    pub input_schema: &'r ChatRsToolJsonSchema,
     pub data: &'r ChatRsToolData,
 }
 

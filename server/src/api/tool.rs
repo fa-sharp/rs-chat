@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rocket::{delete, get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
@@ -10,7 +12,7 @@ use crate::{
     db::{
         models::{
             ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsTool, ChatRsToolData,
-            NewChatRsMessage, NewChatRsTool,
+            ChatRsToolJsonSchema, NewChatRsMessage, NewChatRsTool,
         },
         services::{ChatDbService, ToolDbService},
         DbConnection,
@@ -44,7 +46,7 @@ struct ToolInput {
     /// Description of the tool
     description: String,
     /// JSON Schema of the tool's input parameters
-    input_schema: serde_json::Value,
+    input_schema: ChatRsToolJsonSchema,
     /// Tool-specific data and configuration
     data: ChatRsToolData,
 }
@@ -72,13 +74,11 @@ async fn create_tool(
     Ok(Json(tool))
 }
 
-/// Ensure JSON schema is valid (using Draft 2020-12) and has `additionalProperties` set to false
-fn validate_tool_schema(input_schema: &mut serde_json::Value) -> Result<(), ChatRsToolError> {
-    input_schema
-        .as_object_mut()
-        .ok_or_else(|| ChatRsToolError::InvalidJsonSchema("Not an object".to_string()))?
-        .insert("additionalProperties".into(), false.into());
-    jsonschema::draft202012::meta::validate(input_schema)
+/// Ensure JSON schema is valid (using Draft 2020-12).
+/// Also sets `additionalProperties` to false as required by OpenAI.
+fn validate_tool_schema(input_schema: &mut ChatRsToolJsonSchema) -> Result<(), ChatRsToolError> {
+    input_schema.additional_properties = Some(false);
+    jsonschema::draft202012::meta::validate(&serde_json::to_value(input_schema)?)
         .map_err(|e| ChatRsToolError::InvalidJsonSchema(e.to_string()))?;
     Ok(())
 }
@@ -93,6 +93,7 @@ async fn execute_tool(
     message_id: Uuid,
     tool_call_id: &str,
 ) -> Result<Json<ChatRsMessage>, ApiError> {
+    // Find message, tool call, and tool
     let message = ChatDbService::new(&mut db)
         .find_message(&user_id, &message_id)
         .await?;
@@ -110,6 +111,10 @@ async fn execute_tool(
         .await?
         .ok_or(ChatRsToolError::ToolNotFound)?;
 
+    // Validate input parameters
+    validate_tool_input(&tool.input_schema, &tool_call.parameters)?;
+
+    // Get tool response
     let tool_response = match tool.data {
         ChatRsToolData::Http(http_request_config) => {
             let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
@@ -131,6 +136,17 @@ async fn execute_tool(
         .await?;
 
     Ok(Json(tool_message))
+}
+
+fn validate_tool_input(
+    input_schema: &ChatRsToolJsonSchema,
+    parameters: &HashMap<String, serde_json::Value>,
+) -> Result<(), ChatRsToolError> {
+    jsonschema::validate(
+        &serde_json::to_value(input_schema)?,
+        &serde_json::to_value(parameters)?,
+    )
+    .map_err(|err| ChatRsToolError::InvalidParameters(err.to_string()))
 }
 
 /// Delete a tool

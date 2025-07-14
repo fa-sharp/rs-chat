@@ -8,6 +8,8 @@ pub enum ChatRsToolError {
     InvalidToolName,
     #[error("Invalid JSON schema: {0}")]
     InvalidJsonSchema(String),
+    #[error("Input parameters don't match JSON schema: {0}")]
+    InvalidParameters(String),
     #[error("Tool not found")]
     ToolNotFound,
     #[error("Tool call not found")]
