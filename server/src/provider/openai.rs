@@ -63,7 +63,7 @@ impl<'a> OpenAIProvider<'a> {
                                 id: &tc.id,
                                 tool_type: "function",
                                 function: OpenAIToolCallFunction {
-                                    name: &tc.name,
+                                    name: &tc.tool_name,
                                     arguments: serde_json::to_string(&tc.parameters)
                                         .unwrap_or_default(),
                                 },
@@ -399,18 +399,17 @@ struct OpenAIStreamToolCall {
 impl OpenAIStreamToolCall {
     /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
     fn convert(self, rs_chat_tools: &[ChatRsTool]) -> Option<ChatRsToolCall> {
-        let tool_call_id = self.id?;
+        let id = self.id?;
         let tool_name = self.function.name?;
-        let tool_parameters = serde_json::from_str(&self.function.arguments?).ok()?;
-
+        let parameters = serde_json::from_str(&self.function.arguments?).ok()?;
         rs_chat_tools
             .iter()
-            .find(|rs_chat_tool| rs_chat_tool.name == tool_name)
-            .map(|rs_chat_tool| ChatRsToolCall {
-                id: tool_call_id,
-                tool_id: rs_chat_tool.id,
-                name: tool_name,
-                parameters: tool_parameters,
+            .find(|tool| tool.name == tool_name)
+            .map(|tool| ChatRsToolCall {
+                id,
+                tool_id: tool.id,
+                tool_name,
+                parameters,
             })
     }
 }

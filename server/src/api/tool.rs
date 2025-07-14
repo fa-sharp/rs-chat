@@ -11,8 +11,8 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{
-            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsTool, ChatRsToolData,
-            ChatRsToolJsonSchema, NewChatRsMessage, NewChatRsTool,
+            ChatRsExecutedToolCall, ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole,
+            ChatRsTool, ChatRsToolData, ChatRsToolJsonSchema, NewChatRsMessage, NewChatRsTool,
         },
         services::{ChatDbService, ToolDbService},
         DbConnection,
@@ -111,25 +111,36 @@ async fn execute_tool(
         .await?
         .ok_or(ChatRsToolError::ToolNotFound)?;
 
-    // Validate input parameters
-    validate_tool_input(&tool.input_schema, &tool_call.parameters)?;
-
-    // Get tool response
-    let tool_response = match tool.data {
-        ChatRsToolData::Http(http_request_config) => {
-            let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
-            http_request_tool
-                .execute_tool(&tool_call.parameters)
-                .await?
+    // Validate input parameters and get tool response
+    let (content, is_error) = {
+        if let Err(e) = validate_tool_input(&tool.input_schema, &tool_call.parameters) {
+            (e.to_string(), Some(true))
+        } else {
+            match tool.data {
+                ChatRsToolData::Http(http_request_config) => {
+                    let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
+                    http_request_tool
+                        .execute_tool(&tool_call.parameters)
+                        .await
+                        .map_or_else(|e| (e.to_string(), Some(true)), |response| (response, None))
+                }
+            }
         }
     };
+
     let tool_message = ChatDbService::new(&mut db)
         .save_message(NewChatRsMessage {
             session_id: &message.session_id,
             role: ChatRsMessageRole::Tool,
-            content: &tool_response,
+            content: &content,
             meta: &ChatRsMessageMeta {
-                executed_tool_call: Some(tool_call),
+                executed_tool_call: Some(ChatRsExecutedToolCall {
+                    id: tool_call.id,
+                    tool_id: tool_call.tool_id,
+                    tool_name: tool_call.tool_name,
+                    parameters: tool_call.parameters,
+                    is_error,
+                }),
                 ..Default::default()
             },
         })

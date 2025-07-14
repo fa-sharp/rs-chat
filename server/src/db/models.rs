@@ -108,14 +108,14 @@ pub struct ChatRsMessage {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize, AsJsonb)]
+#[derive(Debug, Default, JsonSchema, Serialize, Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
     /// Assistant messages: the tool calls requested by the assistant
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
     /// Tool messages: the executed tool call that produced this result
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub executed_tool_call: Option<ChatRsToolCall>,
+    pub executed_tool_call: Option<ChatRsExecutedToolCall>,
     /// Assistant messages: provider usage information
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<ChatRsUsage>,
@@ -125,6 +125,21 @@ pub struct ChatRsMessageMeta {
     /// Assistant messages: the configuration options for the AI provider
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_config: Option<ProviderConfigInput>,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct ChatRsExecutedToolCall {
+    /// ID of the tool call
+    pub id: String,
+    /// ID of the tool used
+    pub tool_id: Uuid,
+    /// Name of the tool used
+    pub tool_name: String,
+    /// Input parameters passed to the tool
+    pub parameters: HashMap<String, serde_json::Value>,
+    /// Whether the tool call resulted in an error
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_error: Option<bool>,
 }
 
 #[derive(Insertable)]

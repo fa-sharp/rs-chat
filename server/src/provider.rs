@@ -58,8 +58,8 @@ pub struct ChatRsToolCall {
     /// ID of the tool used
     pub tool_id: Uuid,
     /// Name of the tool used
-    pub name: String,
-    /// Input parameters for the tool
+    pub tool_name: String,
+    /// Input parameters passed to the tool
     pub parameters: HashMap<String, serde_json::Value>,
 }
 
