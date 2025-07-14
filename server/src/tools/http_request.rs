@@ -1,66 +1,82 @@
-use crate::{db::models::ChatRsTool, tools::ChatRsToolError};
+use std::{collections::HashMap, str::FromStr};
+
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub struct ToolExecutor {
+use crate::tools::ChatRsToolError;
+
+pub struct HttpRequestTool {
     http_client: reqwest::Client,
+    config: HttpRequestToolData,
 }
 
-impl ToolExecutor {
-    pub fn new(http_client: reqwest::Client) -> Self {
-        Self { http_client }
+#[derive(Debug, JsonSchema, Serialize, Deserialize)]
+pub struct HttpRequestToolData {
+    pub url: String,
+    pub method: String,
+    pub query: Option<HashMap<String, String>>,
+    pub body: Option<serde_json::Value>,
+    pub headers: Option<HashMap<String, String>>,
+}
+
+impl HttpRequestTool {
+    pub fn new(http_client: reqwest::Client, config: HttpRequestToolData) -> Self {
+        Self {
+            http_client,
+            config,
+        }
     }
 
-    pub async fn execute_tool(
-        &self,
-        tool: &ChatRsTool,
-        parameters: &Value,
-    ) -> Result<String, ChatRsToolError> {
+    pub async fn execute_tool(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
         // Build the HTTP request components
-        let url = self.build_url(&tool.url, parameters, &tool.query)?;
+        let url = self.build_url(parameters)?;
         let headers = self.build_headers(parameters)?;
-        let body = self.build_body(parameters, &tool.body)?;
+        let body = self.build_body(parameters, &self.config.body)?;
 
         // Execute the HTTP request
         let response = self
-            .execute_request(&tool.method, &url, headers, body)
+            .execute_request(&self.config.method, &url, headers, body)
             .await?;
 
         Ok(response)
     }
 
-    fn build_url(
-        &self,
-        base_url: &str,
-        parameters: &Value,
-        query_mapping: &Option<Value>,
-    ) -> Result<String, ChatRsToolError> {
-        let mut url = self.substitute_placeholders(base_url, parameters);
+    fn build_url(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
+        let mut url = self.substitute_placeholders(&self.config.url, parameters);
 
-        // Add query parameters if mapping is provided
-        if let Some(query_map) = query_mapping {
-            let query_params = self.build_query_params(query_map, parameters)?;
-            if !query_params.is_empty() {
-                let separator = if url.contains('?') { "&" } else { "?" };
-                url.push_str(separator);
-                url.push_str(&query_params);
-            }
+        let query_params = self.build_query_params(parameters)?;
+        if !query_params.is_empty() {
+            let separator = if url.contains('?') { "&" } else { "?" };
+            url.push_str(separator);
+            url.push_str(&query_params);
         }
 
         Ok(url)
     }
 
-    fn build_headers(
-        &self,
-        parameters: &Value,
-    ) -> Result<reqwest::header::HeaderMap, ChatRsToolError> {
-        let mut headers = reqwest::header::HeaderMap::new();
+    fn build_headers(&self, parameters: &Value) -> Result<HeaderMap, ChatRsToolError> {
+        let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
+            HeaderValue::from_static("application/json"),
         );
 
-        // TODO: Add support for custom headers with parameter substitution
-        // This would require extending the tool schema to include header templates
+        if let Some(header_mapping) = &self.config.headers {
+            for (key, template) in header_mapping {
+                let value = self.substitute_placeholders(template, parameters);
+                if !value.is_empty() {
+                    let header_name = HeaderName::from_str(key).map_err(|_| {
+                        ChatRsToolError::FormattingError(format!("Invalid header name: {}", key))
+                    })?;
+                    let header_value = HeaderValue::from_str(&value).map_err(|_| {
+                        ChatRsToolError::FormattingError(format!("Invalid header value: {}", value))
+                    })?;
+                    headers.insert(header_name, header_value);
+                }
+            }
+        }
 
         Ok(headers)
     }
@@ -68,16 +84,11 @@ impl ToolExecutor {
     fn build_body(
         &self,
         parameters: &Value,
-        body_mapping: &Option<Value>,
+        body_mapping: &Option<serde_json::Value>,
     ) -> Result<Option<String>, ChatRsToolError> {
         if let Some(body_template) = body_mapping {
             match body_template {
-                Value::String(template) => {
-                    let substituted = self.substitute_placeholders(template, parameters);
-                    Ok(Some(substituted))
-                }
-                Value::Object(_) => {
-                    // If body_mapping is an object, use it as a template for parameter mapping
+                Value::Object(_) | Value::Array(_) | Value::String(_) => {
                     let mapped_body = self.map_object_template(body_template, parameters)?;
                     Ok(Some(serde_json::to_string(&mapped_body)?))
                 }
@@ -88,24 +99,18 @@ impl ToolExecutor {
         }
     }
 
-    fn build_query_params(
-        &self,
-        query_mapping: &Value,
-        parameters: &Value,
-    ) -> Result<String, ChatRsToolError> {
+    fn build_query_params(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
         let mut query_parts = Vec::new();
 
-        if let Value::Object(mapping) = query_mapping {
-            for (key, value_template) in mapping {
-                if let Value::String(template) = value_template {
-                    let substituted = self.substitute_placeholders(template, parameters);
-                    if !substituted.is_empty() {
-                        query_parts.push(format!(
-                            "{}={}",
-                            urlencoding::encode(key),
-                            urlencoding::encode(&substituted)
-                        ));
-                    }
+        if let Some(query_mapping) = &self.config.query {
+            for (key, template) in query_mapping {
+                let substituted = self.substitute_placeholders(template, parameters);
+                if !substituted.is_empty() {
+                    query_parts.push(format!(
+                        "{}={}",
+                        urlencoding::encode(key),
+                        urlencoding::encode(&substituted)
+                    ));
                 }
             }
         }
@@ -174,7 +179,7 @@ impl ToolExecutor {
             "DELETE" => self.http_client.delete(url),
             "PATCH" => self.http_client.patch(url),
             _ => {
-                return Err(ChatRsToolError::ToolExecutionError(format!(
+                return Err(ChatRsToolError::FormattingError(format!(
                     "Unsupported HTTP method: {}",
                     method
                 )))
@@ -188,19 +193,19 @@ impl ToolExecutor {
         }
 
         let response = request.send().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Tool execution failed: {}", e))
+            ChatRsToolError::ToolExecutionError(format!("HTTP request failed: {}", e))
         })?;
 
         let status = response.status();
         let response_text = response.text().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Failed to read response: {}", e))
+            ChatRsToolError::ToolExecutionError(format!("Failed to read HTTP response: {}", e))
         })?;
 
         if status.is_success() {
             Ok(response_text)
         } else {
             Err(ChatRsToolError::ToolExecutionError(format!(
-                "Tool execution failed with status {}: {}",
+                "HTTP request failed with status {}: {}",
                 status, response_text
             )))
         }

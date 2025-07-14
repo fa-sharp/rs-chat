@@ -2,7 +2,7 @@ pub mod anthropic;
 pub mod lorem;
 pub mod openai;
 
-use std::pin::Pin;
+use std::{collections::HashMap, pin::Pin};
 
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
@@ -37,6 +37,7 @@ pub enum ChatRsError {
     DecryptionError,
 }
 
+#[derive(Default)]
 pub struct ChatRsStreamChunk {
     pub text: Option<String>,
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
@@ -54,7 +55,7 @@ pub struct ChatRsUsage {
 pub struct ChatRsToolCall {
     pub id: String,
     pub name: String,
-    pub parameters: serde_json::Value,
+    pub parameters: HashMap<String, serde_json::Value>,
 }
 
 pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<ChatRsStreamChunk, ChatRsError>> + Send>>;

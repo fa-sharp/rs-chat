@@ -49,37 +49,22 @@ impl<'a> OpenAIProvider<'a> {
                     ChatRsMessageRole::System => "system",
                     ChatRsMessageRole::Tool => "tool",
                 };
-
-                let mut openai_message = OpenAIMessage {
+                let openai_message = OpenAIMessage {
                     role,
                     content: Some(&message.content),
-                    tool_calls: None,
-                    tool_call_id: None,
+                    tool_calls: message.meta.tool_calls.as_ref().map(|tc| {
+                        tc.iter()
+                            .map(|tc| OpenAIToolCall {
+                                id: &tc.id,
+                                function: OpenAIToolCallFunction {
+                                    name: &tc.name,
+                                    arguments: serde_json::to_string(&tc.parameters)
+                                        .unwrap_or_default(),
+                                },
+                            })
+                            .collect()
+                    }),
                 };
-
-                // Handle tool calls in assistant messages
-                if let Some(tool_calls) = &message.meta.tool_calls {
-                    if !tool_calls.is_empty() {
-                        openai_message.tool_calls = Some(
-                            tool_calls
-                                .iter()
-                                .map(|tc| OpenAIToolCall {
-                                    id: &tc.id,
-                                    function: OpenAIToolCallFunction {
-                                        name: &tc.name,
-                                        arguments: &tc.parameters,
-                                    },
-                                })
-                                .collect(),
-                        );
-                        openai_message.content = None;
-                    }
-                }
-
-                // Handle tool call ID for tool result messages
-                if message.role == ChatRsMessageRole::Tool {
-                    openai_message.tool_call_id = message.meta.tool_call_id.as_deref();
-                }
 
                 openai_message
             })
@@ -89,26 +74,14 @@ impl<'a> OpenAIProvider<'a> {
     fn build_tools(&self, tools: &'a [ChatRsTool]) -> Vec<OpenAITool> {
         tools
             .iter()
-            .map(|tool| {
-                // Build parameter schema from tool definition
-                let parameters = if let Some(query) = &tool.query {
-                    query.clone()
-                } else {
-                    serde_json::json!({
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    })
-                };
-
-                OpenAITool {
-                    tool_type: "function",
-                    function: OpenAIFunction {
-                        name: &tool.name,
-                        description: &tool.description,
-                        parameters,
-                    },
-                }
+            .map(|tool| OpenAITool {
+                tool_type: "function",
+                function: OpenAIToolFunction {
+                    name: &tool.name,
+                    description: &tool.description,
+                    parameters: &tool.parameters,
+                    strict: true,
+                },
             })
             .collect()
     }
@@ -116,6 +89,7 @@ impl<'a> OpenAIProvider<'a> {
     async fn parse_sse_stream(&self, mut response: reqwest::Response) -> ChatRsStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
+            let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
 
             while let Some(chunk) = response.chunk().await.transpose() {
                 match chunk {
@@ -137,35 +111,32 @@ impl<'a> OpenAIProvider<'a> {
                                     Ok(mut response) => {
                                         if let Some(choice) = response.choices.pop() {
                                             if let Some(delta) = choice.delta {
-                                                let mut chunk = ChatRsStreamChunk {
-                                                    text: None,
-                                                    tool_calls: None,
-                                                    usage: None,
-                                                };
+                                                println!("Delta tool_calls: {:?}", delta.tool_calls);
 
-                                                if let Some(content) = delta.content {
-                                                    chunk.text = Some(content);
+                                                if delta.content.is_some() {
+                                                    yield Ok(ChatRsStreamChunk {
+                                                        text: delta.content,
+                                                        ..Default::default()
+                                                    });
                                                 }
 
-                                                if let Some(tool_calls) = delta.tool_calls {
-                                                    let converted_tool_calls: Vec<ChatRsToolCall> = tool_calls
-                                                        .into_iter()
-                                                        .filter_map(|tc| {
-                                                            Some(ChatRsToolCall {
-                                                                id: tc.id?,
-                                                                name: tc.function.as_ref().and_then(|f| f.name.clone())?,
-                                                                parameters: serde_json::from_str(&tc.function?.arguments?).ok()?,
-                                                            })
-                                                        })
-                                                        .collect();
-
-                                                    if !converted_tool_calls.is_empty() {
-                                                        chunk.tool_calls = Some(converted_tool_calls);
+                                                if let Some(tool_calls_delta) = delta.tool_calls {
+                                                    for tool_call_delta in tool_calls_delta {
+                                                        if let Some(tc) = tool_calls.iter_mut().find(|tc| tc.index == tool_call_delta.index) {
+                                                            if let Some(function_arguments) = tool_call_delta.function.arguments {
+                                                                *tc.function.arguments.get_or_insert_default() += &function_arguments;
+                                                            }
+                                                        } else {
+                                                            tool_calls.push(OpenAIStreamToolCall {
+                                                                id: tool_call_delta.id,
+                                                                index: tool_call_delta.index,
+                                                                function: OpenAIStreamToolCallFunction {
+                                                                    name: tool_call_delta.function.name,
+                                                                    arguments: tool_call_delta.function.arguments,
+                                                                },
+                                                            });
+                                                        }
                                                     }
-                                                }
-
-                                                if chunk.text.is_some() || chunk.tool_calls.is_some() {
-                                                    yield Ok(chunk);
                                                 }
                                             }
                                         }
@@ -173,9 +144,8 @@ impl<'a> OpenAIProvider<'a> {
                                         // Yield usage information if available
                                         if let Some(usage) = response.usage {
                                             yield Ok(ChatRsStreamChunk {
-                                                text: None,
-                                                tool_calls: None,
                                                 usage: Some(usage.into()),
+                                                ..Default::default()
                                             });
                                         }
                                     }
@@ -201,6 +171,13 @@ impl<'a> OpenAIProvider<'a> {
                 }
             }
 
+            if !tool_calls.is_empty() {
+                yield Ok(ChatRsStreamChunk {
+                    tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.try_into().ok()).collect()),
+                    ..Default::default()
+                });
+            }
+
             rocket::debug!("SSE stream ended");
         };
 
@@ -216,7 +193,6 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
         tools: Option<Vec<ChatRsTool>>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let openai_messages = self.build_messages(&messages);
-
         let openai_tools = tools.as_ref().map(|t| self.build_tools(t));
 
         let request = OpenAIRequest {
@@ -306,48 +282,6 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
     }
 }
 
-/// OpenAI API request message
-#[derive(Debug, Default, Serialize)]
-struct OpenAIMessage<'a> {
-    role: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<OpenAIToolCall<'a>>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<&'a str>,
-}
-
-/// OpenAI tool definition
-#[derive(Debug, Serialize)]
-struct OpenAITool<'a> {
-    #[serde(rename = "type")]
-    tool_type: &'a str,
-    function: OpenAIFunction<'a>,
-}
-
-/// OpenAI tool call in messages
-#[derive(Debug, Serialize)]
-struct OpenAIToolCall<'a> {
-    id: &'a str,
-    function: OpenAIToolCallFunction<'a>,
-}
-
-/// OpenAI function definition
-#[derive(Debug, Serialize)]
-struct OpenAIFunction<'a> {
-    name: &'a str,
-    description: &'a str,
-    parameters: serde_json::Value,
-}
-
-/// OpenAI tool call function
-#[derive(Debug, Serialize)]
-struct OpenAIToolCallFunction<'a> {
-    name: &'a str,
-    arguments: &'a serde_json::Value,
-}
-
 /// OpenAI API request body
 #[derive(Debug, Default, Serialize)]
 struct OpenAIRequest<'a> {
@@ -363,10 +297,65 @@ struct OpenAIRequest<'a> {
     tools: Option<Vec<OpenAITool<'a>>>,
 }
 
+/// OpenAI API request message
+#[derive(Debug, Default, Serialize)]
+struct OpenAIMessage<'a> {
+    role: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAIToolCall<'a>>>,
+}
+
+/// OpenAI tool definition
+#[derive(Debug, Serialize)]
+struct OpenAITool<'a> {
+    #[serde(rename = "type")]
+    tool_type: &'a str,
+    function: OpenAIToolFunction<'a>,
+}
+
+/// OpenAI tool function definition
+#[derive(Debug, Serialize)]
+struct OpenAIToolFunction<'a> {
+    name: &'a str,
+    description: &'a str,
+    parameters: &'a serde_json::Value,
+    strict: bool,
+}
+
+/// OpenAI tool call in messages
+#[derive(Debug, Serialize)]
+struct OpenAIToolCall<'a> {
+    id: &'a str,
+    function: OpenAIToolCallFunction<'a>,
+}
+
+/// OpenAI tool call function in messages
+#[derive(Debug, Serialize)]
+struct OpenAIToolCallFunction<'a> {
+    name: &'a str,
+    arguments: String,
+}
+
 /// OpenAI API request stream options
 #[derive(Debug, Serialize)]
 struct OpenAIStreamOptions {
     include_usage: bool,
+}
+
+/// OpenAI API response
+#[derive(Debug, Deserialize)]
+struct OpenAIResponse {
+    choices: Vec<OpenAIChoice>,
+    usage: Option<OpenAIUsage>,
+}
+
+/// OpenAI API streaming response
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamResponse {
+    choices: Vec<OpenAIChoice>,
+    usage: Option<OpenAIUsage>,
 }
 
 /// OpenAI API response choice
@@ -396,7 +385,8 @@ struct OpenAIResponseDelta {
 #[derive(Debug, Deserialize)]
 struct OpenAIStreamToolCall {
     id: Option<String>,
-    function: Option<OpenAIStreamToolCallFunction>,
+    index: u32,
+    function: OpenAIStreamToolCallFunction,
 }
 
 /// OpenAI streaming tool call function
@@ -404,6 +394,31 @@ struct OpenAIStreamToolCall {
 struct OpenAIStreamToolCallFunction {
     name: Option<String>,
     arguments: Option<String>,
+}
+
+/// Convert from OpenAI streaming tool call to common format
+impl TryFrom<OpenAIStreamToolCall> for ChatRsToolCall {
+    type Error = ChatRsError;
+
+    fn try_from(tool_call: OpenAIStreamToolCall) -> Result<Self, Self::Error> {
+        Ok(ChatRsToolCall {
+            id: tool_call
+                .id
+                .ok_or_else(|| ChatRsError::OpenAIError("Missing tool call ID".to_owned()))?,
+            name: tool_call
+                .function
+                .name
+                .clone()
+                .ok_or_else(|| ChatRsError::OpenAIError("Missing tool call name".to_owned()))?,
+            parameters: tool_call
+                .function
+                .arguments
+                .and_then(|a| serde_json::from_str(&a).ok())
+                .ok_or_else(|| {
+                    ChatRsError::OpenAIError("Missing/invalid tool call arguments".to_owned())
+                })?,
+        })
+    }
 }
 
 /// OpenAI API response usage
@@ -423,18 +438,4 @@ impl From<OpenAIUsage> for ChatRsUsage {
             cost: usage.cost,
         }
     }
-}
-
-/// OpenAI API response
-#[derive(Debug, Deserialize)]
-struct OpenAIResponse {
-    choices: Vec<OpenAIChoice>,
-    usage: Option<OpenAIUsage>,
-}
-
-/// OpenAI streaming response
-#[derive(Debug, Deserialize)]
-struct OpenAIStreamResponse {
-    choices: Vec<OpenAIChoice>,
-    usage: Option<OpenAIUsage>,
 }

@@ -5,10 +5,12 @@ use diesel::{
 };
 use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     provider::{ChatRsToolCall, ChatRsUsage},
+    tools::HttpRequestToolData,
     utils::create_provider::ProviderConfigInput,
 };
 
@@ -114,8 +116,6 @@ pub struct ChatRsMessageMeta {
     pub usage: Option<ChatRsUsage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
 }
 
 #[derive(Insertable)]
@@ -171,7 +171,7 @@ pub struct NewChatRsProviderKey<'r> {
     pub nonce: &'r Vec<u8>,
 }
 
-#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, Serialize, Deserialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::tools)]
 pub struct ChatRsTool {
@@ -179,12 +179,17 @@ pub struct ChatRsTool {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
-    pub url: String,
-    pub method: String,
-    pub query: Option<serde_json::Value>,
-    pub body: Option<serde_json::Value>,
+    /// JSON Schema of the tool's input parameters
+    pub parameters: serde_json::Value,
+    /// Tool-specific data and configuration
+    pub data: ChatRsToolData,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
+pub enum ChatRsToolData {
+    Http(HttpRequestToolData),
 }
 
 #[derive(Insertable)]
@@ -193,10 +198,8 @@ pub struct NewChatRsTool<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
     pub description: &'r str,
-    pub url: &'r str,
-    pub method: &'r str,
-    pub query: Option<&'r serde_json::Value>,
-    pub body: Option<&'r serde_json::Value>,
+    pub parameters: &'r serde_json::Value,
+    pub data: &'r ChatRsToolData,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]

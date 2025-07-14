@@ -17,7 +17,7 @@ use crate::{
         services::ChatDbService,
         DbConnection, DbPool,
     },
-    provider::ChatRsUsage,
+    provider::{ChatRsToolCall, ChatRsUsage},
     utils::create_provider::ProviderConfigInput,
 };
 
@@ -32,10 +32,11 @@ pub struct StoredChatRsStream<
     db_pool: DbPool,
     session_id: Uuid,
     buffer: Vec<String>,
-    last_cache_time: Instant,
+    tool_calls: Option<Vec<ChatRsToolCall>>,
     input_tokens: u32,
     output_tokens: u32,
     cost: Option<f32>,
+    last_cache_time: Instant,
 }
 
 pub const CACHE_KEY_PREFIX: &str = "chat_session:";
@@ -59,10 +60,11 @@ where
             redis_client,
             session_id: session_id.unwrap_or_else(|| Uuid::new_v4()),
             buffer: Vec::new(),
-            last_cache_time: Instant::now(),
+            tool_calls: None,
             input_tokens: 0,
             output_tokens: 0,
             cost: None,
+            last_cache_time: Instant::now(),
         }
     }
 
@@ -76,6 +78,7 @@ where
         let session_id = self.session_id.clone();
         let config = self.provider_config.take();
         let content = self.buffer.join("");
+        let tool_calls = self.tool_calls.take();
         let usage = Some(ChatRsUsage {
             input_tokens: Some(self.input_tokens),
             output_tokens: Some(self.output_tokens),
@@ -97,7 +100,7 @@ where
                         provider_config: config,
                         interrupted,
                         usage,
-                        ..Default::default()
+                        tool_calls,
                     },
                 })
                 .await
@@ -129,6 +132,11 @@ where
                 // Add text to buffer
                 if let Some(text) = &chunk.text {
                     self.buffer.push(text.clone());
+                }
+
+                // Record tool calls
+                if let Some(tool_calls) = chunk.tool_calls {
+                    self.tool_calls.get_or_insert_default().extend(tool_calls);
                 }
 
                 // Record usage
@@ -171,20 +179,18 @@ where
                     self.last_cache_time = Instant::now();
                 }
 
-                // Only return chunks with text content for now
-                // TODO: Handle tool calls separately
                 if let Some(text) = chunk.text {
                     Poll::Ready(Some(Ok(text)))
                 } else {
-                    // Skip chunks without text (e.g., tool calls, usage-only chunks)
-                    // Continue polling for the next chunk
                     self.poll_next(cx)
                 }
             }
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => {
                 // Stream ended, flush final buffer
-                if !self.buffer.is_empty() {
+                println!("Final buffer content: {:?}", self.buffer);
+                println!("Tool calls: {:?}", self.tool_calls);
+                if !self.buffer.is_empty() || self.tool_calls.is_some() {
                     self.save_response(None);
                 }
                 Poll::Ready(None)
@@ -200,7 +206,7 @@ where
 {
     /// Stream was interrupted. Save response and mark as interrupted
     fn drop(&mut self) {
-        if !self.buffer.is_empty() {
+        if !self.buffer.is_empty() || self.tool_calls.is_some() {
             self.save_response(Some(true));
         }
     }

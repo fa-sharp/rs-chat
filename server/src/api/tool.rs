@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsTool, NewChatRsTool},
+        models::{ChatRsTool, ChatRsToolData, NewChatRsTool},
         services::ToolDbService,
         DbConnection,
     },
@@ -35,12 +35,14 @@ async fn get_all_tools(
 
 #[derive(JsonSchema, serde::Deserialize)]
 struct ToolInput {
+    /// Name of the tool
     name: String,
+    /// Description of the tool
     description: String,
-    url: String,
-    method: String,
-    query: Option<serde_json::Value>,
-    body: Option<serde_json::Value>,
+    /// JSON Schema of the tool's input parameters
+    parameters: serde_json::Value,
+    /// Tool-specific data and configuration
+    data: ChatRsToolData,
 }
 
 /// Create a new tool
@@ -56,10 +58,8 @@ async fn create_tool(
             user_id: &user_id,
             name: &input.name,
             description: &input.description,
-            url: &input.url,
-            method: &input.method,
-            query: input.query.as_ref(),
-            body: input.body.as_ref(),
+            parameters: &input.parameters,
+            data: &input.data,
         })
         .await?;
 

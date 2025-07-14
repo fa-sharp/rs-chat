@@ -70,10 +70,8 @@ diesel::table! {
         user_id -> Uuid,
         name -> Text,
         description -> Text,
-        url -> Text,
-        method -> Text,
-        query -> Nullable<Jsonb>,
-        body -> Nullable<Jsonb>,
+        parameters -> Jsonb,
+        data -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }
