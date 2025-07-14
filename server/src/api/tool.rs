@@ -44,7 +44,7 @@ struct ToolInput {
     /// Description of the tool
     description: String,
     /// JSON Schema of the tool's input parameters
-    parameters: serde_json::Value,
+    input_schema: serde_json::Value,
     /// Tool-specific data and configuration
     data: ChatRsToolData,
 }
@@ -62,7 +62,7 @@ async fn create_tool(
             user_id: &user_id,
             name: &input.name,
             description: &input.description,
-            parameters: &input.parameters,
+            input_schema: &input.input_schema,
             data: &input.data,
         })
         .await?;

@@ -108,20 +108,21 @@ pub struct ChatRsMessage {
 
 #[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
-    /// The configuration options for the provider
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_config: Option<ProviderConfigInput>,
-    /// Whether this is a partial message
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interrupted: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<ChatRsUsage>,
-    /// The tool calls requested by the provider
+    /// Assistant messages: the tool calls requested by the assistant
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
-    /// The executed tool call that produced the tool message
+    /// Tool messages: the executed tool call that produced this result
     #[serde(skip_serializing_if = "Option::is_none")]
     pub executed_tool_call: Option<ChatRsToolCall>,
+    /// Assistant messages: provider usage information
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<ChatRsUsage>,
+    /// Assistant messages: whether this is a partial or interrupted message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interrupted: Option<bool>,
+    /// Assistant messages: the configuration options for the AI provider
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_config: Option<ProviderConfigInput>,
 }
 
 #[derive(Insertable)]
@@ -186,7 +187,7 @@ pub struct ChatRsTool {
     pub name: String,
     pub description: String,
     /// JSON Schema of the tool's input parameters
-    pub parameters: serde_json::Value,
+    pub input_schema: serde_json::Value,
     /// Tool-specific data and configuration
     pub data: ChatRsToolData,
     pub created_at: DateTime<Utc>,
@@ -204,7 +205,7 @@ pub struct NewChatRsTool<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
     pub description: &'r str,
-    pub parameters: &'r serde_json::Value,
+    pub input_schema: &'r serde_json::Value,
     pub data: &'r ChatRsToolData,
 }
 

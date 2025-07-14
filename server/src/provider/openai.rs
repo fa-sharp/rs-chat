@@ -85,7 +85,7 @@ impl<'a> OpenAIProvider<'a> {
                 function: OpenAIToolFunction {
                     name: &tool.name,
                     description: &tool.description,
-                    parameters: &tool.parameters,
+                    parameters: &tool.input_schema,
                     strict: true,
                 },
             })
