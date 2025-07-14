@@ -1,4 +1,4 @@
-use rocket::{delete, get, post, serde::json::Json, Route};
+use rocket::{delete, get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
@@ -8,15 +8,19 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsTool, ChatRsToolData, NewChatRsTool},
-        services::ToolDbService,
+        models::{
+            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsTool, ChatRsToolData,
+            NewChatRsMessage, NewChatRsTool,
+        },
+        services::{ChatDbService, ToolDbService},
         DbConnection,
     },
     errors::ApiError,
+    tools::{ChatRsToolError, HttpRequestTool},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: get_all_tools, create_tool, delete_tool]
+    openapi_get_routes_spec![settings: get_all_tools, execute_tool, create_tool, delete_tool]
 }
 
 /// List all tools
@@ -64,6 +68,56 @@ async fn create_tool(
         .await?;
 
     Ok(Json(tool))
+}
+
+/// Execute a tool call
+#[openapi(tag = "Tools")]
+#[post("/execute/<message_id>/<tool_call_id>")]
+async fn execute_tool(
+    user_id: ChatRsUserId,
+    mut db: DbConnection,
+    http_client: &State<reqwest::Client>,
+    message_id: Uuid,
+    tool_call_id: &str,
+) -> Result<Json<ChatRsMessage>, ApiError> {
+    let message = ChatDbService::new(&mut db)
+        .find_message(&user_id, &message_id)
+        .await?;
+    let tool_call = message
+        .meta
+        .tool_calls
+        .and_then(|tool_calls| {
+            tool_calls
+                .into_iter()
+                .find(|tool_call| tool_call.id == tool_call_id)
+        })
+        .ok_or(ChatRsToolError::ToolCallNotFound)?;
+    let tool = ToolDbService::new(&mut db)
+        .find_by_id(&user_id, &tool_call.tool_id)
+        .await?
+        .ok_or(ChatRsToolError::ToolNotFound)?;
+
+    let tool_response = match tool.data {
+        ChatRsToolData::Http(http_request_config) => {
+            let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
+            http_request_tool
+                .execute_tool(&tool_call.parameters)
+                .await?
+        }
+    };
+    let tool_message = ChatDbService::new(&mut db)
+        .save_message(NewChatRsMessage {
+            session_id: &message.session_id,
+            role: ChatRsMessageRole::Tool,
+            content: &tool_response,
+            meta: &ChatRsMessageMeta {
+                executed_tool_call: Some(tool_call),
+                ..Default::default()
+            },
+        })
+        .await?;
+
+    Ok(Json(tool_message))
 }
 
 /// Delete a tool

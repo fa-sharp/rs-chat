@@ -46,6 +46,20 @@ impl<'a> ChatDbService<'a> {
         Ok(message)
     }
 
+    pub async fn find_message(
+        &mut self,
+        user_id: &Uuid,
+        message_id: &Uuid,
+    ) -> Result<ChatRsMessage, diesel::result::Error> {
+        chat_messages::table
+            .inner_join(chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)))
+            .select(ChatRsMessage::as_select())
+            .filter(chat_sessions::user_id.eq(user_id))
+            .filter(chat_messages::id.eq(message_id))
+            .get_result(self.db)
+            .await
+    }
+
     pub async fn delete_message(
         &mut self,
         session_id: &Uuid,

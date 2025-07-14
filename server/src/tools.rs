@@ -8,6 +8,8 @@ pub enum ChatRsToolError {
     InvalidToolName,
     #[error("Tool not found")]
     ToolNotFound,
+    #[error("Tool call not found")]
+    ToolCallNotFound,
     #[error("Formatting error: {0}")]
     FormattingError(String),
     #[error("Serialization error")]

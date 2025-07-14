@@ -21,15 +21,17 @@ pub struct HttpRequestToolData {
     pub headers: Option<HashMap<String, String>>,
 }
 
+type Parameters = HashMap<String, serde_json::Value>;
+
 impl HttpRequestTool {
-    pub fn new(http_client: reqwest::Client, config: HttpRequestToolData) -> Self {
+    pub fn new(http_client: &reqwest::Client, config: HttpRequestToolData) -> Self {
         Self {
-            http_client,
+            http_client: http_client.clone(),
             config,
         }
     }
 
-    pub async fn execute_tool(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
+    pub async fn execute_tool(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
         // Build the HTTP request components
         let url = self.build_url(parameters)?;
         let headers = self.build_headers(parameters)?;
@@ -43,7 +45,7 @@ impl HttpRequestTool {
         Ok(response)
     }
 
-    fn build_url(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
+    fn build_url(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
         let mut url = self.substitute_placeholders(&self.config.url, parameters);
 
         let query_params = self.build_query_params(parameters)?;
@@ -56,7 +58,7 @@ impl HttpRequestTool {
         Ok(url)
     }
 
-    fn build_headers(&self, parameters: &Value) -> Result<HeaderMap, ChatRsToolError> {
+    fn build_headers(&self, parameters: &Parameters) -> Result<HeaderMap, ChatRsToolError> {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
@@ -83,7 +85,7 @@ impl HttpRequestTool {
 
     fn build_body(
         &self,
-        parameters: &Value,
+        parameters: &Parameters,
         body_mapping: &Option<serde_json::Value>,
     ) -> Result<Option<String>, ChatRsToolError> {
         if let Some(body_template) = body_mapping {
@@ -99,7 +101,7 @@ impl HttpRequestTool {
         }
     }
 
-    fn build_query_params(&self, parameters: &Value) -> Result<String, ChatRsToolError> {
+    fn build_query_params(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
         let mut query_parts = Vec::new();
 
         if let Some(query_mapping) = &self.config.query {
@@ -118,20 +120,18 @@ impl HttpRequestTool {
         Ok(query_parts.join("&"))
     }
 
-    fn substitute_placeholders(&self, template: &str, parameters: &Value) -> String {
+    fn substitute_placeholders(&self, template: &str, parameters: &Parameters) -> String {
         let mut result = template.to_string();
 
-        if let Value::Object(params) = parameters {
-            for (key, value) in params {
-                let placeholder = format!("{{{{{}}}}}", key);
-                let replacement = match value {
-                    Value::String(s) => s.clone(),
-                    Value::Number(n) => n.to_string(),
-                    Value::Bool(b) => b.to_string(),
-                    _ => serde_json::to_string(value).unwrap_or_default(),
-                };
-                result = result.replace(&placeholder, &replacement);
-            }
+        for (key, value) in parameters {
+            let placeholder = format!("{{{{{}}}}}", key);
+            let replacement = match value {
+                Value::String(s) => s.clone(),
+                Value::Number(n) => n.to_string(),
+                Value::Bool(b) => b.to_string(),
+                _ => serde_json::to_string(value).unwrap_or_default(),
+            };
+            result = result.replace(&placeholder, &replacement);
         }
 
         result
@@ -140,7 +140,7 @@ impl HttpRequestTool {
     fn map_object_template(
         &self,
         template: &Value,
-        parameters: &Value,
+        parameters: &Parameters,
     ) -> Result<Value, ChatRsToolError> {
         match template {
             Value::Object(obj) => {
@@ -172,6 +172,10 @@ impl HttpRequestTool {
         headers: reqwest::header::HeaderMap,
         body: Option<String>,
     ) -> Result<String, ChatRsToolError> {
+        println!("Executing request {} {}", method, url);
+        println!("Headers: {:?}", headers);
+        println!("Body: {:?}", body);
+
         let request_builder = match method.to_uppercase().as_str() {
             "GET" => self.http_client.get(url),
             "POST" => self.http_client.post(url),

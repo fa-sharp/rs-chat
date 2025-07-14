@@ -6,11 +6,9 @@ use std::{collections::HashMap, pin::Pin};
 
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
+use uuid::Uuid;
 
-use crate::{
-    db::models::{ChatRsMessage, ChatRsTool},
-    tools::ChatRsToolError,
-};
+use crate::db::models::{ChatRsMessage, ChatRsTool};
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
 pub const DEFAULT_TEMPERATURE: f32 = 0.7;
@@ -27,8 +25,6 @@ pub enum ChatRsError {
     OpenAIError(String),
     #[error("No chat response")]
     NoResponse,
-    #[error("Tool error: {0}")]
-    ToolError(ChatRsToolError),
     #[error("Unsupported provider")]
     UnsupportedProvider,
     #[error("Encryption error")]
@@ -44,20 +40,30 @@ pub struct ChatRsStreamChunk {
     pub usage: Option<ChatRsUsage>,
 }
 
+/// Usage stats from provider
 #[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct ChatRsUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    /// Only included by OpenRouter
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<f32>,
 }
 
+/// A tool call requested by the provider
 #[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct ChatRsToolCall {
+    /// ID of the tool call
     pub id: String,
+    /// ID of the tool used
+    pub tool_id: Uuid,
+    /// Name of the tool used
     pub name: String,
+    /// Input parameters for the tool
     pub parameters: HashMap<String, serde_json::Value>,
 }
 
+/// Shared stream type for all providers
 pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<ChatRsStreamChunk, ChatRsError>> + Send>>;
 
 /// Interface for all chat providers

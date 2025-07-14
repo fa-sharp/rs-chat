@@ -18,6 +18,20 @@ impl<'a> ToolDbService<'a> {
         ToolDbService { db }
     }
 
+    pub async fn find_by_id(
+        &mut self,
+        user_id: &Uuid,
+        tool_id: &Uuid,
+    ) -> Result<Option<ChatRsTool>, Error> {
+        tools::table
+            .filter(tools::user_id.eq(user_id))
+            .filter(tools::id.eq(tool_id))
+            .select(ChatRsTool::as_select())
+            .first(self.db)
+            .await
+            .optional()
+    }
+
     pub async fn find_by_user_id(&mut self, user_id: &Uuid) -> Result<Vec<ChatRsTool>, Error> {
         tools::table
             .filter(tools::user_id.eq(user_id))

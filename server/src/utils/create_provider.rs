@@ -17,7 +17,7 @@ use crate::{
 
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
-/// Provider configuration input from API
+/// Provider configuration input
 // WARNING: This enum is also used to store metadata for chat messages in the database.
 // Changes should be made carefully.
 #[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
@@ -42,6 +42,7 @@ pub struct OpenAIConfig {
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
 }
 

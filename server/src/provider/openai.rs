@@ -52,10 +52,16 @@ impl<'a> OpenAIProvider<'a> {
                 let openai_message = OpenAIMessage {
                     role,
                     content: Some(&message.content),
+                    tool_call_id: message
+                        .meta
+                        .executed_tool_call
+                        .as_ref()
+                        .map(|tc| tc.id.as_str()),
                     tool_calls: message.meta.tool_calls.as_ref().map(|tc| {
                         tc.iter()
                             .map(|tc| OpenAIToolCall {
                                 id: &tc.id,
+                                tool_type: "function",
                                 function: OpenAIToolCallFunction {
                                     name: &tc.name,
                                     arguments: serde_json::to_string(&tc.parameters)
@@ -86,7 +92,11 @@ impl<'a> OpenAIProvider<'a> {
             .collect()
     }
 
-    async fn parse_sse_stream(&self, mut response: reqwest::Response) -> ChatRsStream {
+    async fn parse_sse_stream(
+        &self,
+        mut response: reqwest::Response,
+        tools: Option<Vec<ChatRsTool>>,
+    ) -> ChatRsStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
             let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
@@ -111,8 +121,6 @@ impl<'a> OpenAIProvider<'a> {
                                     Ok(mut response) => {
                                         if let Some(choice) = response.choices.pop() {
                                             if let Some(delta) = choice.delta {
-                                                println!("Delta tool_calls: {:?}", delta.tool_calls);
-
                                                 if delta.content.is_some() {
                                                     yield Ok(ChatRsStreamChunk {
                                                         text: delta.content,
@@ -127,14 +135,7 @@ impl<'a> OpenAIProvider<'a> {
                                                                 *tc.function.arguments.get_or_insert_default() += &function_arguments;
                                                             }
                                                         } else {
-                                                            tool_calls.push(OpenAIStreamToolCall {
-                                                                id: tool_call_delta.id,
-                                                                index: tool_call_delta.index,
-                                                                function: OpenAIStreamToolCallFunction {
-                                                                    name: tool_call_delta.function.name,
-                                                                    arguments: tool_call_delta.function.arguments,
-                                                                },
-                                                            });
+                                                            tool_calls.push(tool_call_delta);
                                                         }
                                                     }
                                                 }
@@ -171,11 +172,13 @@ impl<'a> OpenAIProvider<'a> {
                 }
             }
 
-            if !tool_calls.is_empty() {
-                yield Ok(ChatRsStreamChunk {
-                    tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.try_into().ok()).collect()),
-                    ..Default::default()
-                });
+            if let Some(rs_chat_tools) = tools {
+                if !tool_calls.is_empty() {
+                    yield Ok(ChatRsStreamChunk {
+                        tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.convert(&rs_chat_tools)).collect()),
+                        ..Default::default()
+                    });
+                }
             }
 
             rocket::debug!("SSE stream ended");
@@ -226,7 +229,7 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
             )));
         }
 
-        Ok(self.parse_sse_stream(response).await)
+        Ok(self.parse_sse_stream(response, tools).await)
     }
 
     async fn prompt(&self, message: &str) -> Result<String, ChatRsError> {
@@ -304,6 +307,8 @@ struct OpenAIMessage<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     content: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     tool_calls: Option<Vec<OpenAIToolCall<'a>>>,
 }
 
@@ -328,6 +333,8 @@ struct OpenAIToolFunction<'a> {
 #[derive(Debug, Serialize)]
 struct OpenAIToolCall<'a> {
     id: &'a str,
+    #[serde(rename = "type")]
+    tool_type: &'a str,
     function: OpenAIToolCallFunction<'a>,
 }
 
@@ -389,36 +396,30 @@ struct OpenAIStreamToolCall {
     function: OpenAIStreamToolCallFunction,
 }
 
+impl OpenAIStreamToolCall {
+    /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
+    fn convert(self, rs_chat_tools: &[ChatRsTool]) -> Option<ChatRsToolCall> {
+        let tool_call_id = self.id?;
+        let tool_name = self.function.name?;
+        let tool_parameters = serde_json::from_str(&self.function.arguments?).ok()?;
+
+        rs_chat_tools
+            .iter()
+            .find(|rs_chat_tool| rs_chat_tool.name == tool_name)
+            .map(|rs_chat_tool| ChatRsToolCall {
+                id: tool_call_id,
+                tool_id: rs_chat_tool.id,
+                name: tool_name,
+                parameters: tool_parameters,
+            })
+    }
+}
+
 /// OpenAI streaming tool call function
 #[derive(Debug, Deserialize)]
 struct OpenAIStreamToolCallFunction {
     name: Option<String>,
     arguments: Option<String>,
-}
-
-/// Convert from OpenAI streaming tool call to common format
-impl TryFrom<OpenAIStreamToolCall> for ChatRsToolCall {
-    type Error = ChatRsError;
-
-    fn try_from(tool_call: OpenAIStreamToolCall) -> Result<Self, Self::Error> {
-        Ok(ChatRsToolCall {
-            id: tool_call
-                .id
-                .ok_or_else(|| ChatRsError::OpenAIError("Missing tool call ID".to_owned()))?,
-            name: tool_call
-                .function
-                .name
-                .clone()
-                .ok_or_else(|| ChatRsError::OpenAIError("Missing tool call name".to_owned()))?,
-            parameters: tool_call
-                .function
-                .arguments
-                .and_then(|a| serde_json::from_str(&a).ok())
-                .ok_or_else(|| {
-                    ChatRsError::OpenAIError("Missing/invalid tool call arguments".to_owned())
-                })?,
-        })
-    }
 }
 
 /// OpenAI API response usage

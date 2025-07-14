@@ -108,14 +108,20 @@ pub struct ChatRsMessage {
 
 #[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
+    /// The configuration options for the provider
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_config: Option<ProviderConfigInput>,
+    /// Whether this is a partial message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interrupted: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<ChatRsUsage>,
+    /// The tool calls requested by the provider
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    /// The executed tool call that produced the tool message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub executed_tool_call: Option<ChatRsToolCall>,
 }
 
 #[derive(Insertable)]
