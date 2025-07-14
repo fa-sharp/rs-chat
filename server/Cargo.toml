@@ -36,6 +36,7 @@ fred = { version = "10.1.0", default-features = false, features = [
     "i-lists",
 ] }
 hex = "0.4.3"
+jsonschema = { version = "0.30.0", default-features = false }
 rand = "0.9.1"
 reqwest = { version = "0.12.20", default-features = false, features = [
     "json",

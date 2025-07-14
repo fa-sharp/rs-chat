@@ -6,6 +6,8 @@ pub use http_request::{HttpRequestTool, HttpRequestToolData};
 pub enum ChatRsToolError {
     #[error("Invalid tool name")]
     InvalidToolName,
+    #[error("Invalid JSON schema: {0}")]
+    InvalidJsonSchema(String),
     #[error("Tool not found")]
     ToolNotFound,
     #[error("Tool call not found")]

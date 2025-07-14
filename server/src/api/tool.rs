@@ -55,8 +55,10 @@ struct ToolInput {
 async fn create_tool(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-    input: Json<ToolInput>,
+    mut input: Json<ToolInput>,
 ) -> Result<Json<ChatRsTool>, ApiError> {
+    validate_tool_schema(&mut input.input_schema)?;
+
     let tool = ToolDbService::new(&mut db)
         .create(NewChatRsTool {
             user_id: &user_id,
@@ -68,6 +70,17 @@ async fn create_tool(
         .await?;
 
     Ok(Json(tool))
+}
+
+/// Ensure JSON schema is valid (using Draft 2020-12) and has `additionalProperties` set to false
+fn validate_tool_schema(input_schema: &mut serde_json::Value) -> Result<(), ChatRsToolError> {
+    input_schema
+        .as_object_mut()
+        .ok_or_else(|| ChatRsToolError::InvalidJsonSchema("Not an object".to_string()))?
+        .insert("additionalProperties".into(), false.into());
+    jsonschema::draft202012::meta::validate(input_schema)
+        .map_err(|e| ChatRsToolError::InvalidJsonSchema(e.to_string()))?;
+    Ok(())
 }
 
 /// Execute a tool call

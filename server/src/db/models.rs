@@ -195,6 +195,7 @@ pub struct ChatRsTool {
 }
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
+#[serde(tag = "type")]
 pub enum ChatRsToolData {
     Http(HttpRequestToolData),
 }
