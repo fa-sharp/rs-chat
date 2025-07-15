@@ -10,8 +10,10 @@ use crate::tools::{
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
 pub struct SerpApiConfig {
     pub api_key: String,
+    /// Country code for search results. See https://serpapi.com/google-countries
     #[serde(default)]
-    pub location: Option<String>,
+    pub country: Option<String>,
+    /// Language code for search results. See https://serpapi.com/google-lr-languages
     #[serde(default)]
     pub search_lang: Option<String>,
 }
@@ -44,8 +46,8 @@ impl<'a> WebSearchToolProvider for SerpApiSearchTool<'a> {
         ));
         url.push_str(&format!("&num={}", self.count));
 
-        if let Some(location) = &self.config.location {
-            url.push_str(&format!("&location={}", urlencoding::encode(location)));
+        if let Some(location) = &self.config.country {
+            url.push_str(&format!("&gl={}", urlencoding::encode(location)));
         }
 
         if let Some(search_lang) = &self.config.search_lang {

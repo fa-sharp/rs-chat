@@ -11,8 +11,10 @@ use crate::tools::{
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
 pub struct BraveConfig {
     pub api_key: String,
+    /// Country code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#country-codes
     #[serde(default)]
     pub country: Option<String>,
+    /// Language code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#language-codes
     #[serde(default)]
     pub search_lang: Option<String>,
 }

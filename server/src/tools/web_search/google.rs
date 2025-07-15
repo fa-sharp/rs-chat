@@ -48,7 +48,7 @@ impl<'a> WebSearchToolProvider for GoogleCustomSearchTool<'a> {
         url.push_str(&format!("&num={}", self.count.min(10))); // Google CSE max is 10
 
         if let Some(search_lang) = &self.config.search_lang {
-            url.push_str(&format!("&lr=lang_{}", search_lang));
+            url.push_str(&format!("&lr={}", search_lang));
         }
 
         if let Some(country) = &self.config.country {
