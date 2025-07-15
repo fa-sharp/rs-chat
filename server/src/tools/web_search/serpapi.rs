@@ -3,8 +3,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
-    web_search::{WebSearchResult, WebSearchToolProvider},
-    ChatRsToolError,
+    web_search::{WebSearchResult, WebSearchProvider},
+    ToolError,
 };
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
@@ -28,7 +28,7 @@ impl<'a> SerpApiSearchTool<'a> {
     }
 }
 #[async_trait]
-impl<'a> WebSearchToolProvider for SerpApiSearchTool<'a> {
+impl<'a> WebSearchProvider for SerpApiSearchTool<'a> {
     fn name(&self) -> &str {
         "SerpApi"
     }
@@ -37,7 +37,7 @@ impl<'a> WebSearchToolProvider for SerpApiSearchTool<'a> {
         &self,
         http_client: &reqwest::Client,
         query: &str,
-    ) -> Result<Vec<WebSearchResult>, ChatRsToolError> {
+    ) -> Result<Vec<WebSearchResult>, ToolError> {
         let mut url = "https://serpapi.com/search.json".to_string();
         url.push_str(&format!(
             "?engine=google&q={}&api_key={}",
@@ -54,21 +54,22 @@ impl<'a> WebSearchToolProvider for SerpApiSearchTool<'a> {
             url.push_str(&format!("&hl={}", search_lang));
         }
 
-        let response = http_client.get(&url).send().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("SerpAPI search failed: {}", e))
-        })?;
+        let response =
+            http_client.get(&url).send().await.map_err(|e| {
+                ToolError::ToolExecutionError(format!("SerpAPI search failed: {}", e))
+            })?;
 
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsToolError::ToolExecutionError(format!(
+            return Err(ToolError::ToolExecutionError(format!(
                 "SerpAPI error {}: {}",
                 status, error_text
             )));
         }
 
         let serp_response: SerpApiResponse = response.json().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Failed to parse SerpAPI response: {}", e))
+            ToolError::ToolExecutionError(format!("Failed to parse SerpAPI response: {}", e))
         })?;
 
         Ok(serp_response

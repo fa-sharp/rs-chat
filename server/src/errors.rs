@@ -7,7 +7,7 @@ use rocket::{
 use rocket_okapi::response::OpenApiResponderInner;
 use schemars::JsonSchema;
 
-use crate::{provider::ChatRsError, tools::ChatRsToolError};
+use crate::{provider::ChatRsError, tools::ToolError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApiError {
@@ -20,7 +20,7 @@ pub enum ApiError {
     #[error(transparent)]
     Chat(#[from] ChatRsError),
     #[error(transparent)]
-    Tool(#[from] ChatRsToolError),
+    Tool(#[from] ToolError),
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize)]

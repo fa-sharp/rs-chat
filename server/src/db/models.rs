@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     provider::{ChatRsToolCall, ChatRsUsage},
-    tools::ChatRsToolData,
+    tools::ToolConfig,
     utils::create_provider::ProviderConfigInput,
 };
 
@@ -203,8 +203,7 @@ pub struct ChatRsTool {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
-    /// Tool-specific data and configuration
-    pub data: ChatRsToolData,
+    pub config: ToolConfig,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -215,7 +214,7 @@ pub struct NewChatRsTool<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
     pub description: &'r str,
-    pub data: &'r ChatRsToolData,
+    pub config: &'r ToolConfig,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]

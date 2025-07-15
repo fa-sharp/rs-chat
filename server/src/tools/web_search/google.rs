@@ -3,8 +3,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
-    web_search::{WebSearchResult, WebSearchToolProvider},
-    ChatRsToolError,
+    web_search::{WebSearchResult, WebSearchProvider},
+    ToolError,
 };
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
@@ -28,7 +28,7 @@ impl<'a> GoogleCustomSearchTool<'a> {
     }
 }
 #[async_trait]
-impl<'a> WebSearchToolProvider for GoogleCustomSearchTool<'a> {
+impl<'a> WebSearchProvider for GoogleCustomSearchTool<'a> {
     fn name(&self) -> &str {
         "Google Custom Search"
     }
@@ -37,7 +37,7 @@ impl<'a> WebSearchToolProvider for GoogleCustomSearchTool<'a> {
         &self,
         http_client: &reqwest::Client,
         query: &str,
-    ) -> Result<Vec<WebSearchResult>, ChatRsToolError> {
+    ) -> Result<Vec<WebSearchResult>, ToolError> {
         let mut url = "https://www.googleapis.com/customsearch/v1".to_string();
         url.push_str(&format!(
             "?key={}&cx={}&q={}",
@@ -55,21 +55,22 @@ impl<'a> WebSearchToolProvider for GoogleCustomSearchTool<'a> {
             url.push_str(&format!("&gl={}", country));
         }
 
-        let response = http_client.get(&url).send().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Google search failed: {}", e))
-        })?;
+        let response =
+            http_client.get(&url).send().await.map_err(|e| {
+                ToolError::ToolExecutionError(format!("Google search failed: {}", e))
+            })?;
 
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsToolError::ToolExecutionError(format!(
+            return Err(ToolError::ToolExecutionError(format!(
                 "Google API error {}: {}",
                 status, error_text
             )));
         }
 
         let google_response: GoogleSearchResponse = response.json().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Failed to parse Google response: {}", e))
+            ToolError::ToolExecutionError(format!("Failed to parse Google response: {}", e))
         })?;
 
         Ok(google_response

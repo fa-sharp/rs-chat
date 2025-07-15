@@ -70,7 +70,7 @@ diesel::table! {
         user_id -> Uuid,
         name -> Text,
         description -> Text,
-        data -> Jsonb,
+        config -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

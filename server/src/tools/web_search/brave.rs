@@ -4,8 +4,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
-    web_search::{WebSearchResult, WebSearchToolProvider},
-    ChatRsToolError,
+    web_search::{WebSearchProvider, WebSearchResult},
+    ToolError,
 };
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ impl<'a> BraveSearchTool<'a> {
     }
 }
 #[async_trait]
-impl<'a> WebSearchToolProvider for BraveSearchTool<'a> {
+impl<'a> WebSearchProvider for BraveSearchTool<'a> {
     fn name(&self) -> &str {
         "Brave"
     }
@@ -38,13 +38,12 @@ impl<'a> WebSearchToolProvider for BraveSearchTool<'a> {
         &self,
         http_client: &reqwest::Client,
         query: &str,
-    ) -> Result<Vec<WebSearchResult>, ChatRsToolError> {
+    ) -> Result<Vec<WebSearchResult>, ToolError> {
         let mut headers = HeaderMap::new();
         headers.insert(
             "X-Subscription-Token",
-            HeaderValue::from_str(&self.config.api_key).map_err(|_| {
-                ChatRsToolError::FormattingError("Invalid API key format".to_string())
-            })?,
+            HeaderValue::from_str(&self.config.api_key)
+                .map_err(|_| ToolError::FormattingError("Invalid API key format".to_string()))?,
         );
         headers.insert("Accept", HeaderValue::from_static("application/json"));
 
@@ -66,21 +65,19 @@ impl<'a> WebSearchToolProvider for BraveSearchTool<'a> {
             .headers(headers)
             .send()
             .await
-            .map_err(|e| {
-                ChatRsToolError::ToolExecutionError(format!("Brave search failed: {}", e))
-            })?;
+            .map_err(|e| ToolError::ToolExecutionError(format!("Brave search failed: {}", e)))?;
 
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsToolError::ToolExecutionError(format!(
+            return Err(ToolError::ToolExecutionError(format!(
                 "Brave API error {}: {}",
                 status, error_text
             )));
         }
 
         let brave_response: BraveSearchResponse = response.json().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Failed to parse Brave response: {}", e))
+            ToolError::ToolExecutionError(format!("Failed to parse Brave response: {}", e))
         })?;
 
         Ok(brave_response

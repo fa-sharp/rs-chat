@@ -6,16 +6,19 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::tools::{ChatRsToolError, ChatRsToolExecutor, ChatRsToolJsonSchema};
+use crate::tools::{
+    validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
+};
 
 pub struct HttpRequestTool<'a> {
+    name: String,
     http_client: reqwest::Client,
-    config: &'a HttpRequestToolData,
+    config: &'a HttpRequestConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub struct HttpRequestToolData {
-    pub(super) input_schema: ChatRsToolJsonSchema,
+pub struct HttpRequestConfig {
+    input_schema: ToolJsonSchema,
     url: String,
     method: String,
     query: Option<HashMap<String, String>>,
@@ -23,17 +26,26 @@ pub struct HttpRequestToolData {
     headers: Option<HashMap<String, String>>,
 }
 
-type Parameters = HashMap<String, serde_json::Value>;
+impl HttpRequestConfig {
+    pub(super) fn validate(&mut self) -> ToolResult<()> {
+        validate_json_schema(&mut self.input_schema)
+    }
+
+    pub(super) fn get_input_schema(&self) -> serde_json::Value {
+        serde_json::to_value(&self.input_schema).expect("Should be validated JSON schema")
+    }
+}
 
 impl<'a> HttpRequestTool<'a> {
-    pub fn new(http_client: &reqwest::Client, config: &'a HttpRequestToolData) -> Self {
+    pub fn new(http_client: &reqwest::Client, config: &'a HttpRequestConfig) -> Self {
         Self {
             http_client: http_client.clone(),
+            name: format!("HTTP Request ({} {})", config.method, config.url),
             config,
         }
     }
 
-    fn build_url(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
+    fn build_url(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
         let mut url = self.substitute_placeholders(&self.config.url, parameters);
 
         let query_params = self.build_query_params(parameters)?;
@@ -46,7 +58,7 @@ impl<'a> HttpRequestTool<'a> {
         Ok(url)
     }
 
-    fn build_headers(&self, parameters: &Parameters) -> Result<HeaderMap, ChatRsToolError> {
+    fn build_headers(&self, parameters: &ToolParameters) -> Result<HeaderMap, ToolError> {
         let mut headers = HeaderMap::new();
         headers.insert(
             reqwest::header::CONTENT_TYPE,
@@ -58,10 +70,10 @@ impl<'a> HttpRequestTool<'a> {
                 let value = self.substitute_placeholders(template, parameters);
                 if !value.is_empty() {
                     let header_name = HeaderName::from_str(key).map_err(|_| {
-                        ChatRsToolError::FormattingError(format!("Invalid header name: {}", key))
+                        ToolError::FormattingError(format!("Invalid header name: {}", key))
                     })?;
                     let header_value = HeaderValue::from_str(&value).map_err(|_| {
-                        ChatRsToolError::FormattingError(format!("Invalid header value: {}", value))
+                        ToolError::FormattingError(format!("Invalid header value: {}", value))
                     })?;
                     headers.insert(header_name, header_value);
                 }
@@ -73,9 +85,9 @@ impl<'a> HttpRequestTool<'a> {
 
     fn build_body(
         &self,
-        parameters: &Parameters,
+        parameters: &ToolParameters,
         body_mapping: &Option<serde_json::Value>,
-    ) -> Result<Option<String>, ChatRsToolError> {
+    ) -> Result<Option<String>, ToolError> {
         if let Some(body_template) = body_mapping {
             match body_template {
                 Value::Object(_) | Value::Array(_) | Value::String(_) => {
@@ -89,7 +101,7 @@ impl<'a> HttpRequestTool<'a> {
         }
     }
 
-    fn build_query_params(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
+    fn build_query_params(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
         let mut query_parts = Vec::new();
 
         if let Some(query_mapping) = &self.config.query {
@@ -108,7 +120,7 @@ impl<'a> HttpRequestTool<'a> {
         Ok(query_parts.join("&"))
     }
 
-    fn substitute_placeholders(&self, template: &str, parameters: &Parameters) -> String {
+    fn substitute_placeholders(&self, template: &str, parameters: &ToolParameters) -> String {
         let mut result = template.to_string();
 
         for (key, value) in parameters {
@@ -128,8 +140,8 @@ impl<'a> HttpRequestTool<'a> {
     fn map_object_template(
         &self,
         template: &Value,
-        parameters: &Parameters,
-    ) -> Result<Value, ChatRsToolError> {
+        parameters: &ToolParameters,
+    ) -> Result<Value, ToolError> {
         match template {
             Value::Object(obj) => {
                 let mut result = serde_json::Map::new();
@@ -159,7 +171,7 @@ impl<'a> HttpRequestTool<'a> {
         url: &str,
         headers: reqwest::header::HeaderMap,
         body: Option<String>,
-    ) -> Result<String, ChatRsToolError> {
+    ) -> Result<String, ToolError> {
         let request_builder = match method.to_uppercase().as_str() {
             "GET" => self.http_client.get(url),
             "POST" => self.http_client.post(url),
@@ -167,7 +179,7 @@ impl<'a> HttpRequestTool<'a> {
             "DELETE" => self.http_client.delete(url),
             "PATCH" => self.http_client.patch(url),
             _ => {
-                return Err(ChatRsToolError::FormattingError(format!(
+                return Err(ToolError::FormattingError(format!(
                     "Unsupported HTTP method: {}",
                     method
                 )))
@@ -180,19 +192,20 @@ impl<'a> HttpRequestTool<'a> {
             request = request.body(body_content);
         }
 
-        let response = request.send().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("HTTP request failed: {}", e))
-        })?;
+        let response = request
+            .send()
+            .await
+            .map_err(|e| ToolError::ToolExecutionError(format!("HTTP request failed: {}", e)))?;
 
         let status = response.status();
         let response_text = response.text().await.map_err(|e| {
-            ChatRsToolError::ToolExecutionError(format!("Failed to read HTTP response: {}", e))
+            ToolError::ToolExecutionError(format!("Failed to read HTTP response: {}", e))
         })?;
 
         if status.is_success() {
             Ok(response_text)
         } else {
-            Err(ChatRsToolError::ToolExecutionError(format!(
+            Err(ToolError::ToolExecutionError(format!(
                 "HTTP request failed with status {}: {}",
                 status, response_text
             )))
@@ -201,12 +214,16 @@ impl<'a> HttpRequestTool<'a> {
 }
 
 #[async_trait]
-impl ChatRsToolExecutor for HttpRequestTool<'_> {
+impl Tool for HttpRequestTool<'_> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
     fn input_schema(&self) -> serde_json::Value {
         serde_json::to_value(&self.config.input_schema).expect("JSON schema should be valid")
     }
 
-    async fn execute_tool(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
+    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
         // Build the HTTP request components
         let url = self.build_url(parameters)?;
         let headers = self.build_headers(parameters)?;
