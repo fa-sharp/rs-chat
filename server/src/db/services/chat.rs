@@ -46,6 +46,18 @@ impl<'a> ChatDbService<'a> {
         Ok(message)
     }
 
+    pub async fn save_messages(
+        &mut self,
+        messages: &[NewChatRsMessage<'_>],
+    ) -> Result<Vec<ChatRsMessage>, diesel::result::Error> {
+        let messages = diesel::insert_into(chat_messages::table)
+            .values(messages)
+            .returning(ChatRsMessage::as_select())
+            .get_results(self.db)
+            .await?;
+        Ok(messages)
+    }
+
     pub async fn find_message(
         &mut self,
         user_id: &Uuid,

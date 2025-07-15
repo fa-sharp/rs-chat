@@ -96,7 +96,7 @@ where
                     role: ChatRsMessageRole::Assistant,
                     content: &content,
                     session_id: &session_id,
-                    meta: &ChatRsMessageMeta {
+                    meta: ChatRsMessageMeta {
                         provider_config: config,
                         interrupted,
                         usage,

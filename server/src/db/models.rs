@@ -148,7 +148,7 @@ pub struct NewChatRsMessage<'r> {
     pub session_id: &'r Uuid,
     pub role: ChatRsMessageRole,
     pub content: &'r str,
-    pub meta: &'r ChatRsMessageMeta,
+    pub meta: ChatRsMessageMeta,
 }
 
 #[derive(diesel_derive_enum::DbEnum)]

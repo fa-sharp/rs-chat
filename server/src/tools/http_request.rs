@@ -7,9 +7,9 @@ use serde_json::Value;
 
 use crate::tools::ChatRsToolError;
 
-pub struct HttpRequestTool {
+pub struct HttpRequestTool<'a> {
     http_client: reqwest::Client,
-    config: HttpRequestToolData,
+    config: &'a HttpRequestToolData,
 }
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
@@ -23,8 +23,8 @@ pub struct HttpRequestToolData {
 
 type Parameters = HashMap<String, serde_json::Value>;
 
-impl HttpRequestTool {
-    pub fn new(http_client: &reqwest::Client, config: HttpRequestToolData) -> Self {
+impl<'a> HttpRequestTool<'a> {
+    pub fn new(http_client: &reqwest::Client, config: &'a HttpRequestToolData) -> Self {
         Self {
             http_client: http_client.clone(),
             config,
@@ -38,6 +38,11 @@ impl HttpRequestTool {
         let body = self.build_body(parameters, &self.config.body)?;
 
         // Execute the HTTP request
+        rocket::info!(
+            "HTTP Request Tool: executing {} {}",
+            self.config.method,
+            self.config.url
+        );
         let response = self
             .execute_request(&self.config.method, &url, headers, body)
             .await?;
@@ -172,10 +177,6 @@ impl HttpRequestTool {
         headers: reqwest::header::HeaderMap,
         body: Option<String>,
     ) -> Result<String, ChatRsToolError> {
-        println!("Executing request {} {}", method, url);
-        println!("Headers: {:?}", headers);
-        println!("Body: {:?}", body);
-
         let request_builder = match method.to_uppercase().as_str() {
             "GET" => self.http_client.get(url),
             "POST" => self.http_client.post(url),

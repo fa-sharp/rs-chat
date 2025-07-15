@@ -70,9 +70,7 @@ pub async fn send_chat_stream(
     .await?;
 
     // Fetch user's tools
-    let user_tools = ToolDbService::new(&mut db)
-        .find_by_user_id(&user_id)
-        .await?;
+    let user_tools = ToolDbService::new(&mut db).find_by_user(&user_id).await?;
 
     // Save user message to session, and generate title if needed
     if let Some(user_message) = &input.message {
@@ -93,7 +91,7 @@ pub async fn send_chat_stream(
                 content: user_message,
                 session_id: &session_id,
                 role: ChatRsMessageRole::User,
-                meta: &ChatRsMessageMeta::default(),
+                meta: ChatRsMessageMeta::default(),
             })
             .await?;
         current_messages.push(new_message);

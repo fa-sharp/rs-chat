@@ -1,6 +1,10 @@
-use std::collections::HashMap;
-
-use rocket::{delete, get, post, serde::json::Json, Route, State};
+use rocket::{
+    delete,
+    futures::future::{join_all, try_join},
+    get, post,
+    serde::json::Json,
+    Route, State,
+};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
@@ -18,11 +22,17 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    tools::{ChatRsToolError, HttpRequestTool},
+    tools::{get_tool_response, validate_tool_schema, ChatRsToolError},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: get_all_tools, execute_tool, create_tool, delete_tool]
+    openapi_get_routes_spec![settings:
+        get_all_tools,
+        execute_tool,
+        execute_all_tools,
+        create_tool,
+        delete_tool,
+    ]
 }
 
 /// List all tools
@@ -32,9 +42,7 @@ async fn get_all_tools(
     user_id: ChatRsUserId,
     mut db: DbConnection,
 ) -> Result<Json<Vec<ChatRsTool>>, ApiError> {
-    let tools = ToolDbService::new(&mut db)
-        .find_by_user_id(&user_id)
-        .await?;
+    let tools = ToolDbService::new(&mut db).find_by_user(&user_id).await?;
 
     Ok(Json(tools))
 }
@@ -74,16 +82,7 @@ async fn create_tool(
     Ok(Json(tool))
 }
 
-/// Ensure JSON schema is valid (using Draft 2020-12).
-/// Also sets `additionalProperties` to false as required by OpenAI.
-fn validate_tool_schema(input_schema: &mut ChatRsToolJsonSchema) -> Result<(), ChatRsToolError> {
-    input_schema.additional_properties = Some(false);
-    jsonschema::draft202012::meta::validate(&serde_json::to_value(input_schema)?)
-        .map_err(|e| ChatRsToolError::InvalidJsonSchema(e.to_string()))?;
-    Ok(())
-}
-
-/// Execute a tool call
+/// Execute a specific tool call in a message
 #[openapi(tag = "Tools")]
 #[post("/execute/<message_id>/<tool_call_id>")]
 async fn execute_tool(
@@ -112,28 +111,14 @@ async fn execute_tool(
         .ok_or(ChatRsToolError::ToolNotFound)?;
 
     // Validate input parameters and get tool response
-    let (content, is_error) = {
-        if let Err(e) = validate_tool_input(&tool.input_schema, &tool_call.parameters) {
-            (e.to_string(), Some(true))
-        } else {
-            match tool.data {
-                ChatRsToolData::Http(http_request_config) => {
-                    let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
-                    http_request_tool
-                        .execute_tool(&tool_call.parameters)
-                        .await
-                        .map_or_else(|e| (e.to_string(), Some(true)), |response| (response, None))
-                }
-            }
-        }
-    };
+    let (content, is_error) = get_tool_response(&tool, &tool_call.parameters, http_client).await;
 
     let tool_message = ChatDbService::new(&mut db)
         .save_message(NewChatRsMessage {
             session_id: &message.session_id,
             role: ChatRsMessageRole::Tool,
             content: &content,
-            meta: &ChatRsMessageMeta {
+            meta: ChatRsMessageMeta {
                 executed_tool_call: Some(ChatRsExecutedToolCall {
                     id: tool_call.id,
                     tool_id: tool_call.tool_id,
@@ -149,15 +134,59 @@ async fn execute_tool(
     Ok(Json(tool_message))
 }
 
-fn validate_tool_input(
-    input_schema: &ChatRsToolJsonSchema,
-    parameters: &HashMap<String, serde_json::Value>,
-) -> Result<(), ChatRsToolError> {
-    jsonschema::validate(
-        &serde_json::to_value(input_schema)?,
-        &serde_json::to_value(parameters)?,
+/// Execute all tool calls in a message
+#[openapi(tag = "Tools")]
+#[post("/execute/<message_id>")]
+async fn execute_all_tools(
+    user_id: ChatRsUserId,
+    mut db_1: DbConnection,
+    mut db_2: DbConnection,
+    http_client: &State<reqwest::Client>,
+    message_id: Uuid,
+) -> Result<Json<Vec<ChatRsMessage>>, ApiError> {
+    let (message, user_tools) = try_join(
+        ChatDbService::new(&mut db_1).find_message(&user_id, &message_id),
+        ToolDbService::new(&mut db_2).find_by_user(&user_id),
     )
-    .map_err(|err| ChatRsToolError::InvalidParameters(err.to_string()))
+    .await?;
+    let tool_calls = message
+        .meta
+        .tool_calls
+        .ok_or(ChatRsToolError::ToolCallNotFound)?;
+
+    let tool_futures = tool_calls
+        .iter()
+        .filter_map(|tc| {
+            let tool = user_tools.iter().find(|tool| tool.id == tc.tool_id)?;
+            Some(get_tool_response(&tool, &tc.parameters, http_client))
+        })
+        .collect::<Vec<_>>();
+    let tool_responses = join_all(tool_futures).await;
+
+    let new_tool_messages = tool_responses
+        .iter()
+        .zip(tool_calls)
+        .map(|(response, tool_call)| NewChatRsMessage {
+            session_id: &message.session_id,
+            role: ChatRsMessageRole::Tool,
+            content: &response.0,
+            meta: ChatRsMessageMeta {
+                executed_tool_call: Some(ChatRsExecutedToolCall {
+                    id: tool_call.id,
+                    tool_id: tool_call.tool_id,
+                    tool_name: tool_call.tool_name,
+                    parameters: tool_call.parameters,
+                    is_error: response.1.clone(),
+                }),
+                ..Default::default()
+            },
+        })
+        .collect::<Vec<_>>();
+    let saved_tool_messages = ChatDbService::new(&mut db_1)
+        .save_messages(&new_tool_messages)
+        .await?;
+
+    Ok(Json(saved_tool_messages))
 }
 
 /// Delete a tool

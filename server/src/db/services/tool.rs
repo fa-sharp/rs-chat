@@ -32,7 +32,7 @@ impl<'a> ToolDbService<'a> {
             .optional()
     }
 
-    pub async fn find_by_user_id(&mut self, user_id: &Uuid) -> Result<Vec<ChatRsTool>, Error> {
+    pub async fn find_by_user(&mut self, user_id: &Uuid) -> Result<Vec<ChatRsTool>, Error> {
         tools::table
             .filter(tools::user_id.eq(user_id))
             .select(ChatRsTool::as_select())
