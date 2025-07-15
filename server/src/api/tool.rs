@@ -154,14 +154,14 @@ async fn execute_all_tools(
         .tool_calls
         .ok_or(ChatRsToolError::ToolCallNotFound)?;
 
-    let tool_futures = tool_calls
+    let tool_response_futures = tool_calls
         .iter()
         .filter_map(|tc| {
             let tool = user_tools.iter().find(|tool| tool.id == tc.tool_id)?;
             Some(get_tool_response(&tool, &tc.parameters, http_client))
         })
         .collect::<Vec<_>>();
-    let tool_responses = join_all(tool_futures).await;
+    let tool_responses = join_all(tool_response_futures).await;
 
     let new_tool_messages = tool_responses
         .iter()

@@ -26,7 +26,7 @@ pub enum ChatRsToolError {
     ToolExecutionError(String),
 }
 
-// Validate the input parameters and get tool response
+/// Validate the input parameters and get tool response
 pub async fn get_tool_response(
     tool: &ChatRsTool,
     parameters: &HashMap<String, serde_json::Value>,
