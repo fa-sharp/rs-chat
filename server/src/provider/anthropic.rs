@@ -4,7 +4,7 @@ use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolJsonSchema},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool},
     provider::{
         ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsToolCall, ChatRsUsage,
         DEFAULT_MAX_TOKENS,
@@ -108,7 +108,7 @@ impl<'a> AnthropicProvider<'a> {
             .map(|tool| AnthropicTool {
                 name: &tool.name,
                 description: &tool.description,
-                input_schema: &tool.input_schema,
+                input_schema: tool.get_input_schema(),
             })
             .collect()
     }
@@ -377,7 +377,7 @@ struct AnthropicRequest<'a> {
 struct AnthropicTool<'a> {
     name: &'a str,
     description: &'a str,
-    input_schema: &'a ChatRsToolJsonSchema,
+    input_schema: serde_json::Value,
 }
 
 /// Anthropic content block for messages

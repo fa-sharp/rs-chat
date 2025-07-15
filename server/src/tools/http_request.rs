@@ -1,24 +1,26 @@
 use std::{collections::HashMap, str::FromStr};
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::tools::ChatRsToolError;
+use crate::tools::{ChatRsToolError, ChatRsToolExecutor, ChatRsToolJsonSchema};
 
 pub struct HttpRequestTool<'a> {
     http_client: reqwest::Client,
     config: &'a HttpRequestToolData,
 }
 
-#[derive(Debug, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct HttpRequestToolData {
-    pub url: String,
-    pub method: String,
-    pub query: Option<HashMap<String, String>>,
-    pub body: Option<serde_json::Value>,
-    pub headers: Option<HashMap<String, String>>,
+    pub(super) input_schema: ChatRsToolJsonSchema,
+    url: String,
+    method: String,
+    query: Option<HashMap<String, String>>,
+    body: Option<serde_json::Value>,
+    headers: Option<HashMap<String, String>>,
 }
 
 type Parameters = HashMap<String, serde_json::Value>;
@@ -29,25 +31,6 @@ impl<'a> HttpRequestTool<'a> {
             http_client: http_client.clone(),
             config,
         }
-    }
-
-    pub async fn execute_tool(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
-        // Build the HTTP request components
-        let url = self.build_url(parameters)?;
-        let headers = self.build_headers(parameters)?;
-        let body = self.build_body(parameters, &self.config.body)?;
-
-        // Execute the HTTP request
-        rocket::info!(
-            "HTTP Request Tool: executing {} {}",
-            self.config.method,
-            self.config.url
-        );
-        let response = self
-            .execute_request(&self.config.method, &url, headers, body)
-            .await?;
-
-        Ok(response)
     }
 
     fn build_url(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
@@ -214,5 +197,31 @@ impl<'a> HttpRequestTool<'a> {
                 status, response_text
             )))
         }
+    }
+}
+
+#[async_trait]
+impl ChatRsToolExecutor for HttpRequestTool<'_> {
+    fn input_schema(&self) -> serde_json::Value {
+        serde_json::to_value(&self.config.input_schema).expect("JSON schema should be valid")
+    }
+
+    async fn execute_tool(&self, parameters: &Parameters) -> Result<String, ChatRsToolError> {
+        // Build the HTTP request components
+        let url = self.build_url(parameters)?;
+        let headers = self.build_headers(parameters)?;
+        let body = self.build_body(parameters, &self.config.body)?;
+
+        // Execute the HTTP request
+        rocket::info!(
+            "HTTP Request Tool: executing {} {}",
+            self.config.method,
+            self.config.url
+        );
+        let response = self
+            .execute_request(&self.config.method, &url, headers, body)
+            .await?;
+
+        Ok(response)
     }
 }

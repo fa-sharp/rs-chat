@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     provider::{ChatRsToolCall, ChatRsUsage},
-    tools::{HttpRequestToolData, WebSearchToolData},
+    tools::ChatRsToolData,
     utils::create_provider::ProviderConfigInput,
 };
 
@@ -203,35 +203,10 @@ pub struct ChatRsTool {
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
-    /// JSON Schema of the tool's input parameters
-    pub input_schema: ChatRsToolJsonSchema,
     /// Tool-specific data and configuration
     pub data: ChatRsToolData,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema, AsJsonb)]
-pub struct ChatRsToolJsonSchema {
-    pub r#type: ChatRsToolJsonSchemaType,
-    pub properties: HashMap<String, serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub required: Option<Vec<String>>,
-    #[serde(rename = "additionalProperties")]
-    pub additional_properties: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub enum ChatRsToolJsonSchemaType {
-    #[serde(rename = "object")]
-    Object,
-}
-
-#[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
-#[serde(tag = "type")]
-pub enum ChatRsToolData {
-    Http(HttpRequestToolData),
-    WebSearch(WebSearchToolData),
 }
 
 #[derive(Insertable)]
@@ -240,7 +215,6 @@ pub struct NewChatRsTool<'r> {
     pub user_id: &'r Uuid,
     pub name: &'r str,
     pub description: &'r str,
-    pub input_schema: &'r ChatRsToolJsonSchema,
     pub data: &'r ChatRsToolData,
 }
 

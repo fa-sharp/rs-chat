@@ -16,13 +16,13 @@ use crate::{
     db::{
         models::{
             ChatRsExecutedToolCall, ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole,
-            ChatRsTool, ChatRsToolData, ChatRsToolJsonSchema, NewChatRsMessage, NewChatRsTool,
+            ChatRsTool, NewChatRsMessage, NewChatRsTool,
         },
         services::{ChatDbService, ToolDbService},
         DbConnection,
     },
     errors::ApiError,
-    tools::{get_tool_response, validate_tool_schema, ChatRsToolError},
+    tools::{ChatRsToolData, ChatRsToolError},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -53,8 +53,6 @@ struct ToolInput {
     name: String,
     /// Description of the tool
     description: String,
-    /// JSON Schema of the tool's input parameters
-    input_schema: ChatRsToolJsonSchema,
     /// Tool-specific data and configuration
     data: ChatRsToolData,
 }
@@ -67,14 +65,13 @@ async fn create_tool(
     mut db: DbConnection,
     mut input: Json<ToolInput>,
 ) -> Result<Json<ChatRsTool>, ApiError> {
-    validate_tool_schema(&mut input.input_schema)?;
+    input.data.validate()?;
 
     let tool = ToolDbService::new(&mut db)
         .create(NewChatRsTool {
             user_id: &user_id,
             name: &input.name,
             description: &input.description,
-            input_schema: &input.input_schema,
             data: &input.data,
         })
         .await?;
@@ -110,9 +107,8 @@ async fn execute_tool(
         .await?
         .ok_or(ChatRsToolError::ToolNotFound)?;
 
-    // Validate input parameters and get tool response
-    let (content, is_error) = get_tool_response(&tool, &tool_call.parameters, http_client).await;
-
+    // Execute tool and save message
+    let (content, is_error) = tool.execute(&tool_call.parameters, http_client).await;
     let tool_message = ChatDbService::new(&mut db)
         .save_message(NewChatRsMessage {
             session_id: &message.session_id,
@@ -156,10 +152,12 @@ async fn execute_all_tools(
 
     let tool_response_futures = tool_calls
         .iter()
-        .filter_map(|tc| {
-            let tool = user_tools.iter().find(|tool| tool.id == tc.tool_id)?;
-            Some(get_tool_response(&tool, &tc.parameters, http_client))
-        })
+        .map(
+            async |tc| match user_tools.iter().find(|tool| tool.id == tc.tool_id) {
+                Some(tool) => tool.execute(&tc.parameters, http_client).await,
+                None => (ChatRsToolError::ToolNotFound.to_string(), Some(true)),
+            },
+        )
         .collect::<Vec<_>>();
     let tool_responses = join_all(tool_response_futures).await;
 

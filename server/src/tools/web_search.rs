@@ -16,14 +16,30 @@ use crate::tools::{
         google::{GoogleCustomSearchConfig, GoogleCustomSearchTool},
         serpapi::{SerpApiConfig, SerpApiSearchTool},
     },
-    ChatRsToolError,
+    ChatRsToolError, ChatRsToolExecutor,
 };
 
+/// Input schema for the web search tool.
+pub fn web_search_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The search query"
+            }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+    })
+}
+
+/// Web search tool configuration.
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
 pub struct WebSearchToolData {
-    pub provider: WebSearchProviderConfig,
+    provider: WebSearchProviderConfig,
     #[serde(default = "default_count")]
-    pub count: u8,
+    count: u8,
 }
 
 fn default_count() -> u8 {
@@ -37,23 +53,6 @@ pub enum WebSearchProviderConfig {
     SerpAPI(SerpApiConfig),
     GoogleCustomSearch(GoogleCustomSearchConfig),
     Exa(ExaConfig),
-}
-
-#[async_trait]
-trait WebSearchToolProvider {
-    fn name(&self) -> &str;
-    async fn search(
-        &self,
-        http_client: &reqwest::Client,
-        query: &str,
-    ) -> Result<Vec<WebSearchResult>, ChatRsToolError>;
-}
-
-#[derive(Debug)]
-pub struct WebSearchResult {
-    pub title: String,
-    pub url: String,
-    pub description: String,
 }
 
 pub struct WebSearchTool<'a> {
@@ -82,37 +81,6 @@ impl<'a> WebSearchTool<'a> {
             http_client: http_client.clone(),
             provider,
         }
-    }
-
-    pub async fn execute_tool(
-        &self,
-        parameters: &HashMap<String, serde_json::Value>,
-    ) -> Result<String, ChatRsToolError> {
-        let query = parameters
-            .get("query")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| {
-                ChatRsToolError::FormattingError("Missing 'query' parameter".to_string())
-            })?;
-        if query.trim().is_empty() {
-            return Err(ChatRsToolError::FormattingError(
-                "Query parameter cannot be empty".to_string(),
-            ));
-        }
-
-        rocket::info!(
-            "Web Search Tool ({}): executing search",
-            self.provider.name()
-        );
-        let search_results = self.provider.search(&self.http_client, query).await?;
-        let formatted_results = self.format_results(&search_results);
-        rocket::info!(
-            "Web Search Tool ({}): got {} results",
-            self.provider.name(),
-            search_results.len()
-        );
-
-        Ok(formatted_results)
     }
 
     fn format_results(&self, results: &[WebSearchResult]) -> String {
@@ -147,4 +115,60 @@ impl<'a> WebSearchTool<'a> {
 
         formatted
     }
+}
+
+#[async_trait]
+impl ChatRsToolExecutor for WebSearchTool<'_> {
+    fn input_schema(&self) -> serde_json::Value {
+        web_search_schema()
+    }
+
+    async fn execute_tool(
+        &self,
+        parameters: &HashMap<String, serde_json::Value>,
+    ) -> Result<String, ChatRsToolError> {
+        let query = parameters
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                ChatRsToolError::FormattingError("Missing 'query' parameter".to_string())
+            })?;
+        if query.trim().is_empty() {
+            return Err(ChatRsToolError::FormattingError(
+                "Query parameter cannot be empty".to_string(),
+            ));
+        }
+
+        rocket::info!(
+            "Web Search Tool ({}): executing search",
+            self.provider.name()
+        );
+        let search_results = self.provider.search(&self.http_client, query).await?;
+        let formatted_results = self.format_results(&search_results);
+        rocket::info!(
+            "Web Search Tool ({}): got {} results",
+            self.provider.name(),
+            search_results.len()
+        );
+
+        Ok(formatted_results)
+    }
+}
+
+/// Trait for web search tool providers.
+#[async_trait]
+trait WebSearchToolProvider {
+    fn name(&self) -> &str;
+    async fn search(
+        &self,
+        http_client: &reqwest::Client,
+        query: &str,
+    ) -> Result<Vec<WebSearchResult>, ChatRsToolError>;
+}
+
+#[derive(Debug)]
+pub struct WebSearchResult {
+    pub title: String,
+    pub url: String,
+    pub description: String,
 }

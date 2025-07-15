@@ -2,7 +2,7 @@ use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolJsonSchema},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool},
     provider::{
         ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsToolCall, ChatRsUsage,
     },
@@ -85,7 +85,7 @@ impl<'a> OpenAIProvider<'a> {
                 function: OpenAIToolFunction {
                     name: &tool.name,
                     description: &tool.description,
-                    parameters: &tool.input_schema,
+                    parameters: tool.get_input_schema(),
                     strict: true,
                 },
             })
@@ -325,7 +325,7 @@ struct OpenAITool<'a> {
 struct OpenAIToolFunction<'a> {
     name: &'a str,
     description: &'a str,
-    parameters: &'a ChatRsToolJsonSchema,
+    parameters: serde_json::Value,
     strict: bool,
 }
 
