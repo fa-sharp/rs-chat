@@ -1,8 +1,10 @@
 mod http_request;
+mod web_search;
 
 use std::collections::HashMap;
 
 pub use http_request::{HttpRequestTool, HttpRequestToolData};
+pub use web_search::{WebSearchTool, WebSearchToolData};
 
 use crate::db::models::{ChatRsTool, ChatRsToolData, ChatRsToolJsonSchema};
 
@@ -39,6 +41,13 @@ pub async fn get_tool_response(
             ChatRsToolData::Http(http_request_config) => {
                 let http_request_tool = HttpRequestTool::new(http_client, http_request_config);
                 http_request_tool
+                    .execute_tool(parameters)
+                    .await
+                    .map_or_else(|e| (e.to_string(), Some(true)), |response| (response, None))
+            }
+            ChatRsToolData::WebSearch(web_search_config) => {
+                let web_search_tool = WebSearchTool::new(http_client, web_search_config);
+                web_search_tool
                     .execute_tool(parameters)
                     .await
                     .map_or_else(|e| (e.to_string(), Some(true)), |response| (response, None))

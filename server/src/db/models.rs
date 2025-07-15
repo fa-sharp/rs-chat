@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     provider::{ChatRsToolCall, ChatRsUsage},
-    tools::HttpRequestToolData,
+    tools::{HttpRequestToolData, WebSearchToolData},
     utils::create_provider::ProviderConfigInput,
 };
 
@@ -231,6 +231,7 @@ pub enum ChatRsToolJsonSchemaType {
 #[serde(tag = "type")]
 pub enum ChatRsToolData {
     Http(HttpRequestToolData),
+    WebSearch(WebSearchToolData),
 }
 
 #[derive(Insertable)]
