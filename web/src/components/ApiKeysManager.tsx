@@ -1,5 +1,5 @@
-import { Bot, Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Bot, Check, Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 import {
   AlertDialog,
@@ -31,89 +31,39 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  useCreateProviderKey,
-  useDeleteProviderKey,
-  useProviderKeys,
-} from "@/lib/api/providerKey";
-import type { components } from "@/lib/api/types";
+import { useApiKeys, useCreateApiKey, useDeleteApiKey } from "@/lib/api/apiKey";
+import { API_URL } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
-type AIProvider = components["schemas"]["ChatRsProviderKeyType"];
-
-interface ApiKey {
-  provider: AIProvider;
-  createdAt: string;
-  lastUsed?: string;
-}
-
-interface ProviderInfo {
-  name: string;
-  description: string;
-  keyFormat: string;
-  color: string;
-}
-
-const PROVIDERS: Record<ApiKey["provider"], ProviderInfo> = {
-  Openai: {
-    name: "OpenAI",
-    description: "GPT-4, GPT-3.5, and other OpenAI models",
-    keyFormat: "sk-...",
-    color:
-      "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-  },
-  Anthropic: {
-    name: "Anthropic",
-    description: "Claude Sonnet, Opus, and other Anthropic models",
-    keyFormat: "sk-ant-...",
-    color:
-      "bg-orange-100 dark:bg-orange-900 border-orange-300 dark:border-orange-700",
-  },
-  Openrouter: {
-    name: "OpenRouter",
-    description: "Access multiple AI models via OpenRouter",
-    keyFormat: "sk-or-...",
-    color: "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700",
-  },
-};
-
-const availableProviders = Object.keys(PROVIDERS) as AIProvider[];
-
-export function ProviderKeysManager({
+export function ApiKeysManager({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { data: apiKeys } = useProviderKeys();
-  const createKey = useCreateProviderKey();
-  const deleteKey = useDeleteProviderKey();
+  const { data: apiKeys } = useApiKeys();
+  const createKey = useCreateApiKey();
+  const deleteKey = useDeleteApiKey();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(
-    null,
-  );
-  const [newApiKey, setNewApiKey] = useState("");
-
-  const allProvidersConfigured = useMemo(
-    () =>
-      availableProviders.every((provider) =>
-        apiKeys?.find((key) => key.provider === provider),
-      ),
-    [apiKeys],
-  );
+  const [newApiKeyName, setNewApiKeyName] = useState("");
+  const [newApiKeyValue, setNewApiKeyValue] = useState("");
 
   const handleCreateKey = () => {
-    if (!selectedProvider || !newApiKey.trim()) return;
-
+    if (!newApiKeyName.trim()) return;
     createKey.mutate(
-      { provider: selectedProvider, key: newApiKey },
+      { name: newApiKeyName },
       {
-        onSettled: () => {
-          setSelectedProvider(null);
-          setIsCreateDialogOpen(false);
-          setNewApiKey("");
+        onSuccess: (data) => {
+          setNewApiKeyValue(data.key);
         },
       },
     );
+  };
+
+  const [copied, setCopied] = useState(false);
+  const handleCopyKey = () => {
+    navigator.clipboard.writeText(newApiKeyValue);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDeleteKey = (id: string) => {
@@ -137,92 +87,76 @@ export function ProviderKeysManager({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">Provider Keys</h1>
+          <h1 className="text-3xl font-bold">API Keys</h1>
         </div>
         <p className="text-muted-foreground">
-          Manage your API keys for different AI providers. Each provider can
-          have only one API key configured at a time.
+          Manage your API keys for programmatic access to RsChat.
         </p>
       </div>
 
       {/* Add Key Button */}
-      {!allProvidersConfigured && (
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-muted-foreground">
-            {apiKeys?.length} of {availableProviders.length} providers
-            configured
-          </div>
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          {apiKeys?.length} API keys configured
+        </div>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <a href={`${API_URL}/docs`} target="_blank">
+              <ExternalLink />
+              API Docs
+            </a>
+          </Button>
           <Dialog
             open={isCreateDialogOpen}
             onOpenChange={setIsCreateDialogOpen}
           >
             <DialogTrigger asChild>
               <Button>
-                <Plus className="size-4 mr-2" />
+                <Plus className="size-4" />
                 Add API Key
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add AI Provider API Key</DialogTitle>
+                <DialogTitle>Add API Key</DialogTitle>
                 <DialogDescription>
-                  Select a provider and enter your API key.
+                  Enter a name for your API key.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Provider</Label>
-                  <div className="grid gap-2">
-                    {availableProviders
-                      .filter(
-                        (provider) =>
-                          !apiKeys?.some((key) => key.provider === provider),
-                      )
-                      .map((provider) => (
-                        <button
-                          key={provider}
-                          type="button"
-                          className={cn(
-                            "p-3 border rounded-lg cursor-pointer transition-colors",
-                            selectedProvider === provider
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:bg-muted/50",
-                          )}
-                          onClick={() => setSelectedProvider(provider)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex flex-col items-start">
-                              <div className="font-medium">
-                                {PROVIDERS[provider].name}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {PROVIDERS[provider].description}
-                              </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {PROVIDERS[provider].keyFormat}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
+                  <Label htmlFor="api-key">Name</Label>
+                  <Input
+                    autoFocus
+                    id="api-key-name"
+                    type="text"
+                    placeholder="My API Key"
+                    value={newApiKeyName}
+                    onChange={(e) => setNewApiKeyName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleCreateKey();
+                      }
+                    }}
+                    disabled={createKey.isPending || !!newApiKeyValue}
+                  />
                 </div>
-                {selectedProvider && (
+                {newApiKeyValue && (
                   <div className="grid gap-2">
-                    <Label htmlFor="api-key">API Key</Label>
-                    <Input
-                      autoFocus
-                      id="api-key"
-                      type="password"
-                      placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
-                      value={newApiKey}
-                      onChange={(e) => setNewApiKey(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleCreateKey();
-                        }
-                      }}
-                    />
+                    <Label htmlFor="api-key">
+                      Key (copy and save this - won't be shown again!)
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="api-key-value"
+                        type="text"
+                        readOnly
+                        value={newApiKeyValue}
+                      />
+                      <Button onClick={handleCopyKey} variant="outline">
+                        {copied ? <Check /> : <Copy />}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -231,44 +165,25 @@ export function ProviderKeysManager({
                   variant="outline"
                   onClick={() => {
                     setIsCreateDialogOpen(false);
-                    setSelectedProvider(null);
-                    setNewApiKey("");
+                    setNewApiKeyName("");
+                    setNewApiKeyValue("");
                   }}
                 >
-                  Cancel
+                  {newApiKeyValue ? "Close" : "Cancel"}
                 </Button>
-                <Button
-                  onClick={handleCreateKey}
-                  disabled={
-                    !selectedProvider ||
-                    !newApiKey.trim() ||
-                    createKey.isPending
-                  }
-                >
-                  {createKey.isPending ? "Adding..." : "Add Key"}
-                </Button>
+                {!newApiKeyValue && (
+                  <Button
+                    onClick={handleCreateKey}
+                    disabled={!newApiKeyName.trim() || createKey.isPending}
+                  >
+                    {createKey.isPending ? "Creating..." : "Create Key"}
+                  </Button>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
-      )}
-
-      {/* All Providers Configured */}
-      {allProvidersConfigured && (
-        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-          <CardContent>
-            <div className="text-center">
-              <Bot className="size-8 mx-auto text-green-600 dark:text-green-400 mb-2" />
-              <p className="font-medium text-green-800 dark:text-green-200">
-                All providers configured!
-              </p>
-              <p className="text-green-700 dark:text-green-300 text-sm mt-1">
-                You have API keys for all supported AI providers.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      </div>
 
       {/* API Keys List */}
       <div className="grid gap-4">
@@ -285,22 +200,19 @@ export function ProviderKeysManager({
           </Card>
         ) : (
           apiKeys?.map((apiKey) => {
-            const provider = PROVIDERS[apiKey.provider];
             return (
               <Card
-                key={apiKey.provider}
-                className={cn("border-2", provider.color)}
+                key={apiKey.id}
+                className="border-2 bg-blue-50 dark:bg-blue-800 border-blue-300 dark:border-blue-700"
               >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Bot className="size-5" />
-                        {provider.name}
+                        {apiKey.name}
                       </CardTitle>
                       <CardDescription>
-                        {provider.description}
-                        <br />
                         Added {formatDate(apiKey.created_at)}
                       </CardDescription>
                     </div>
@@ -313,20 +225,18 @@ export function ProviderKeysManager({
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Remove API Key</AlertDialogTitle>
+                          <AlertDialogTitle>Delete API Key</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to remove the {provider.name}{" "}
-                            API key? You won't be able to use {provider.name}{" "}
-                            models until you add a new key.
+                            Are you sure you want to delete this API key?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDeleteKey(apiKey.id)}
-                            className="bg-red-600 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-300"
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
                           >
-                            Remove Key
+                            Delete Key
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -336,7 +246,7 @@ export function ProviderKeysManager({
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 font-mono text-sm bg-muted px-3 py-2 rounded border">
-                      *****************
+                      rs-chat-key|*****************
                     </div>
                   </div>
                 </CardContent>

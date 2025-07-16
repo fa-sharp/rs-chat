@@ -6,16 +6,16 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import {
+  Bot,
   ChevronsUpDown,
   KeyRound,
-  LockKeyhole,
   LogOut,
   MessageCircleHeart,
   Minus,
   Plus,
   RefreshCwIcon,
-  Settings,
   UserRound,
+  Wrench,
 } from "lucide-react";
 import * as React from "react";
 
@@ -133,21 +133,21 @@ export function AppSidebar({
               <DropdownMenuContent className="w-48" align="start">
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
-                    <Link to="/app/api-keys">
-                      <LockKeyhole />
-                      Provider Keys
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/app/app-keys">
-                      <KeyRound />
-                      API Keys
+                    <Link to="/app/providers">
+                      <Bot />
+                      Providers
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/app/tools">
-                      <Settings />
+                      <Wrench />
                       Tools
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/api-keys">
+                      <KeyRound />
+                      API Keys
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
