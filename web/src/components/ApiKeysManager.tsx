@@ -54,15 +54,14 @@ interface ProviderInfo {
   color: string;
 }
 
-//@ts-expect-error not all providers are supported yet
 const PROVIDERS: Record<ApiKey["provider"], ProviderInfo> = {
-  // Openai: {
-  //   name: "OpenAI",
-  //   description: "GPT-4, GPT-3.5, and other OpenAI models",
-  //   keyFormat: "sk-...",
-  //   color:
-  //     "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-  // },
+  Openai: {
+    name: "OpenAI",
+    description: "GPT-4, GPT-3.5, and other OpenAI models",
+    keyFormat: "sk-...",
+    color:
+      "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
+  },
   Anthropic: {
     name: "Anthropic",
     description: "Claude Sonnet, Opus, and other Anthropic models",
