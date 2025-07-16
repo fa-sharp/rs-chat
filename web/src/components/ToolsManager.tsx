@@ -595,8 +595,6 @@ export function ToolsManager({
                     </CardTitle>
                     <CardDescription>
                       {getToolTypeLabel(tool)} • {tool.description}
-                      <br />
-                      Created {formatDate(tool.created_at)}
                     </CardDescription>
                   </div>
                   <AlertDialog>
@@ -638,7 +636,7 @@ export function ToolsManager({
                   )}
                   {tool.config.type === "WebSearch" && (
                     <div className="font-semibold">
-                      Provider:{" "}
+                      Search Provider:{" "}
                       {
                         WEB_SEARCH_PROVIDERS.find(
                           (p) =>
