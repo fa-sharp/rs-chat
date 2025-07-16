@@ -1,5 +1,6 @@
 mod core;
 mod http_request;
+mod utils;
 mod web_search;
 
 pub use core::ToolError;

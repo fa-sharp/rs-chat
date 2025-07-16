@@ -3,7 +3,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
-    web_search::{WebSearchResult, WebSearchProvider},
+    utils::http_request_builder::HttpRequestBuilder,
+    web_search::{WebSearchProvider, WebSearchResult},
     ToolError,
 };
 
@@ -38,40 +39,24 @@ impl<'a> WebSearchProvider for GoogleCustomSearchTool<'a> {
         http_client: &reqwest::Client,
         query: &str,
     ) -> Result<Vec<WebSearchResult>, ToolError> {
-        let mut url = "https://www.googleapis.com/customsearch/v1".to_string();
-        url.push_str(&format!(
-            "?key={}&cx={}&q={}",
-            urlencoding::encode(&self.config.api_key),
-            urlencoding::encode(&self.config.cx),
-            urlencoding::encode(query)
-        ));
-        url.push_str(&format!("&num={}", self.count.min(10))); // Google CSE max is 10
-
+        let mut builder =
+            HttpRequestBuilder::new("GET", "https://www.googleapis.com/customsearch/v1")
+                .query_param("key", &self.config.api_key)
+                .query_param("cx", &self.config.cx)
+                .query_param("q", query)
+                .query_param("num", &self.count.min(10).to_string()); // Google CSE max is 10
         if let Some(search_lang) = &self.config.search_lang {
-            url.push_str(&format!("&lr={}", search_lang));
+            builder = builder.query_param("lr", search_lang);
         }
-
         if let Some(country) = &self.config.country {
-            url.push_str(&format!("&gl={}", country));
+            builder = builder.query_param("gl", country);
         }
 
-        let response =
-            http_client.get(&url).send().await.map_err(|e| {
-                ToolError::ToolExecutionError(format!("Google search failed: {}", e))
+        let response = builder.send(http_client).await?;
+        let google_response: GoogleSearchResponse =
+            serde_json::from_str(&response).map_err(|e| {
+                ToolError::ToolExecutionError(format!("Failed to parse Google response: {}", e))
             })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(ToolError::ToolExecutionError(format!(
-                "Google API error {}: {}",
-                status, error_text
-            )));
-        }
-
-        let google_response: GoogleSearchResponse = response.json().await.map_err(|e| {
-            ToolError::ToolExecutionError(format!("Failed to parse Google response: {}", e))
-        })?;
 
         Ok(google_response
             .items

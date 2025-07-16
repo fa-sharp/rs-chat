@@ -17,7 +17,74 @@ use crate::tools::{
     Tool, ToolError, ToolParameters, ToolResult,
 };
 
-/// Trait for all web search tools
+/// A web search tool that supports multiple providers.
+pub struct WebSearchTool<'a> {
+    name: String,
+    http_client: reqwest::Client,
+    provider: Box<dyn WebSearchProvider + Send + Sync + 'a>,
+}
+
+/// Web search tool configuration.
+#[derive(Debug, JsonSchema, Serialize, Deserialize)]
+pub struct WebSearchConfig {
+    /// Provider-specific configuration
+    provider: WebSearchProviderConfig,
+    /// Max search results to return.
+    #[serde(default = "default_count")]
+    count: u8,
+}
+fn default_count() -> u8 {
+    10
+}
+
+#[derive(Debug, JsonSchema, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum WebSearchProviderConfig {
+    Brave(BraveConfig),
+    SerpAPI(SerpApiConfig),
+    GoogleCustomSearch(GoogleCustomSearchConfig),
+    Exa(ExaConfig),
+}
+
+impl WebSearchConfig {
+    pub(super) fn validate(&self) -> ToolResult<()> {
+        Ok(())
+    }
+
+    pub(super) fn get_input_schema(&self) -> serde_json::Value {
+        get_input_schema()
+    }
+}
+
+#[async_trait]
+impl Tool for WebSearchTool<'_> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn input_schema(&self) -> serde_json::Value {
+        get_input_schema()
+    }
+
+    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
+        let query = parameters
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ToolError::FormattingError("Missing 'query' parameter".to_string()))?;
+        if query.trim().is_empty() {
+            return Err(ToolError::FormattingError(
+                "Query parameter cannot be empty".to_string(),
+            ));
+        }
+
+        let search_results = self.provider.search(&self.http_client, query).await?;
+        let formatted_results = self.format_results(&search_results);
+
+        Ok(formatted_results)
+    }
+}
+
+/// Trait for all web search providers
 #[async_trait]
 trait WebSearchProvider {
     fn name(&self) -> &str;
@@ -48,74 +115,6 @@ fn get_input_schema() -> serde_json::Value {
         "required": ["query"],
         "additionalProperties": false
     })
-}
-
-/// Web search tool configuration.
-#[derive(Debug, JsonSchema, Serialize, Deserialize)]
-pub struct WebSearchConfig {
-    /// Provider-specific configuration
-    provider: WebSearchProviderConfig,
-    /// Max search results to return.
-    #[serde(default = "default_count")]
-    count: u8,
-}
-
-fn default_count() -> u8 {
-    10
-}
-
-impl WebSearchConfig {
-    pub(super) fn validate(&self) -> ToolResult<()> {
-        Ok(())
-    }
-
-    pub(super) fn get_input_schema(&self) -> serde_json::Value {
-        get_input_schema()
-    }
-}
-
-/// Configuration for each provider
-#[derive(Debug, JsonSchema, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "lowercase")]
-pub enum WebSearchProviderConfig {
-    Brave(BraveConfig),
-    SerpAPI(SerpApiConfig),
-    GoogleCustomSearch(GoogleCustomSearchConfig),
-    Exa(ExaConfig),
-}
-
-pub struct WebSearchTool<'a> {
-    name: String,
-    http_client: reqwest::Client,
-    provider: Box<dyn WebSearchProvider + Send + Sync + 'a>,
-}
-
-#[async_trait]
-impl Tool for WebSearchTool<'_> {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn input_schema(&self) -> serde_json::Value {
-        get_input_schema()
-    }
-
-    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
-        let query = parameters
-            .get("query")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ToolError::FormattingError("Missing 'query' parameter".to_string()))?;
-        if query.trim().is_empty() {
-            return Err(ToolError::FormattingError(
-                "Query parameter cannot be empty".to_string(),
-            ));
-        }
-
-        let search_results = self.provider.search(&self.http_client, query).await?;
-        let formatted_results = self.format_results(&search_results);
-
-        Ok(formatted_results)
-    }
 }
 
 impl<'a> WebSearchTool<'a> {

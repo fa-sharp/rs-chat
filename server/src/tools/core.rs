@@ -15,8 +15,6 @@ pub type ToolParameters = HashMap<String, serde_json::Value>;
 /// Tool-related errors
 #[derive(Debug, thiserror::Error)]
 pub enum ToolError {
-    #[error("Invalid tool name")]
-    InvalidToolName,
     #[error("Invalid JSON schema: {0}")]
     InvalidJsonSchema(String),
     #[error("Input parameters don't match JSON schema: {0}")]

@@ -10,12 +10,14 @@ use crate::tools::{
     validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
 };
 
+/// Tool that sends HTTP requests
 pub struct HttpRequestTool<'a> {
     name: String,
     http_client: reqwest::Client,
     config: &'a HttpRequestConfig,
 }
 
+/// Configuration for the HTTP request tool
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct HttpRequestConfig {
     input_schema: ToolJsonSchema,
@@ -33,6 +35,36 @@ impl HttpRequestConfig {
 
     pub(super) fn get_input_schema(&self) -> serde_json::Value {
         serde_json::to_value(&self.input_schema).expect("Should be validated JSON schema")
+    }
+}
+
+#[async_trait]
+impl Tool for HttpRequestTool<'_> {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn input_schema(&self) -> serde_json::Value {
+        serde_json::to_value(&self.config.input_schema).expect("JSON schema should be valid")
+    }
+
+    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
+        // Build the HTTP request components
+        let url = self.build_url(parameters)?;
+        let headers = self.build_headers(parameters)?;
+        let body = self.build_body(parameters, &self.config.body)?;
+
+        // Execute the HTTP request
+        rocket::info!(
+            "HTTP Request Tool: executing {} {}",
+            self.config.method,
+            self.config.url
+        );
+        let response = self
+            .execute_request(&self.config.method, &url, headers, body)
+            .await?;
+
+        Ok(response)
     }
 }
 
@@ -210,35 +242,5 @@ impl<'a> HttpRequestTool<'a> {
                 status, response_text
             )))
         }
-    }
-}
-
-#[async_trait]
-impl Tool for HttpRequestTool<'_> {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn input_schema(&self) -> serde_json::Value {
-        serde_json::to_value(&self.config.input_schema).expect("JSON schema should be valid")
-    }
-
-    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
-        // Build the HTTP request components
-        let url = self.build_url(parameters)?;
-        let headers = self.build_headers(parameters)?;
-        let body = self.build_body(parameters, &self.config.body)?;
-
-        // Execute the HTTP request
-        rocket::info!(
-            "HTTP Request Tool: executing {} {}",
-            self.config.method,
-            self.config.url
-        );
-        let response = self
-            .execute_request(&self.config.method, &url, headers, body)
-            .await?;
-
-        Ok(response)
     }
 }

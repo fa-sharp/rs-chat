@@ -3,7 +3,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
-    web_search::{WebSearchResult, WebSearchProvider},
+    utils::http_request_builder::HttpRequestBuilder,
+    web_search::{WebSearchProvider, WebSearchResult},
     ToolError,
 };
 
@@ -16,6 +17,9 @@ pub struct SerpApiConfig {
     /// Language code for search results. See https://serpapi.com/google-lr-languages
     #[serde(default)]
     pub search_lang: Option<String>,
+    /// Search engine to use. See https://serpapi.com/search-api. Default: "google"
+    #[serde(default)]
+    pub engine: Option<String>,
 }
 
 pub struct SerpApiSearchTool<'a> {
@@ -38,37 +42,20 @@ impl<'a> WebSearchProvider for SerpApiSearchTool<'a> {
         http_client: &reqwest::Client,
         query: &str,
     ) -> Result<Vec<WebSearchResult>, ToolError> {
-        let mut url = "https://serpapi.com/search.json".to_string();
-        url.push_str(&format!(
-            "?engine=google&q={}&api_key={}",
-            urlencoding::encode(query),
-            urlencoding::encode(&self.config.api_key)
-        ));
-        url.push_str(&format!("&num={}", self.count));
-
+        let mut builder = HttpRequestBuilder::new("GET", "https://serpapi.com/search.json")
+            .query_param("engine", self.config.engine.as_deref().unwrap_or("google"))
+            .query_param("q", query)
+            .query_param("api_key", &self.config.api_key)
+            .query_param("num", &self.count.to_string());
         if let Some(location) = &self.config.country {
-            url.push_str(&format!("&gl={}", urlencoding::encode(location)));
+            builder = builder.query_param("gl", location);
         }
-
         if let Some(search_lang) = &self.config.search_lang {
-            url.push_str(&format!("&hl={}", search_lang));
+            builder = builder.query_param("hl", search_lang);
         }
 
-        let response =
-            http_client.get(&url).send().await.map_err(|e| {
-                ToolError::ToolExecutionError(format!("SerpAPI search failed: {}", e))
-            })?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(ToolError::ToolExecutionError(format!(
-                "SerpAPI error {}: {}",
-                status, error_text
-            )));
-        }
-
-        let serp_response: SerpApiResponse = response.json().await.map_err(|e| {
+        let response = builder.send(http_client).await?;
+        let serp_response: SerpApiResponse = serde_json::from_str(&response).map_err(|e| {
             ToolError::ToolExecutionError(format!("Failed to parse SerpAPI response: {}", e))
         })?;
 

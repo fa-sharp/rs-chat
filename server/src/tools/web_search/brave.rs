@@ -1,9 +1,9 @@
-use reqwest::header::{HeaderMap, HeaderValue};
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
+    utils::http_request_builder::HttpRequestBuilder,
     web_search::{WebSearchProvider, WebSearchResult},
     ToolError,
 };
@@ -39,46 +39,25 @@ impl<'a> WebSearchProvider for BraveSearchTool<'a> {
         http_client: &reqwest::Client,
         query: &str,
     ) -> Result<Vec<WebSearchResult>, ToolError> {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "X-Subscription-Token",
-            HeaderValue::from_str(&self.config.api_key)
-                .map_err(|_| ToolError::FormattingError("Invalid API key format".to_string()))?,
-        );
-        headers.insert("Accept", HeaderValue::from_static("application/json"));
-
-        let mut url = "https://api.search.brave.com/res/v1/web/search".to_string();
-        url.push_str(&format!("?q={}", urlencoding::encode(query)));
-        url.push_str(&format!("&count={}", self.count));
-        url.push_str("&text_decorations=false");
-
+        let mut builder =
+            HttpRequestBuilder::new("GET", "https://api.search.brave.com/res/v1/web/search")
+                .header("X-Subscription-Token", &self.config.api_key)?
+                .header("Accept", "application/json")?
+                .query_param("q", query)
+                .query_param("count", &self.count.to_string())
+                .query_param("text_decorations", "false");
         if let Some(country) = &self.config.country {
-            url.push_str(&format!("&country={}", country));
+            builder = builder.query_param("country", country);
         }
-
         if let Some(search_lang) = &self.config.search_lang {
-            url.push_str(&format!("&search_lang={}", search_lang));
+            builder = builder.query_param("search_lang", search_lang);
         }
 
-        let response = http_client
-            .get(&url)
-            .headers(headers)
-            .send()
-            .await
-            .map_err(|e| ToolError::ToolExecutionError(format!("Brave search failed: {}", e)))?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(ToolError::ToolExecutionError(format!(
-                "Brave API error {}: {}",
-                status, error_text
-            )));
-        }
-
-        let brave_response: BraveSearchResponse = response.json().await.map_err(|e| {
-            ToolError::ToolExecutionError(format!("Failed to parse Brave response: {}", e))
-        })?;
+        let response_text = builder.send(http_client).await?;
+        let brave_response: BraveSearchResponse =
+            serde_json::from_str(&response_text).map_err(|e| {
+                ToolError::ToolExecutionError(format!("Failed to parse Brave response: {}", e))
+            })?;
 
         Ok(brave_response
             .web
