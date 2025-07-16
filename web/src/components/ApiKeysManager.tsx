@@ -1,5 +1,5 @@
 import { Bot, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   AlertDialog,
@@ -54,15 +54,14 @@ interface ProviderInfo {
   color: string;
 }
 
-//@ts-expect-error not all providers are supported yet
 const PROVIDERS: Record<ApiKey["provider"], ProviderInfo> = {
-  // Openai: {
-  //   name: "OpenAI",
-  //   description: "GPT-4, GPT-3.5, and other OpenAI models",
-  //   keyFormat: "sk-...",
-  //   color:
-  //     "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-  // },
+  Openai: {
+    name: "OpenAI",
+    description: "GPT-4, GPT-3.5, and other OpenAI models",
+    keyFormat: "sk-...",
+    color:
+      "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
+  },
   Anthropic: {
     name: "Anthropic",
     description: "Claude Sonnet, Opus, and other Anthropic models",
@@ -93,6 +92,14 @@ export function ProviderKeysManager({
     null,
   );
   const [newApiKey, setNewApiKey] = useState("");
+
+  const allProvidersConfigured = useMemo(
+    () =>
+      availableProviders.every((provider) =>
+        apiKeys?.find((key) => key.provider === provider),
+      ),
+    [apiKeys],
+  );
 
   const handleCreateKey = () => {
     if (!selectedProvider || !newApiKey.trim()) return;
@@ -139,104 +146,129 @@ export function ProviderKeysManager({
       </div>
 
       {/* Add Key Button */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-muted-foreground">
-          {apiKeys?.length} of {availableProviders.length} providers configured
-        </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="size-4" />
-              Add Provider Key
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add AI Provider API Key</DialogTitle>
-              <DialogDescription>
-                Select a provider and enter your API key.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Provider</Label>
+      {!allProvidersConfigured && (
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-muted-foreground">
+            {apiKeys?.length} of {availableProviders.length} providers
+            configured
+          </div>
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={setIsCreateDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="size-4 mr-2" />
+                Add API Key
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add AI Provider API Key</DialogTitle>
+                <DialogDescription>
+                  Select a provider and enter your API key.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  {availableProviders
-                    .filter(
-                      (provider) =>
-                        !apiKeys?.some((key) => key.provider === provider),
-                    )
-                    .map((provider) => (
-                      <button
-                        key={provider}
-                        type="button"
-                        className={cn(
-                          "p-3 border rounded-lg cursor-pointer transition-colors",
-                          selectedProvider === provider
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted/50",
-                        )}
-                        onClick={() => setSelectedProvider(provider)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">
-                              {PROVIDERS[provider].name}
+                  <Label>Provider</Label>
+                  <div className="grid gap-2">
+                    {availableProviders
+                      .filter(
+                        (provider) =>
+                          !apiKeys?.some((key) => key.provider === provider),
+                      )
+                      .map((provider) => (
+                        <button
+                          key={provider}
+                          type="button"
+                          className={cn(
+                            "p-3 border rounded-lg cursor-pointer transition-colors",
+                            selectedProvider === provider
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:bg-muted/50",
+                          )}
+                          onClick={() => setSelectedProvider(provider)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col items-start">
+                              <div className="font-medium">
+                                {PROVIDERS[provider].name}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {PROVIDERS[provider].description}
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              {PROVIDERS[provider].description}
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {PROVIDERS[provider].keyFormat}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {PROVIDERS[provider].keyFormat}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                  </div>
                 </div>
+                {selectedProvider && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="api-key">API Key</Label>
+                    <Input
+                      autoFocus
+                      id="api-key"
+                      type="password"
+                      placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleCreateKey();
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-              {selectedProvider && (
-                <div className="grid gap-2">
-                  <Label htmlFor="api-key">API Key</Label>
-                  <Input
-                    autoFocus
-                    id="api-key"
-                    type="password"
-                    placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
-                    value={newApiKey}
-                    onChange={(e) => setNewApiKey(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleCreateKey();
-                      }
-                    }}
-                  />
-                </div>
-              )}
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setSelectedProvider(null);
+                    setNewApiKey("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateKey}
+                  disabled={
+                    !selectedProvider ||
+                    !newApiKey.trim() ||
+                    createKey.isPending
+                  }
+                >
+                  {createKey.isPending ? "Adding..." : "Add Key"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+
+      {/* All Providers Configured */}
+      {allProvidersConfigured && (
+        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+          <CardContent>
+            <div className="text-center">
+              <Bot className="size-8 mx-auto text-green-600 dark:text-green-400 mb-2" />
+              <p className="font-medium text-green-800 dark:text-green-200">
+                All providers configured!
+              </p>
+              <p className="text-green-700 dark:text-green-300 text-sm mt-1">
+                You have API keys for all supported AI providers.
+              </p>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setSelectedProvider(null);
-                  setNewApiKey("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateKey}
-                disabled={
-                  !selectedProvider || !newApiKey.trim() || createKey.isPending
-                }
-              >
-                {createKey.isPending ? "Adding..." : "Add Key"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* API Keys List */}
       <div className="grid gap-4">
@@ -292,7 +324,7 @@ export function ProviderKeysManager({
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDeleteKey(apiKey.id)}
-                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                            className="bg-red-600 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-300"
                           >
                             Remove Key
                           </AlertDialogAction>
@@ -313,23 +345,6 @@ export function ProviderKeysManager({
           })
         )}
       </div>
-
-      {/* All Providers Configured */}
-      {availableProviders.length === 0 && apiKeys && apiKeys.length > 0 && (
-        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <Bot className="size-8 mx-auto text-green-600 dark:text-green-400 mb-2" />
-              <p className="font-medium text-green-800 dark:text-green-200">
-                All providers configured!
-              </p>
-              <p className="text-green-700 dark:text-green-300 text-sm mt-1">
-                You have API keys for all supported AI providers.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

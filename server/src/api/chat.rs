@@ -50,39 +50,40 @@ pub async fn send_chat_stream(
     mut db: DbConnection,
     redis: RedisClient,
     encryptor: &State<Encryptor>,
+    http_client: &State<reqwest::Client>,
     session_id: Uuid,
     input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     // Check session exists and user is owner, get message history
-    let (session, current_messages) = ChatDbService::new(&mut db)
+    let (session, mut current_messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user_id, &session_id)
         .await?;
-    let should_generate_title =
-        current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE;
 
-    // Get the chat provider
+    // Build the chat provider
     let provider = create_provider(
         &user_id,
         &input.provider,
         &mut ProviderKeyDbService::new(&mut db),
-        &encryptor,
+        encryptor,
+        http_client,
     )
     .await?;
 
-    // Get the provider's stream response and wrap it in our StoredChatRsStream
-    let stream = StoredChatRsStream::new(
-        provider
-            .chat_stream(input.message.as_deref(), Some(current_messages))
-            .await?,
-        input.provider.clone(),
-        db_pool.inner().clone(),
-        redis.clone(),
-        Some(session_id),
-    );
-
     // Save user message to session, and generate title if needed
     if let Some(user_message) = &input.message {
-        let _ = ChatDbService::new(&mut db)
+        if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
+            generate_title(
+                &user_id,
+                &session_id,
+                &user_message,
+                &input.provider,
+                encryptor,
+                http_client,
+                db_pool,
+            );
+        }
+
+        let new_message = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 content: user_message,
                 session_id: &session_id,
@@ -90,17 +91,17 @@ pub async fn send_chat_stream(
                 meta: &ChatRsMessageMeta::default(),
             })
             .await?;
-        if should_generate_title {
-            generate_title(
-                &user_id,
-                &session_id,
-                user_message,
-                &input.provider,
-                &encryptor,
-                db_pool,
-            );
-        }
+        current_messages.push(new_message);
     }
+
+    // Get the provider's stream response and wrap it in our StoredChatRsStream
+    let stream = StoredChatRsStream::new(
+        provider.chat_stream(current_messages).await?,
+        input.provider.clone(),
+        db_pool.inner().clone(),
+        redis.clone(),
+        Some(session_id),
+    );
 
     // Start streaming
     let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =

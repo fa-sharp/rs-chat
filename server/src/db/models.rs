@@ -7,7 +7,7 @@ use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
-use crate::utils::create_provider::ProviderConfigInput;
+use crate::{provider::ChatRsUsage, utils::create_provider::ProviderConfigInput};
 
 #[derive(Identifiable, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(table_name = super::schema::users)]
@@ -81,7 +81,7 @@ pub struct UpdateChatRsSession<'r> {
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::ChatMessageRole")]
-#[derive(Debug, JsonSchema, serde::Serialize)]
+#[derive(Debug, PartialEq, Eq, JsonSchema, serde::Serialize)]
 pub enum ChatRsMessageRole {
     User,
     Assistant,
@@ -106,6 +106,8 @@ pub struct ChatRsMessageMeta {
     pub provider_config: Option<ProviderConfigInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub interrupted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<ChatRsUsage>,
 }
 
 #[derive(Insertable)]
@@ -123,10 +125,10 @@ pub struct NewChatRsMessage<'r> {
 pub enum ChatRsProviderKeyType {
     Anthropic,
     Openai,
-    Ollama,
-    Deepseek,
-    Google,
     Openrouter,
+    // Ollama,
+    // Deepseek,
+    // Google,
 }
 
 #[derive(Identifiable, Queryable, Selectable, Associations)]

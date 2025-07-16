@@ -177,14 +177,25 @@ const useChatMessageInputState = ({
       case undefined:
         setError("Must select a provider");
         break;
+      case "OpenAI":
+        onSubmit({
+          message: inputRef.current.value,
+          provider: {
+            OpenAI: {
+              model,
+              temperature,
+              max_tokens: maxTokens,
+            },
+          },
+        });
+        break;
       case "Anthropic":
         onSubmit({
           message: inputRef.current.value,
           provider: {
-            Llm: {
-              backend: provider,
+            Anthropic: {
               model,
-              temperature: temperature,
+              temperature,
               max_tokens: maxTokens,
             },
           },
@@ -243,6 +254,20 @@ const getCommonSettingsFromConfig = (
       provider: providerConfig,
       model: "",
     };
+  if ("OpenAI" in providerConfig)
+    return {
+      provider: "OpenAI",
+      model: providerConfig.OpenAI.model,
+      maxTokens: providerConfig.OpenAI.max_tokens,
+      temperature: providerConfig.OpenAI.temperature,
+    };
+  if ("Anthropic" in providerConfig)
+    return {
+      provider: "Anthropic",
+      model: providerConfig.Anthropic.model,
+      maxTokens: providerConfig.Anthropic.max_tokens,
+      temperature: providerConfig.Anthropic.temperature,
+    };
   if ("OpenRouter" in providerConfig)
     return {
       provider: "OpenRouter",
@@ -252,7 +277,7 @@ const getCommonSettingsFromConfig = (
     };
   if ("Llm" in providerConfig)
     return {
-      provider: providerConfig.Llm.backend,
+      provider: providerConfig.Llm.backend as ProviderKey,
       model: providerConfig.Llm.model,
       maxTokens: providerConfig.Llm.max_tokens,
       temperature: providerConfig.Llm.temperature,

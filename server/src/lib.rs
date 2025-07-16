@@ -31,6 +31,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_encryption())
         .attach(setup_auth("/api/auth"))
         .attach(setup_static_files())
+        .manage(reqwest::Client::new())
         .register("/", get_catchers())
         .mount("/api/auth", auth_undocumented_routes())
         .mount("/api/docs", get_doc_routes());

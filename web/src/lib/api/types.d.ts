@@ -309,29 +309,56 @@ export interface components {
         ChatRsMessageMeta: {
             provider_config?: components["schemas"]["ProviderConfigInput"] | null;
             interrupted?: boolean | null;
+            usage?: components["schemas"]["ChatRsUsage"] | null;
         };
         /** @description Provider configuration input from API */
         ProviderConfigInput: "Lorem" | {
-            Llm: components["schemas"]["LLMConfig"];
+            Anthropic: components["schemas"]["AnthropicConfig"];
+        } | {
+            OpenAI: components["schemas"]["OpenAIConfig"];
         } | {
             OpenRouter: components["schemas"]["OpenRouterConfig"];
+        } | {
+            Llm: components["schemas"]["LLMConfig"];
         };
-        LLMConfig: {
-            backend: components["schemas"]["LLMBackendInput"];
+        AnthropicConfig: {
             model: string;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
         };
-        /** @enum {string} */
-        LLMBackendInput: "OpenAI" | "Anthropic" | "Deepseek" | "Google";
+        OpenAIConfig: {
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
+            base_url?: string | null;
+        };
         OpenRouterConfig: {
             model: string;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+        };
+        /** @deprecated */
+        LLMConfig: {
+            backend: string;
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
+        };
+        ChatRsUsage: {
+            /** Format: uint32 */
+            input_tokens?: number | null;
+            /** Format: uint32 */
+            output_tokens?: number | null;
+            /** Format: float */
+            cost?: number | null;
         };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
@@ -361,7 +388,7 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Ollama" | "Deepseek" | "Google" | "Openrouter";
+        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
         ProviderKeyInput: {
             provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;

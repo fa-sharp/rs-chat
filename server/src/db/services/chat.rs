@@ -37,13 +37,13 @@ impl<'a> ChatDbService<'a> {
     pub async fn save_message(
         &mut self,
         message: NewChatRsMessage<'_>,
-    ) -> Result<String, diesel::result::Error> {
-        let id: Uuid = diesel::insert_into(chat_messages::table)
+    ) -> Result<ChatRsMessage, diesel::result::Error> {
+        let message = diesel::insert_into(chat_messages::table)
             .values(message)
-            .returning(chat_messages::id)
+            .returning(ChatRsMessage::as_select())
             .get_result(self.db)
             .await?;
-        Ok(id.to_string())
+        Ok(message)
     }
 
     pub async fn delete_message(

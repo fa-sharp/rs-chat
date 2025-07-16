@@ -7,7 +7,7 @@ use tokio::time::{interval, Interval};
 
 use crate::{
     db::models::ChatRsMessage,
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream},
+    provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk},
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...'
@@ -26,7 +26,7 @@ struct LoremStream {
     interval: Interval,
 }
 impl Stream for LoremStream {
-    type Item = Result<String, ChatRsError>;
+    type Item = Result<ChatRsStreamChunk, ChatRsError>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -41,11 +41,12 @@ impl Stream for LoremStream {
                 let word = self.words[self.index];
                 self.index += 1;
                 if self.index == 0 || self.index % 10 != 0 {
-                    std::task::Poll::Ready(Some(Ok(word.to_owned())))
+                    std::task::Poll::Ready(Some(Ok(ChatRsStreamChunk {
+                        text: word.to_owned(),
+                        usage: None,
+                    })))
                 } else {
-                    std::task::Poll::Ready(Some(Err(ChatRsError::ChatError(
-                        "Test error".to_string(),
-                    ))))
+                    std::task::Poll::Ready(Some(Err(ChatRsError::LoremError("Test error"))))
                 }
             }
             std::task::Poll::Pending => std::task::Poll::Pending,
@@ -57,8 +58,7 @@ impl Stream for LoremStream {
 impl ChatRsProvider for LoremProvider {
     async fn chat_stream(
         &self,
-        _input: Option<&str>,
-        _context: Option<Vec<ChatRsMessage>>,
+        _messages: Vec<ChatRsMessage>,
     ) -> Result<ChatRsStream, ChatRsError> {
         let lorem_words = vec![
             "Lorem ipsum ",

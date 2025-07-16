@@ -1,12 +1,6 @@
 import type { components } from "@/lib/api/types";
 
-export type ProviderKey =
-  | "Anthropic"
-  | "OpenRouter"
-  | "Lorem"
-  | "OpenAI"
-  | "Deepseek"
-  | "Google";
+export type ProviderKey = "OpenAI" | "Anthropic" | "OpenRouter" | "Lorem";
 
 /** Provider and model information. TODO should fetch models rather than list them manually */
 export const providers: Array<{
@@ -29,19 +23,21 @@ export const providers: Array<{
       "claude-3-opus-latest",
     ],
   },
-  // {
-  //   value: "OpenAI",
-  //   label: "OpenAI",
-  //   models: [
-  //     "gpt-4.1",
-  //     "gpt-4.1-nano",
-  //     "gpt-4o",
-  //     "o4-mini",
-  //     "o3",
-  //     "o3-pro",
-  //     "o3-mini",
-  //   ],
-  // },
+  {
+    value: "OpenAI",
+    label: "OpenAI",
+    defaultModel: "gpt-4.1-nano",
+    models: [
+      "gpt-4.1",
+      "gpt-4.1-nano",
+      "gpt-4o",
+      "gpt-4o-mini-2024-07-18",
+      "o4-mini",
+      "o3",
+      "o3-pro",
+      "o3-mini",
+    ],
+  },
   {
     value: "OpenRouter",
     label: "OpenRouter",

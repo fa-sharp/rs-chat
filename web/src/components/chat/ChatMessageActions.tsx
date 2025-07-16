@@ -96,7 +96,7 @@ export function InfoButton({
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
 }) {
-  const { provider, model, temperature, maxTokens, interrupted } =
+  const { provider, model, usage, temperature, maxTokens, interrupted } =
     useMessageMeta(meta);
 
   return (
@@ -115,72 +115,97 @@ export function InfoButton({
           aria-label="Message metadata"
         />
       </PopoverTrigger>
-      <PopoverContent>
-        <div className="p-2">
-          <p className="text-sm">
-            {interrupted && (
-              <div className="flex items-center gap-1 mb-2">
-                <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
-                Stream was interrupted
-              </div>
-            )}
-            {provider && (
-              <div>
-                <span className="font-bold">Provider:</span> {provider}
-              </div>
-            )}
-            {model && (
-              <div>
-                <span className="font-bold">Model:</span> {model}
-              </div>
-            )}
-            {temperature && (
-              <div>
-                <span className="font-bold">Temperature:</span> {temperature}
-              </div>
-            )}
-            {maxTokens && (
-              <div>
-                <span className="font-bold">Max Tokens:</span>{" "}
-                {maxTokens.toLocaleString()}
-              </div>
-            )}
-          </p>
-        </div>
+      <PopoverContent className="text-sm">
+        {interrupted && (
+          <div className="flex items-center gap-1 mb-2">
+            <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+            Stream was interrupted
+          </div>
+        )}
+        {provider && (
+          <div>
+            <span className="font-bold">Provider:</span> {provider}
+          </div>
+        )}
+        {model && (
+          <div>
+            <span className="font-bold">Model:</span> {model}
+          </div>
+        )}
+        {temperature && (
+          <div>
+            <span className="font-bold">Temperature:</span> {temperature}
+          </div>
+        )}
+        {usage?.input_tokens && (
+          <div>
+            <span className="font-bold">Input:</span>{" "}
+            {usage.input_tokens?.toLocaleString()} tokens
+          </div>
+        )}
+        {usage?.output_tokens && (
+          <div>
+            <span className="font-bold">Output:</span>{" "}
+            {usage.output_tokens?.toLocaleString()} tokens
+            {maxTokens ? ` (Max: ${maxTokens.toLocaleString()})` : ""}
+          </div>
+        )}
+        {usage?.cost && (
+          <div>
+            <span className="font-bold">Cost:</span> {usage.cost.toFixed(3)}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
 }
 
 function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
-  const extractedMetadata = useMemo(() => {
+  const providerSpecificMeta = useMemo(() => {
     if (typeof meta.provider_config === "string") {
       return {
         provider: meta.provider_config,
-        interrupted: !!meta.interrupted,
       };
-    } else if (meta.provider_config && "Llm" in meta.provider_config) {
+    } else if (meta.provider_config && "OpenAI" in meta.provider_config) {
       return {
-        provider: meta.provider_config.Llm.backend,
-        model: meta.provider_config.Llm.model,
-        temperature: meta.provider_config.Llm.temperature,
-        interrupted: !!meta.interrupted,
-        maxTokens: meta.provider_config.Llm.max_tokens,
+        provider: "OpenAI",
+        model: meta.provider_config.OpenAI.model,
+        temperature: meta.provider_config.OpenAI.temperature,
+        maxTokens: meta.provider_config.OpenAI.max_tokens,
+      };
+    } else if (meta.provider_config && "Anthropic" in meta.provider_config) {
+      return {
+        provider: "Anthropic",
+        model: meta.provider_config.Anthropic.model,
+        temperature: meta.provider_config.Anthropic.temperature,
+        maxTokens: meta.provider_config.Anthropic.max_tokens,
       };
     } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
       return {
         provider: "OpenRouter",
         model: meta.provider_config.OpenRouter.model,
         temperature: meta.provider_config.OpenRouter.temperature,
-        interrupted: !!meta.interrupted,
         maxTokens: meta.provider_config.OpenRouter.max_tokens,
+      };
+    } else if (meta.provider_config && "Llm" in meta.provider_config) {
+      return {
+        provider: meta.provider_config.Llm.backend,
+        model: meta.provider_config.Llm.model,
+        temperature: meta.provider_config.Llm.temperature,
+        maxTokens: meta.provider_config.Llm.max_tokens,
       };
     }
 
-    return {
-      interrupted: !!meta.interrupted,
-    };
+    return {};
   }, [meta]);
 
-  return extractedMetadata;
+  const mergedMeta = useMemo(() => {
+    return {
+      ...providerSpecificMeta,
+      interrupted: !!meta.interrupted,
+      usage: meta.usage,
+    };
+  }, [providerSpecificMeta, meta]);
+
+  return mergedMeta;
 }
