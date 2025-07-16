@@ -278,7 +278,7 @@ export function ToolsManager({
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Add Tool
             </Button>
           </DialogTrigger>
@@ -636,9 +636,18 @@ export function ToolsManager({
                       </div>
                     </div>
                   )}
-                  <div className="text-xs text-muted-foreground">
-                    Type: {getToolTypeLabel(tool)}
-                  </div>
+                  {tool.config.type === "WebSearch" && (
+                    <div className="font-semibold">
+                      Provider:{" "}
+                      {
+                        WEB_SEARCH_PROVIDERS.find(
+                          (p) =>
+                            tool.config.type === "WebSearch" &&
+                            p.value === tool.config.provider.type,
+                        )?.label
+                      }
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

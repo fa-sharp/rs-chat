@@ -58,7 +58,7 @@ impl HttpRequestBuilder {
     }
 
     pub async fn send(self, client: &reqwest::Client) -> ToolResult<String> {
-        let request_builder = match self.method.as_str() {
+        let mut request_builder = match self.method.as_str() {
             "GET" => client.get(&self.url),
             "POST" => client.post(&self.url),
             "PUT" => client.put(&self.url),
@@ -70,18 +70,25 @@ impl HttpRequestBuilder {
                     self.method
                 )))
             }
-        };
+        }
+        .headers(self.headers);
 
-        let mut request = request_builder.headers(self.headers);
         if let Some(body) = self.body {
-            request = request.body(body);
+            request_builder = request_builder.body(body);
         }
 
-        let response = request
-            .send()
+        let request_builder_debug = format!("{:?}", request_builder);
+
+        let request = request_builder.build().map_err(|e| {
+            ToolError::ToolExecutionError(format!(
+                "Failed to build request: {}. Request builder: {:?}",
+                e, request_builder_debug
+            ))
+        })?;
+        let response = client
+            .execute(request)
             .await
             .map_err(|e| ToolError::ToolExecutionError(format!("HTTP request failed: {}", e)))?;
-
         let status = response.status();
         let response_text = response.text().await.map_err(|e| {
             ToolError::ToolExecutionError(format!("Failed to read response: {}", e))

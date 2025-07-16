@@ -111,7 +111,7 @@ export function InfoButton({
   meta: components["schemas"]["ChatRsMessageMeta"];
 }) {
   const { provider, model, temperature, maxTokens } = useMessageMeta(meta);
-  const { interrupted, usage } = meta;
+  const { interrupted, usage, executed_tool_call } = meta;
 
   return (
     <Popover>
@@ -119,7 +119,7 @@ export function InfoButton({
         <ChatBubbleAction
           className="size-5"
           icon={
-            meta.interrupted ? (
+            interrupted || executed_tool_call?.is_error ? (
               <AlertCircle className="size-4.5 text-yellow-700 dark:text-yellow-300" />
             ) : (
               <Info className="size-4.5" />
@@ -136,6 +136,12 @@ export function InfoButton({
             Stream was interrupted
           </div>
         )}
+        {executed_tool_call?.is_error && (
+          <div className="flex items-center gap-1 mb-2">
+            <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+            Tool call error
+          </div>
+        )}
         {provider && (
           <div>
             <span className="font-bold">Provider:</span> {provider}
@@ -149,6 +155,18 @@ export function InfoButton({
         {temperature && (
           <div>
             <span className="font-bold">Temperature:</span> {temperature}
+          </div>
+        )}
+        {executed_tool_call?.id && (
+          <div>
+            <span className="font-bold">Tool Call ID:</span>{" "}
+            {executed_tool_call.id}
+          </div>
+        )}
+        {executed_tool_call?.tool_id && (
+          <div>
+            <span className="font-bold">Tool ID:</span>{" "}
+            {executed_tool_call.tool_id}
           </div>
         )}
         {usage?.input_tokens && (

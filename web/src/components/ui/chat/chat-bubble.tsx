@@ -81,7 +81,7 @@ const chatBubbleMessageVariants = cva("py-2 px-3", {
     },
     layout: {
       default: "",
-      ai: "border-t w-full rounded-none bg-transparent",
+      ai: "w-full",
     },
   },
   defaultVariants: {

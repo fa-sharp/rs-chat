@@ -31,8 +31,10 @@ interface Props {
 const proseClasses =
   "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-headings:not-[:first-child]:mt-4 prose-headings:mb-3 " +
   "prose-h1:text-3xl prose-ul:my-3 prose-ol:my-3 prose-p:leading-5 md:prose-p:leading-6 prose-li:my-1 prose-li:leading-5 md:prose-li:leading-6";
-const proseUserClasses = "prose-code:text-primary-foreground";
-const proseAssistantClasses = "prose-code:text-secondary-foreground";
+const proseUserClasses =
+  "prose-code:text-primary-foreground prose-pre:text-primary-foreground";
+const proseAssistantClasses =
+  "prose-code:text-secondary-foreground prose-pre:text-secondary-foreground";
 
 export default function ChatMessages({
   user,
@@ -80,6 +82,7 @@ export default function ChatMessages({
         .map((message) => (
           <ChatBubble
             key={message.id}
+            layout={message.role === "Assistant" ? "ai" : "default"}
             variant={message.role === "User" ? "sent" : "received"}
           >
             <ChatBubbleAvatar
@@ -93,6 +96,8 @@ export default function ChatMessages({
               }
             />
             <ChatBubbleMessage
+              variant={message.role === "User" ? "sent" : "received"}
+              layout={message.role === "Assistant" ? "ai" : "default"}
               className={cn(
                 proseClasses,
                 message.role === "User" && proseUserClasses,
@@ -102,7 +107,7 @@ export default function ChatMessages({
               <Suspense fallback={<Markdown>{message.content}</Markdown>}>
                 <ChatFancyMarkdown>
                   {message.role === "Tool"
-                    ? `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`\n${message.content}\n\`\`\``
+                    ? `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`text\n${message.content}\n\`\`\``
                     : message.content}
                 </ChatFancyMarkdown>
               </Suspense>
@@ -131,10 +136,13 @@ export default function ChatMessages({
                               </Button>
                             )}
                           </div>
-                          <p>
-                            Input:{" "}
-                            <code>{JSON.stringify(toolCall.parameters)}</code>
-                          </p>
+                          <pre>{JSON.stringify(toolCall.parameters)}</pre>
+                          <div className="text-muted-foreground">
+                            Tool call ID: {toolCall.id}
+                          </div>
+                          <div className="text-muted-foreground">
+                            Tool ID: {toolCall.tool_id}
+                          </div>
                         </div>
                       ))}
                       {!message.meta.tool_calls.some((toolCall) =>
@@ -179,6 +187,13 @@ export default function ChatMessages({
                     onDelete={() => onDeleteMessage(message.id)}
                     variant="default"
                   />
+                </div>
+              )}
+              {message.role === "Tool" && (
+                <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                  <InfoButton meta={message.meta} />
+                  <CopyButton message={message.content} />
+                  <DeleteButton onDelete={() => onDeleteMessage(message.id)} />
                 </div>
               )}
             </ChatBubbleMessage>
