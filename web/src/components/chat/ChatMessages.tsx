@@ -1,4 +1,3 @@
-import { PlayCircle } from "lucide-react";
 import React, { Suspense, useCallback, useEffect } from "react";
 import Markdown from "react-markdown";
 
@@ -7,7 +6,6 @@ import { useDeleteChatMessage } from "@/lib/api/session";
 import { useExecuteAllTools, useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
 import {
   ChatBubble,
   ChatBubbleAvatar,
@@ -15,6 +13,7 @@ import {
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
+import ChatMessageToolCalls from "./ChatMessageToolCalls";
 
 const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 
@@ -107,69 +106,24 @@ export default function ChatMessages({
               <Suspense fallback={<Markdown>{message.content}</Markdown>}>
                 <ChatFancyMarkdown>
                   {message.role === "Tool"
-                    ? `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`text\n${message.content}\n\`\`\``
+                    ? formatToolResponse(message)
                     : message.content}
                 </ChatFancyMarkdown>
               </Suspense>
               {message.role === "Assistant" && (
                 <>
                   {message.meta.tool_calls && (
-                    <div>
-                      <h3>Tools Requested</h3>
-                      {message.meta.tool_calls.map((toolCall) => (
-                        <div key={toolCall.id}>
-                          <div className="flex items-center gap-2">
-                            <div className="text-lg">{toolCall.tool_name}</div>
-                            {!messages.some(
-                              (m) =>
-                                m.meta.executed_tool_call?.id === toolCall.id,
-                            ) && (
-                              <Button
-                                size="sm"
-                                disabled={
-                                  executeToolCall.isPending ||
-                                  executeAllToolCalls.isPending
-                                }
-                              >
-                                <PlayCircle />
-                                Execute
-                              </Button>
-                            )}
-                          </div>
-                          <pre>{JSON.stringify(toolCall.parameters)}</pre>
-                          <div className="text-muted-foreground">
-                            Tool call ID: {toolCall.id}
-                          </div>
-                          <div className="text-muted-foreground">
-                            Tool ID: {toolCall.tool_id}
-                          </div>
-                        </div>
-                      ))}
-                      {!message.meta.tool_calls.some((toolCall) =>
-                        messages.some(
-                          (m) => m.meta.executed_tool_call?.id === toolCall.id,
-                        ),
-                      ) && (
-                        <p>
-                          <Button
-                            onClick={() =>
-                              executeAllToolCalls.mutate({
-                                messageId: message.id,
-                              })
-                            }
-                            disabled={
-                              executeToolCall.isPending ||
-                              executeAllToolCalls.isPending
-                            }
-                          >
-                            <PlayCircle />
-                            {executeAllToolCalls.isPending
-                              ? "Executing..."
-                              : "Execute All"}
-                          </Button>
-                        </p>
-                      )}
-                    </div>
+                    <ChatMessageToolCalls
+                      messages={messages}
+                      toolCalls={message.meta.tool_calls}
+                      onExecuteAll={() =>
+                        executeAllToolCalls.mutate({ messageId: message.id })
+                      }
+                      isExecuting={
+                        executeToolCall.isPending ||
+                        executeAllToolCalls.isPending
+                      }
+                    />
                   )}
                   <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                     <InfoButton meta={message.meta} />
@@ -232,4 +186,10 @@ export default function ChatMessages({
       )}
     </ChatMessageList>
   );
+}
+
+function formatToolResponse(
+  message: components["schemas"]["ChatRsMessage"],
+): unknown {
+  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`text\n${message.content}\n\`\`\``;
 }

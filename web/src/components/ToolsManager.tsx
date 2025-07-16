@@ -45,14 +45,29 @@ import { cn } from "@/lib/utils";
 
 type ToolType = "web_search" | "http_request";
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-type ParameterType = "string" | "number" | "boolean" | "array";
+type ParameterType = "string" | "number" | "boolean";
+type ExtendedParameterType = ParameterType | "array";
 
 interface Parameter {
   id: string;
   name: string;
-  type: ParameterType;
+  type: ExtendedParameterType;
+  arrayItemType?: ParameterType;
   description: string;
   required: boolean;
+}
+
+interface HeaderField {
+  id: string;
+  key: string;
+  value: string;
+}
+
+interface BodyField {
+  id: string;
+  key: string;
+  value: string;
+  type: ParameterType;
 }
 
 const WEB_SEARCH_PROVIDERS = [
@@ -86,8 +101,8 @@ export function ToolsManager({
   // HTTP request fields
   const [httpUrl, setHttpUrl] = useState("");
   const [httpMethod, setHttpMethod] = useState<HttpMethod>("GET");
-  const [httpHeaders, setHttpHeaders] = useState("");
-  const [httpBody, setHttpBody] = useState("");
+  const [headerFields, setHeaderFields] = useState<HeaderField[]>([]);
+  const [bodyFields, setBodyFields] = useState<BodyField[]>([]);
   const [parameters, setParameters] = useState<Parameter[]>([]);
 
   const resetForm = () => {
@@ -98,8 +113,8 @@ export function ToolsManager({
     setSearchApiKey("");
     setHttpUrl("");
     setHttpMethod("GET");
-    setHttpHeaders("");
-    setHttpBody("");
+    setHeaderFields([]);
+    setBodyFields([]);
     setParameters([]);
   };
 
@@ -142,34 +157,48 @@ export function ToolsManager({
       const required: string[] = [];
 
       parameters.forEach((param) => {
-        properties[param.name] = {
-          type: param.type,
-          description: param.description,
-        };
+        if (param.type === "array") {
+          properties[param.name] = {
+            type: "array",
+            items: {
+              type: param.arrayItemType || "string",
+            },
+            description: param.description,
+          };
+        } else {
+          properties[param.name] = {
+            type: param.type,
+            description: param.description,
+          };
+        }
         if (param.required) {
           required.push(param.name);
         }
       });
 
-      // Parse headers if provided
-      let headers: Record<string, string> = {};
-      if (httpHeaders.trim()) {
-        try {
-          headers = JSON.parse(httpHeaders);
-        } catch {
-          // Invalid JSON, ignore headers
+      // Build headers from header fields
+      const headers: Record<string, string> = {};
+      headerFields.forEach((field) => {
+        if (field.key.trim() && field.value.trim()) {
+          headers[field.key] = field.value;
         }
-      }
+      });
 
-      // Parse body if provided
-      let body: any;
-      if (httpBody.trim()) {
-        try {
-          body = JSON.parse(httpBody);
-        } catch {
-          // Invalid JSON, treat as string
-          body = httpBody;
-        }
+      // Build body from body fields
+      let body: any = null;
+      if (bodyFields.length > 0) {
+        body = {};
+        bodyFields.forEach((field) => {
+          if (field.key.trim()) {
+            let value: any = field.value;
+            if (field.type === "number") {
+              value = Number(field.value) || 0;
+            } else if (field.type === "boolean") {
+              value = field.value.toLowerCase() === "true";
+            }
+            body[field.key] = value;
+          }
+        });
       }
 
       const toolInput: components["schemas"]["ToolInput"] = {
@@ -211,6 +240,7 @@ export function ToolsManager({
         id: crypto.randomUUID(),
         name: "",
         type: "string",
+        arrayItemType: undefined,
         description: "",
         required: false,
       },
@@ -231,14 +261,78 @@ export function ToolsManager({
     setParameters(parameters.filter((_, i) => i !== index));
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const addHeaderField = () => {
+    setHeaderFields([
+      ...headerFields,
+      { id: crypto.randomUUID(), key: "", value: "" },
+    ]);
+  };
+
+  const updateHeaderField = (
+    index: number,
+    field: keyof HeaderField,
+    value: string,
+  ) => {
+    const updated = [...headerFields];
+    updated[index] = { ...updated[index], [field]: value };
+    setHeaderFields(updated);
+  };
+
+  const removeHeaderField = (index: number) => {
+    setHeaderFields(headerFields.filter((_, i) => i !== index));
+  };
+
+  const addBodyField = () => {
+    setBodyFields([
+      ...bodyFields,
+      { id: crypto.randomUUID(), key: "", value: "", type: "string" },
+    ]);
+  };
+
+  const updateBodyField = (
+    index: number,
+    field: keyof BodyField,
+    value: any,
+  ) => {
+    const updated = [...bodyFields];
+    updated[index] = { ...updated[index], [field]: value };
+    setBodyFields(updated);
+  };
+
+  const removeBodyField = (index: number) => {
+    setBodyFields(bodyFields.filter((_, i) => i !== index));
+  };
+
+  const generateJsonSchema = () => {
+    const properties: Record<string, any> = {};
+    const required: string[] = [];
+
+    parameters.forEach((param) => {
+      if (param.type === "array") {
+        properties[param.name] = {
+          type: "array",
+          items: {
+            type: param.arrayItemType || "string",
+          },
+          description: param.description,
+        };
+      } else {
+        properties[param.name] = {
+          type: param.type,
+          description: param.description,
+        };
+      }
+      if (param.required) {
+        required.push(param.name);
+      }
     });
+
+    return {
+      type: "object",
+      properties,
+      required: required.length > 0 ? required : undefined,
+      additionalProperties: false,
+    };
   };
 
   const getToolIcon = (tool: components["schemas"]["ChatRsTool"]) => {
@@ -423,22 +517,110 @@ export function ToolsManager({
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="http-headers">Headers (JSON)</Label>
-                    <Textarea
-                      id="http-headers"
-                      placeholder='{"Content-Type": "application/json"}'
-                      value={httpHeaders}
-                      onChange={(e) => setHttpHeaders(e.target.value)}
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label>Headers</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addHeaderField}
+                      >
+                        <Plus className="size-3" />
+                        Add Header
+                      </Button>
+                    </div>
+                    {headerFields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="flex items-center gap-2 border rounded-lg p-2"
+                      >
+                        <Input
+                          className="max-w-36"
+                          placeholder="Name"
+                          value={field.key}
+                          onChange={(e) =>
+                            updateHeaderField(index, "key", e.target.value)
+                          }
+                        />
+                        <Input
+                          placeholder="Value (use $param for parameters)"
+                          value={field.value}
+                          onChange={(e) =>
+                            updateHeaderField(index, "value", e.target.value)
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeHeaderField(index)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="http-body">Body Template (JSON)</Label>
-                    <Textarea
-                      id="http-body"
-                      placeholder='{"key": "${param_name}"}'
-                      value={httpBody}
-                      onChange={(e) => setHttpBody(e.target.value)}
-                    />
+                    <div className="flex items-center justify-between">
+                      <Label>Body</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addBodyField}
+                      >
+                        <Plus className="size-3" />
+                        Add Field
+                      </Button>
+                    </div>
+                    {bodyFields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="border rounded-lg p-2 space-y-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Field name"
+                            value={field.key}
+                            onChange={(e) =>
+                              updateBodyField(index, "key", e.target.value)
+                            }
+                          />
+                          <Select
+                            value={field.type}
+                            onValueChange={(value: ParameterType) =>
+                              updateBodyField(index, "type", value)
+                            }
+                          >
+                            <SelectTrigger className="w-48">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="string">
+                                String/Replace
+                              </SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
+                              <SelectItem value="boolean">Boolean</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeBodyField(index)}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                        <Input
+                          placeholder={`Field value${field.type === "string" ? " (use $param for parameters)" : ""}`}
+                          value={field.value}
+                          onChange={(e) =>
+                            updateBodyField(index, "value", e.target.value)
+                          }
+                        />
+                      </div>
+                    ))}
                   </div>
 
                   {/* Parameters */}
@@ -451,7 +633,7 @@ export function ToolsManager({
                         size="sm"
                         onClick={addParameter}
                       >
-                        <Plus className="size-3 mr-1" />
+                        <Plus className="size-3" />
                         Add Parameter
                       </Button>
                     </div>
@@ -483,7 +665,7 @@ export function ToolsManager({
                           />
                           <Select
                             value={param.type}
-                            onValueChange={(value: ParameterType) =>
+                            onValueChange={(value: ExtendedParameterType) =>
                               updateParameter(index, "type", value)
                             }
                           >
@@ -498,6 +680,26 @@ export function ToolsManager({
                             </SelectContent>
                           </Select>
                         </div>
+                        {param.type === "array" && (
+                          <div className="grid gap-2">
+                            <Label className="text-sm">Array Item Type</Label>
+                            <Select
+                              value={param.arrayItemType || "string"}
+                              onValueChange={(value: ParameterType) =>
+                                updateParameter(index, "arrayItemType", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="string">String</SelectItem>
+                                <SelectItem value="number">Number</SelectItem>
+                                <SelectItem value="boolean">Boolean</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <Input
                           placeholder="Description"
                           value={param.description}
@@ -532,6 +734,18 @@ export function ToolsManager({
                       </div>
                     ))}
                   </div>
+
+                  {/* JSON Schema Preview */}
+                  {parameters.length > 0 && (
+                    <div className="grid gap-2">
+                      <Label>JSON Schema Preview</Label>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <pre className="text-xs overflow-auto">
+                          {JSON.stringify(generateJsonSchema(), null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
