@@ -9,6 +9,7 @@ import {
   getChatSession,
   useGetChatSession,
 } from "@/lib/api/session";
+import { useTools } from "@/lib/api/tool";
 import { useStreamingChats } from "@/lib/context/StreamingContext";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
@@ -36,6 +37,7 @@ function RouteComponent() {
   const { user } = Route.useRouteContext();
   const { sessionId } = Route.useParams();
   const { data } = useGetChatSession(sessionId);
+  const { data: tools } = useTools();
   const { streamedChats, onUserSubmit } = useStreamingChats();
 
   return (
@@ -43,6 +45,7 @@ function RouteComponent() {
       <ChatMessages
         user={user}
         messages={data?.messages || []}
+        tools={tools}
         sessionId={sessionId}
         error={streamedChats[sessionId]?.error}
         streamedResponse={streamedChats[sessionId]?.content}

@@ -22,6 +22,7 @@ interface Props {
   isCompleted: boolean;
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
+  tools?: Array<components["schemas"]["ChatRsTool"]>;
   streamedResponse?: string;
   error?: string;
   sessionId?: string;
@@ -38,6 +39,7 @@ const proseAssistantClasses =
 export default function ChatMessages({
   user,
   messages,
+  tools,
   sessionId,
   isGenerating,
   isCompleted,
@@ -115,6 +117,7 @@ export default function ChatMessages({
                   {message.meta.tool_calls && (
                     <ChatMessageToolCalls
                       messages={messages}
+                      tools={tools}
                       toolCalls={message.meta.tool_calls}
                       onExecuteAll={() =>
                         executeAllToolCalls.mutate({ messageId: message.id })
@@ -188,8 +191,6 @@ export default function ChatMessages({
   );
 }
 
-function formatToolResponse(
-  message: components["schemas"]["ChatRsMessage"],
-): unknown {
-  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`text\n${message.content}\n\`\`\``;
+function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
+  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${message.content}\n\`\`\``;
 }

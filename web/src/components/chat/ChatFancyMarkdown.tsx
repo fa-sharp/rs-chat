@@ -81,7 +81,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
           <Copy className="size-4" />
         )}
       </Button>
-      <pre ref={ref} className="text-xs md:text-sm overflow-x-auto">
+      <pre ref={ref} className="text-xs md:text-sm overflow-x-auto rounded-md">
         {children}
       </pre>
     </div>

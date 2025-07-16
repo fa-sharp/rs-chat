@@ -3,11 +3,13 @@ import { Suspense, useState } from "react";
 
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { getToolIcon, getToolTypeLabel } from "../ToolsManager";
 import { Button } from "../ui/button";
 import ChatFancyMarkdown from "./ChatFancyMarkdown";
 
 export default function ChatMessageToolCalls({
   messages,
+  tools,
   toolCalls,
   onExecuteAll,
   isExecuting,
@@ -15,6 +17,7 @@ export default function ChatMessageToolCalls({
   messages: components["schemas"]["ChatRsMessage"][];
   isExecuting: boolean;
   onExecuteAll: () => void;
+  tools?: components["schemas"]["ChatRsTool"][];
   toolCalls: components["schemas"]["ChatRsMessage"]["meta"]["tool_calls"];
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -37,51 +40,16 @@ export default function ChatMessageToolCalls({
         </Button>
       </h3>
       <div className={cn("flex flex-col", expanded && "gap-2")}>
-        {!expanded
-          ? toolCalls.map((toolCall) => (
-              <div key={toolCall.id} className="flex gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="font-semibold">{toolCall.tool_name}</div>
-                  {!messages.some(
-                    (m) => m.meta.executed_tool_call?.id === toolCall.id,
-                  ) && (
-                    <Button size="sm" disabled={isExecuting}>
-                      <PlayCircle />
-                      Execute
-                    </Button>
-                  )}
-                </div>
-                <pre className="text-nowrap">
-                  {JSON.stringify(toolCall.parameters)}
-                </pre>
-              </div>
-            ))
-          : toolCalls.map((toolCall) => (
-              <div key={toolCall.id}>
-                <div className="flex items-center gap-2">
-                  <div className="font-semibold">{toolCall.tool_name}</div>
-                  {!messages.some(
-                    (m) => m.meta.executed_tool_call?.id === toolCall.id,
-                  ) && (
-                    <Button size="sm" disabled={isExecuting}>
-                      <PlayCircle />
-                      Execute
-                    </Button>
-                  )}
-                </div>
-                <div className="text-muted-foreground">
-                  Tool call ID: {toolCall.id}
-                </div>
-                <div className="text-muted-foreground">
-                  Tool ID: {toolCall.tool_id}
-                </div>
-                <Suspense fallback={<div>Loading...</div>}>
-                  <ChatFancyMarkdown>
-                    {`\`\`\`json\n${JSON.stringify(toolCall.parameters, null, 2)}\n\`\`\``}
-                  </ChatFancyMarkdown>
-                </Suspense>
-              </div>
-            ))}
+        {toolCalls.map((toolCall) => (
+          <ChatMessageToolCall
+            key={toolCall.id}
+            toolCall={toolCall}
+            messages={messages}
+            tools={tools}
+            expanded={expanded}
+            isExecuting={isExecuting}
+          />
+        ))}
         {!toolCalls.some((toolCall) =>
           messages.some((m) => m.meta.executed_tool_call?.id === toolCall.id),
         ) && (
@@ -92,6 +60,73 @@ export default function ChatMessageToolCalls({
             </Button>
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ChatMessageToolCall({
+  toolCall,
+  messages,
+  tools,
+  expanded,
+  isExecuting,
+}: {
+  toolCall: NonNullable<
+    components["schemas"]["ChatRsMessage"]["meta"]["tool_calls"]
+  >[number];
+  messages: components["schemas"]["ChatRsMessage"][];
+  tools?: components["schemas"]["ChatRsTool"][];
+  isExecuting: boolean;
+  expanded: boolean;
+}) {
+  const tool = tools?.find((tool) => tool.id === toolCall.tool_id);
+
+  return !expanded ? (
+    <div className="flex gap-2">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 font-semibold">
+          {tool && getToolIcon(tool)}
+          {toolCall.tool_name}
+        </div>
+        {!messages.some(
+          (m) => m.meta.executed_tool_call?.id === toolCall.id,
+        ) && (
+          <Button size="sm" disabled={isExecuting}>
+            <PlayCircle />
+            Execute
+          </Button>
+        )}
+      </div>
+      <pre className="text-nowrap">{JSON.stringify(toolCall.parameters)}</pre>
+    </div>
+  ) : (
+    <div key={toolCall.id}>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 font-semibold">
+          {tool && getToolIcon(tool)}
+          {tool && `${getToolTypeLabel(tool)}: `}
+          {toolCall.tool_name}
+        </div>
+        {!messages.some(
+          (m) => m.meta.executed_tool_call?.id === toolCall.id,
+        ) && (
+          <Button size="sm" disabled={isExecuting}>
+            <PlayCircle />
+            Execute
+          </Button>
+        )}
+      </div>
+      <Suspense fallback={<div>Loading...</div>}>
+        <ChatFancyMarkdown>
+          {`\`\`\`json\n${JSON.stringify(toolCall.parameters, null, 2)}\n\`\`\``}
+        </ChatFancyMarkdown>
+      </Suspense>
+      <div className="text-sm text-muted-foreground">
+        Tool call ID: {toolCall.id}
+      </div>
+      <div className="text-sm text-muted-foreground">
+        Tool ID: {toolCall.tool_id}
       </div>
     </div>
   );

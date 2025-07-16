@@ -77,6 +77,20 @@ const WEB_SEARCH_PROVIDERS = [
   { value: "exa", label: "Exa" },
 ] as const;
 
+export const getToolIcon = (tool: components["schemas"]["ChatRsTool"]) => {
+  if (tool.config.type === "Http") {
+    return <Wrench className="size-5" aria-hidden />;
+  }
+  return <Globe className="size-5" aria-hidden />;
+};
+
+export const getToolTypeLabel = (tool: components["schemas"]["ChatRsTool"]) => {
+  if (tool.config.type === "Http") {
+    return "HTTP Request";
+  }
+  return "Web Search";
+};
+
 export function ToolsManager({
   className,
   ...props
@@ -333,20 +347,6 @@ export function ToolsManager({
       required: required.length > 0 ? required : undefined,
       additionalProperties: false,
     };
-  };
-
-  const getToolIcon = (tool: components["schemas"]["ChatRsTool"]) => {
-    if (tool.config.type === "Http") {
-      return <Wrench className="size-5" />;
-    }
-    return <Globe className="size-5" />;
-  };
-
-  const getToolTypeLabel = (tool: components["schemas"]["ChatRsTool"]) => {
-    if (tool.config.type === "Http") {
-      return "HTTP Request";
-    }
-    return "Web Search";
   };
 
   return (
