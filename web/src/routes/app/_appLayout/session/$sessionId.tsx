@@ -62,6 +62,7 @@ function RouteComponent() {
               (m) => m.role === "Assistant" && !!m.meta.provider_config,
             )?.meta.provider_config
           }
+          shouldSubmitWithoutMessage={data?.messages.at(-1)?.role === "Tool"}
         />
       </div>
     </div>

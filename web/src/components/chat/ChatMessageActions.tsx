@@ -1,3 +1,4 @@
+import type { VariantProps } from "class-variance-authority";
 import {
   AlertCircle,
   AlertTriangle,
@@ -20,10 +21,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { components } from "@/lib/api/types";
+import type { buttonVariants } from "../ui/button";
 import { ChatBubbleAction } from "../ui/chat/chat-bubble";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
-export function CopyButton({ message }: { message: string }) {
+export function CopyButton({
+  message,
+  variant = "ghost",
+}: {
+  message: string;
+  variant?: VariantProps<typeof buttonVariants>["variant"];
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleClick = async () => {
@@ -39,7 +47,7 @@ export function CopyButton({ message }: { message: string }) {
   return (
     <ChatBubbleAction
       aria-label="Copy message"
-      variant="ghost"
+      variant={variant}
       className="size-5"
       icon={
         copied ? (
@@ -53,7 +61,13 @@ export function CopyButton({ message }: { message: string }) {
   );
 }
 
-export function DeleteButton({ onDelete }: { onDelete: () => void }) {
+export function DeleteButton({
+  onDelete,
+  variant = "ghost",
+}: {
+  onDelete: () => void;
+  variant?: VariantProps<typeof buttonVariants>["variant"];
+}) {
   const onSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
     onDelete();
@@ -64,7 +78,7 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
       <AlertDialogTrigger asChild>
         <ChatBubbleAction
           aria-label="Delete message"
-          variant="ghost"
+          variant={variant}
           className="size-5"
           icon={<Trash2 className="size-4" />}
         />
@@ -96,8 +110,8 @@ export function InfoButton({
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
 }) {
-  const { provider, model, usage, temperature, maxTokens, interrupted } =
-    useMessageMeta(meta);
+  const { provider, model, temperature, maxTokens } = useMessageMeta(meta);
+  const { interrupted, usage } = meta;
 
   return (
     <Popover>
@@ -199,13 +213,5 @@ function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
     return {};
   }, [meta]);
 
-  const mergedMeta = useMemo(() => {
-    return {
-      ...providerSpecificMeta,
-      interrupted: !!meta.interrupted,
-      usage: meta.usage,
-    };
-  }, [providerSpecificMeta, meta]);
-
-  return mergedMeta;
+  return providerSpecificMeta;
 }

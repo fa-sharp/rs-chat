@@ -18,6 +18,7 @@ interface Props {
   providerConfig?: components["schemas"]["ProviderConfigInput"] | null;
   isGenerating: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
+  shouldSubmitWithoutMessage?: boolean;
 }
 
 /** Handles submitting the user message, and the current provider and model selection */
@@ -100,7 +101,7 @@ export default function ChatMessageInput(props: Props) {
           size="sm"
           className="ml-auto gap-1.5 flex items-center"
         >
-          Send Message
+          {!props.shouldSubmitWithoutMessage ? "Send Message" : "Submit"}
           {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
           <CornerDownLeft className="size-3.5" />
         </Button>
@@ -117,6 +118,7 @@ const useChatMessageInputState = ({
   providerConfig,
   isGenerating,
   onSubmit,
+  shouldSubmitWithoutMessage,
 }: Props) => {
   const [provider, setProvider] = useState<ProviderKey | undefined>();
   const [model, setModel] = useState("");
@@ -164,7 +166,10 @@ const useChatMessageInputState = ({
   );
 
   const onSubmitUserMessage = useCallback(() => {
-    if (isGenerating || !inputRef.current?.value) {
+    if (
+      isGenerating ||
+      (!inputRef.current?.value && !shouldSubmitWithoutMessage)
+    ) {
       return;
     }
     if (!model && provider !== "Lorem") {
@@ -173,13 +178,17 @@ const useChatMessageInputState = ({
     }
     setError("");
 
+    const message = shouldSubmitWithoutMessage
+      ? undefined
+      : inputRef.current?.value;
+
     switch (provider) {
       case undefined:
         setError("Must select a provider");
         break;
       case "OpenAI":
         onSubmit({
-          message: inputRef.current.value,
+          message,
           provider: {
             OpenAI: {
               model,
@@ -191,7 +200,7 @@ const useChatMessageInputState = ({
         break;
       case "Anthropic":
         onSubmit({
-          message: inputRef.current.value,
+          message,
           provider: {
             Anthropic: {
               model,
@@ -203,7 +212,7 @@ const useChatMessageInputState = ({
         break;
       case "OpenRouter":
         onSubmit({
-          message: inputRef.current.value,
+          message,
           provider: {
             OpenRouter: {
               model,
@@ -215,13 +224,21 @@ const useChatMessageInputState = ({
         break;
       case "Lorem":
         onSubmit({
-          message: inputRef.current.value,
+          message,
           provider,
         });
         break;
     }
     formRef.current?.reset();
-  }, [provider, model, temperature, maxTokens, onSubmit, isGenerating]);
+  }, [
+    provider,
+    model,
+    temperature,
+    maxTokens,
+    onSubmit,
+    isGenerating,
+    shouldSubmitWithoutMessage,
+  ]);
 
   return {
     provider,

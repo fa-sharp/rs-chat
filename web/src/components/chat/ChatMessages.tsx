@@ -1,10 +1,13 @@
+import { PlayCircle } from "lucide-react";
 import React, { Suspense, useCallback, useEffect } from "react";
 import Markdown from "react-markdown";
 
 import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import { useDeleteChatMessage } from "@/lib/api/session";
+import { useExecuteAllTools, useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
+import { Button } from "../ui/button";
 import {
   ChatBubble,
   ChatBubbleAvatar,
@@ -63,6 +66,9 @@ export default function ChatMessages({
     [deleteMessage, sessionId],
   );
 
+  const executeToolCall = useExecuteTool();
+  const executeAllToolCalls = useExecuteAllTools();
+
   return (
     <ChatMessageList>
       {messages
@@ -78,7 +84,13 @@ export default function ChatMessages({
           >
             <ChatBubbleAvatar
               src={(message.role === "User" && user?.avatar_url) || undefined}
-              fallback={message.role === "User" ? "🧑🏽‍💻" : "🤖"}
+              fallback={
+                message.role === "User"
+                  ? "🧑🏽‍💻"
+                  : message.role === "Tool"
+                    ? "🔧"
+                    : "🤖"
+              }
             />
             <ChatBubbleMessage
               className={cn(
@@ -88,13 +100,85 @@ export default function ChatMessages({
               )}
             >
               <Suspense fallback={<Markdown>{message.content}</Markdown>}>
-                <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
+                <ChatFancyMarkdown>
+                  {message.role === "Tool"
+                    ? `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`\n${message.content}\n\`\`\``
+                    : message.content}
+                </ChatFancyMarkdown>
               </Suspense>
               {message.role === "Assistant" && (
+                <>
+                  {message.meta.tool_calls && (
+                    <div>
+                      <h3>Tools Requested</h3>
+                      {message.meta.tool_calls.map((toolCall) => (
+                        <div key={toolCall.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="text-lg">{toolCall.tool_name}</div>
+                            {!messages.some(
+                              (m) =>
+                                m.meta.executed_tool_call?.id === toolCall.id,
+                            ) && (
+                              <Button
+                                size="sm"
+                                disabled={
+                                  executeToolCall.isPending ||
+                                  executeAllToolCalls.isPending
+                                }
+                              >
+                                <PlayCircle />
+                                Execute
+                              </Button>
+                            )}
+                          </div>
+                          <p>
+                            Input:{" "}
+                            <code>{JSON.stringify(toolCall.parameters)}</code>
+                          </p>
+                        </div>
+                      ))}
+                      {!message.meta.tool_calls.some((toolCall) =>
+                        messages.some(
+                          (m) => m.meta.executed_tool_call?.id === toolCall.id,
+                        ),
+                      ) && (
+                        <p>
+                          <Button
+                            onClick={() =>
+                              executeAllToolCalls.mutate({
+                                messageId: message.id,
+                              })
+                            }
+                            disabled={
+                              executeToolCall.isPending ||
+                              executeAllToolCalls.isPending
+                            }
+                          >
+                            <PlayCircle />
+                            {executeAllToolCalls.isPending
+                              ? "Executing..."
+                              : "Execute All"}
+                          </Button>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                    <InfoButton meta={message.meta} />
+                    <CopyButton message={message.content} />
+                    <DeleteButton
+                      onDelete={() => onDeleteMessage(message.id)}
+                    />
+                  </div>
+                </>
+              )}
+              {message.role === "User" && (
                 <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                  <InfoButton meta={message.meta} />
-                  <CopyButton message={message.content} />
-                  <DeleteButton onDelete={() => onDeleteMessage(message.id)} />
+                  <CopyButton message={message.content} variant="default" />
+                  <DeleteButton
+                    onDelete={() => onDeleteMessage(message.id)}
+                    variant="default"
+                  />
                 </div>
               )}
             </ChatBubbleMessage>
