@@ -36,6 +36,11 @@ impl HttpRequestBuilder {
         Ok(self)
     }
 
+    pub fn headers(mut self, headers: HeaderMap) -> Self {
+        self.headers.extend(headers);
+        self
+    }
+
     pub fn body(mut self, body: String) -> Self {
         self.body = Some(body);
         self

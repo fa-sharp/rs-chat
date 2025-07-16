@@ -4,11 +4,28 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use subst::VariableMap;
 
 use crate::tools::{
-    validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
+    utils::http_request_builder::HttpRequestBuilder, validate_json_schema, Tool, ToolError,
+    ToolJsonSchema, ToolParameters, ToolResult,
 };
+
+/// Wrapper to make our parameters work with subst
+struct ParameterMap<'a>(&'a ToolParameters);
+
+impl<'a> VariableMap<'_> for ParameterMap<'a> {
+    type Value = String;
+
+    fn get(&self, key: &str) -> Option<Self::Value> {
+        self.0.get(key).map(|value| match value {
+            serde_json::Value::String(s) => s.clone(),
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::Bool(b) => b.to_string(),
+            _ => serde_json::to_string(value).unwrap_or_default(),
+        })
+    }
+}
 
 /// Tool that sends HTTP requests
 pub struct HttpRequestTool<'a> {
@@ -55,11 +72,6 @@ impl Tool for HttpRequestTool<'_> {
         let body = self.build_body(parameters, &self.config.body)?;
 
         // Execute the HTTP request
-        rocket::info!(
-            "HTTP Request Tool: executing {} {}",
-            self.config.method,
-            self.config.url
-        );
         let response = self
             .execute_request(&self.config.method, &url, headers, body)
             .await?;
@@ -78,16 +90,17 @@ impl<'a> HttpRequestTool<'a> {
     }
 
     fn build_url(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
-        let mut url = self.substitute_placeholders(&self.config.url, parameters);
+        let param_map = ParameterMap(parameters);
+        let url = subst::substitute(&self.config.url, &param_map)
+            .map_err(|e| ToolError::FormattingError(format!("URL templating failed: {}", e)))?;
 
         let query_params = self.build_query_params(parameters)?;
         if !query_params.is_empty() {
             let separator = if url.contains('?') { "&" } else { "?" };
-            url.push_str(separator);
-            url.push_str(&query_params);
+            Ok(format!("{}{}{}", url, separator, query_params))
+        } else {
+            Ok(url)
         }
-
-        Ok(url)
     }
 
     fn build_headers(&self, parameters: &ToolParameters) -> Result<HeaderMap, ToolError> {
@@ -98,8 +111,13 @@ impl<'a> HttpRequestTool<'a> {
         );
 
         if let Some(header_mapping) = &self.config.headers {
+            let param_map = ParameterMap(parameters);
+
             for (key, template) in header_mapping {
-                let value = self.substitute_placeholders(template, parameters);
+                let value = subst::substitute(template, &param_map).map_err(|e| {
+                    ToolError::FormattingError(format!("Header templating failed: {}", e))
+                })?;
+
                 if !value.is_empty() {
                     let header_name = HeaderName::from_str(key).map_err(|_| {
                         ToolError::FormattingError(format!("Invalid header name: {}", key))
@@ -118,16 +136,21 @@ impl<'a> HttpRequestTool<'a> {
     fn build_body(
         &self,
         parameters: &ToolParameters,
-        body_mapping: &Option<serde_json::Value>,
+        body_template: &Option<serde_json::Value>,
     ) -> Result<Option<String>, ToolError> {
-        if let Some(body_template) = body_mapping {
-            match body_template {
-                Value::Object(_) | Value::Array(_) | Value::String(_) => {
-                    let mapped_body = self.map_object_template(body_template, parameters)?;
-                    Ok(Some(serde_json::to_string(&mapped_body)?))
-                }
-                _ => Ok(Some(serde_json::to_string(body_template)?)),
-            }
+        if let Some(template) = body_template {
+            // First pass: direct value injection for exact parameter matches
+            let mut with_direct_injection = self.apply_direct_injection(template, parameters)?;
+
+            // Second pass: string substitution for partial matches
+            let param_map = ParameterMap(parameters);
+            let final_result =
+                subst::json::substitute_string_values(&mut with_direct_injection, &param_map)
+                    .map_err(|e| {
+                        ToolError::FormattingError(format!("Body templating failed: {}", e))
+                    })?;
+
+            Ok(Some(serde_json::to_string(&final_result)?))
         } else {
             Ok(None)
         }
@@ -137,8 +160,13 @@ impl<'a> HttpRequestTool<'a> {
         let mut query_parts = Vec::new();
 
         if let Some(query_mapping) = &self.config.query {
+            let param_map = ParameterMap(parameters);
+
             for (key, template) in query_mapping {
-                let substituted = self.substitute_placeholders(template, parameters);
+                let substituted = subst::substitute(template, &param_map).map_err(|e| {
+                    ToolError::FormattingError(format!("Query templating failed: {}", e))
+                })?;
+
                 if !substituted.is_empty() {
                     query_parts.push(format!(
                         "{}={}",
@@ -152,46 +180,41 @@ impl<'a> HttpRequestTool<'a> {
         Ok(query_parts.join("&"))
     }
 
-    fn substitute_placeholders(&self, template: &str, parameters: &ToolParameters) -> String {
-        let mut result = template.to_string();
-
-        for (key, value) in parameters {
-            let placeholder = format!("{{{{{}}}}}", key);
-            let replacement = match value {
-                Value::String(s) => s.clone(),
-                Value::Number(n) => n.to_string(),
-                Value::Bool(b) => b.to_string(),
-                _ => serde_json::to_string(value).unwrap_or_default(),
-            };
-            result = result.replace(&placeholder, &replacement);
-        }
-
-        result
-    }
-
-    fn map_object_template(
+    fn apply_direct_injection(
         &self,
-        template: &Value,
+        template: &serde_json::Value,
         parameters: &ToolParameters,
-    ) -> Result<Value, ToolError> {
+    ) -> Result<serde_json::Value, ToolError> {
         match template {
-            Value::Object(obj) => {
+            serde_json::Value::Object(obj) => {
                 let mut result = serde_json::Map::new();
                 for (key, value) in obj {
-                    result.insert(key.clone(), self.map_object_template(value, parameters)?);
+                    result.insert(key.clone(), self.apply_direct_injection(value, parameters)?);
                 }
-                Ok(Value::Object(result))
+                Ok(serde_json::Value::Object(result))
             }
-            Value::Array(arr) => {
+            serde_json::Value::Array(arr) => {
                 let mut result = Vec::new();
                 for item in arr {
-                    result.push(self.map_object_template(item, parameters)?);
+                    result.push(self.apply_direct_injection(item, parameters)?);
                 }
-                Ok(Value::Array(result))
+                Ok(serde_json::Value::Array(result))
             }
-            Value::String(s) => {
-                let substituted = self.substitute_placeholders(s, parameters);
-                Ok(Value::String(substituted))
+            serde_json::Value::String(s) => {
+                // Check if this is an exact parameter reference for direct injection
+                if let Some(param_name) = s.strip_prefix('$').filter(|name| {
+                    // Only do direct injection if it's the entire string (no other text)
+                    name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                }) {
+                    // Direct value injection - use the parameter value as-is
+                    Ok(parameters
+                        .get(param_name)
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null))
+                } else {
+                    // Keep as string for later substitution by subst
+                    Ok(template.clone())
+                }
             }
             _ => Ok(template.clone()),
         }
@@ -204,43 +227,11 @@ impl<'a> HttpRequestTool<'a> {
         headers: reqwest::header::HeaderMap,
         body: Option<String>,
     ) -> Result<String, ToolError> {
-        let request_builder = match method.to_uppercase().as_str() {
-            "GET" => self.http_client.get(url),
-            "POST" => self.http_client.post(url),
-            "PUT" => self.http_client.put(url),
-            "DELETE" => self.http_client.delete(url),
-            "PATCH" => self.http_client.patch(url),
-            _ => {
-                return Err(ToolError::FormattingError(format!(
-                    "Unsupported HTTP method: {}",
-                    method
-                )))
-            }
-        };
-
-        let mut request = request_builder.headers(headers);
-
+        let mut request = HttpRequestBuilder::new(method, url).headers(headers);
         if let Some(body_content) = body {
             request = request.body(body_content);
         }
-
-        let response = request
-            .send()
-            .await
-            .map_err(|e| ToolError::ToolExecutionError(format!("HTTP request failed: {}", e)))?;
-
-        let status = response.status();
-        let response_text = response.text().await.map_err(|e| {
-            ToolError::ToolExecutionError(format!("Failed to read HTTP response: {}", e))
-        })?;
-
-        if status.is_success() {
-            Ok(response_text)
-        } else {
-            Err(ToolError::ToolExecutionError(format!(
-                "HTTP request failed with status {}: {}",
-                status, response_text
-            )))
-        }
+        let response = request.send(&self.http_client).await?;
+        Ok(response)
     }
 }
