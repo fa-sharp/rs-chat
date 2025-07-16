@@ -52,17 +52,17 @@ pub trait Tool: Send + Sync {
 
 /// JSON schema for tool input parameters
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub(super) struct ToolJsonSchema {
-    r#type: ToolJsonSchemaType,
-    properties: HashMap<String, serde_json::Value>,
+pub struct ToolJsonSchema {
+    pub r#type: ToolJsonSchemaType,
+    pub properties: HashMap<String, serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    required: Option<Vec<String>>,
+    pub required: Option<Vec<String>>,
     #[serde(rename = "additionalProperties")]
-    additional_properties: Option<bool>,
+    pub additional_properties: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
-enum ToolJsonSchemaType {
+pub enum ToolJsonSchemaType {
     #[serde(rename = "object")]
     Object,
 }

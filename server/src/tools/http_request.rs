@@ -140,17 +140,15 @@ impl<'a> HttpRequestTool<'a> {
     ) -> Result<Option<String>, ToolError> {
         if let Some(template) = body_template {
             // First pass: direct value injection for exact parameter matches
-            let mut with_direct_injection = self.apply_direct_injection(template, parameters)?;
+            let mut body = self.apply_direct_injection(template, parameters)?;
 
             // Second pass: string substitution for partial matches
             let param_map = ParameterMap(parameters);
-            let final_result =
-                subst::json::substitute_string_values(&mut with_direct_injection, &param_map)
-                    .map_err(|e| {
-                        ToolError::FormattingError(format!("Body templating failed: {}", e))
-                    })?;
+            subst::json::substitute_string_values(&mut body, &param_map).map_err(|e| {
+                ToolError::FormattingError(format!("Body templating failed: {}", e))
+            })?;
 
-            Ok(Some(serde_json::to_string(&final_result)?))
+            Ok(Some(serde_json::to_string(&body)?))
         } else {
             Ok(None)
         }
@@ -233,5 +231,144 @@ impl<'a> HttpRequestTool<'a> {
         }
         let response = request.send(&self.http_client).await?;
         Ok(response)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tools::core::ToolJsonSchemaType;
+
+    use super::*;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    fn create_test_parameters() -> ToolParameters {
+        let mut params = HashMap::new();
+        params.insert("user_id".to_string(), json!("123"));
+        params.insert("name".to_string(), json!("John"));
+        params.insert("tags".to_string(), json!(["admin", "user"]));
+        params.insert("count".to_string(), json!(42));
+        params.insert("enabled".to_string(), json!(true));
+        params
+    }
+
+    #[test]
+    fn test_direct_injection() {
+        let config = HttpRequestConfig {
+            input_schema: ToolJsonSchema {
+                r#type: ToolJsonSchemaType::Object,
+                properties: HashMap::new(),
+                required: None,
+                additional_properties: Some(false),
+            },
+            url: "https://api.example.com".to_string(),
+            method: "POST".to_string(),
+            query: None,
+            body: Some(json!({
+                "user": "$user_id",
+                "tags": "$tags",
+                "count": "$count",
+                "enabled": "$enabled"
+            })),
+            headers: None,
+        };
+
+        let client = reqwest::Client::new();
+        let tool = HttpRequestTool::new(&client, &config);
+        let params = create_test_parameters();
+
+        let result = tool
+            .apply_direct_injection(&config.body.as_ref().unwrap(), &params)
+            .unwrap();
+
+        assert_eq!(result["user"], json!("123"));
+        assert_eq!(result["tags"], json!(["admin", "user"]));
+        assert_eq!(result["count"], json!(42));
+        assert_eq!(result["enabled"], json!(true));
+    }
+
+    #[test]
+    fn test_string_templating() {
+        let config = HttpRequestConfig {
+            input_schema: ToolJsonSchema {
+                r#type: crate::tools::core::ToolJsonSchemaType::Object,
+                properties: HashMap::new(),
+                required: None,
+                additional_properties: Some(false),
+            },
+            url: "https://api.example.com/users/${user_id}".to_string(),
+            method: "GET".to_string(),
+            query: None,
+            body: Some(json!({
+                "message": "Hello ${name}!",
+                "info": "User ${user_id} has ${count} items"
+            })),
+            headers: Some({
+                let mut headers = HashMap::new();
+                headers.insert("Authorization".to_string(), "Bearer ${token}".to_string());
+                headers
+            }),
+        };
+
+        let mut params = create_test_parameters();
+        params.insert("token".to_string(), json!("abc123"));
+
+        let client = reqwest::Client::new();
+        let tool = HttpRequestTool::new(&client, &config);
+
+        // Test URL templating
+        let url = tool.build_url(&params).unwrap();
+        assert_eq!(url, "https://api.example.com/users/123");
+
+        // Test headers templating
+        let headers = tool.build_headers(&params).unwrap();
+        assert_eq!(headers["Authorization"], "Bearer abc123");
+
+        // Test body templating (after direct injection)
+        let mut body = tool
+            .apply_direct_injection(&config.body.as_ref().unwrap(), &params)
+            .unwrap();
+        let param_map = ParameterMap(&params);
+        subst::json::substitute_string_values(&mut body, &param_map).unwrap();
+
+        assert_eq!(body["message"], json!("Hello John!"));
+        assert_eq!(body["info"], json!("User 123 has 42 items"));
+    }
+
+    #[test]
+    fn test_mixed_templating() {
+        let body_template = json!({
+            "user": "$user_id",           // Direct injection
+            "greeting": "Hello ${name}!", // String templating
+            "tags": "$tags",              // Direct injection (array)
+            "summary": "${name} has ${count} items" // String templating
+        });
+
+        let config = HttpRequestConfig {
+            input_schema: ToolJsonSchema {
+                r#type: crate::tools::core::ToolJsonSchemaType::Object,
+                properties: HashMap::new(),
+                required: None,
+                additional_properties: Some(false),
+            },
+            url: "https://api.example.com".to_string(),
+            method: "POST".to_string(),
+            query: None,
+            body: Some(body_template),
+            headers: None,
+        };
+
+        let client = reqwest::Client::new();
+        let tool = HttpRequestTool::new(&client, &config);
+        let params = create_test_parameters();
+
+        let body_result = tool.build_body(&params, &config.body).unwrap().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&body_result).unwrap();
+
+        println!("Parsed body: {:?}", parsed);
+        assert_eq!(parsed["user"], json!("123")); // Direct injection preserved string
+        assert_eq!(parsed["greeting"], json!("Hello John!")); // String templating
+        assert_eq!(parsed["tags"], json!(["admin", "user"])); // Direct injection preserved array
+        assert_eq!(parsed["summary"], json!("John has 42 items")); // String templating
     }
 }
