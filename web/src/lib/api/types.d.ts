@@ -160,6 +160,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tool/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all tools */
+        get: operations["get_all_tools"];
+        put?: never;
+        /** @description Create a new tool */
+        post: operations["create_tool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/execute/{message_id}/{tool_call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Execute a specific tool call in a message */
+        post: operations["execute_tool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/execute/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Execute all tool calls in a message */
+        post: operations["execute_all_tools"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/{tool_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a tool */
+        delete: operations["delete_tool"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/provider_key/": {
         parameters: {
             query?: never;
@@ -305,13 +374,65 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsMessageRole: "User" | "Assistant" | "System";
+        ChatRsMessageRole: "User" | "Assistant" | "System" | "Tool";
         ChatRsMessageMeta: {
-            provider_config?: components["schemas"]["ProviderConfigInput"] | null;
-            interrupted?: boolean | null;
+            /** @description Assistant messages: the tool calls requested by the assistant */
+            tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
+            /** @description Tool messages: the executed tool call that produced this result */
+            executed_tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
+            /** @description Assistant messages: provider usage information */
             usage?: components["schemas"]["ChatRsUsage"] | null;
+            /** @description Assistant messages: whether this is a partial or interrupted message */
+            interrupted?: boolean | null;
+            /** @description Assistant messages: the configuration options for the AI provider */
+            provider_config?: components["schemas"]["ProviderConfigInput"] | null;
         };
-        /** @description Provider configuration input from API */
+        /** @description A tool call requested by the provider */
+        ChatRsToolCall: {
+            /** @description ID of the tool call */
+            id: string;
+            /**
+             * Format: uuid
+             * @description ID of the tool used
+             */
+            tool_id: string;
+            /** @description Name of the tool used */
+            tool_name: string;
+            /** @description Input parameters passed to the tool */
+            parameters: {
+                [key: string]: unknown;
+            };
+        };
+        ChatRsExecutedToolCall: {
+            /** @description ID of the tool call */
+            id: string;
+            /**
+             * Format: uuid
+             * @description ID of the tool used
+             */
+            tool_id: string;
+            /** @description Name of the tool used */
+            tool_name: string;
+            /** @description Input parameters passed to the tool */
+            parameters: {
+                [key: string]: unknown;
+            };
+            /** @description Whether the tool call resulted in an error */
+            is_error?: boolean | null;
+        };
+        /** @description Usage stats from provider */
+        ChatRsUsage: {
+            /** Format: uint32 */
+            input_tokens?: number | null;
+            /** Format: uint32 */
+            output_tokens?: number | null;
+            /**
+             * Format: float
+             * @description Only included by OpenRouter
+             */
+            cost?: number | null;
+        };
+        /** @description Provider configuration input */
         ProviderConfigInput: "Lorem" | {
             Anthropic: components["schemas"]["AnthropicConfig"];
         } | {
@@ -352,14 +473,6 @@ export interface components {
             /** Format: uint32 */
             max_tokens?: number | null;
         };
-        ChatRsUsage: {
-            /** Format: uint32 */
-            input_tokens?: number | null;
-            /** Format: uint32 */
-            output_tokens?: number | null;
-            /** Format: float */
-            cost?: number | null;
-        };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
             /** Format: uuid */
@@ -379,6 +492,112 @@ export interface components {
         SendChatInput: {
             message?: string | null;
             provider: components["schemas"]["ProviderConfigInput"];
+        };
+        ChatRsTool: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            name: string;
+            description: string;
+            config: components["schemas"]["ToolConfig"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Tool configuration stored in the daabase */
+        ToolConfig: {
+            /** @enum {string} */
+            type: "Http";
+            input_schema: components["schemas"]["ToolJsonSchema"];
+            url: string;
+            method: string;
+            query?: {
+                [key: string]: string;
+            } | null;
+            body?: unknown;
+            headers?: {
+                [key: string]: string;
+            } | null;
+        } | {
+            /** @enum {string} */
+            type: "WebSearch";
+            /** @description Provider-specific configuration */
+            provider: components["schemas"]["WebSearchProviderConfig"];
+            /**
+             * Format: uint8
+             * @description Max search results to return.
+             * @default 10
+             */
+            count: number;
+        };
+        /** @description JSON schema for tool input parameters */
+        ToolJsonSchema: {
+            type: components["schemas"]["ToolJsonSchemaType"];
+            properties: {
+                [key: string]: unknown;
+            };
+            required?: string[] | null;
+            additionalProperties?: boolean | null;
+        };
+        /** @enum {string} */
+        ToolJsonSchemaType: "object";
+        WebSearchProviderConfig: {
+            /** @enum {string} */
+            type: "brave";
+            api_key: string;
+            /**
+             * @description Country code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#country-codes
+             * @default null
+             */
+            country: string | null;
+            /**
+             * @description Language code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#language-codes
+             * @default null
+             */
+            search_lang: string | null;
+        } | {
+            /** @enum {string} */
+            type: "serpapi";
+            api_key: string;
+            /**
+             * @description Country code for search results. See https://serpapi.com/google-countries
+             * @default null
+             */
+            country: string | null;
+            /**
+             * @description Language code for search results. See https://serpapi.com/google-lr-languages
+             * @default null
+             */
+            search_lang: string | null;
+            /**
+             * @description Search engine to use. See https://serpapi.com/search-api. Default: "google"
+             * @default null
+             */
+            engine: string | null;
+        } | {
+            /** @enum {string} */
+            type: "googlecustomsearch";
+            api_key: string;
+            /** @default null */
+            country: string | null;
+            /** @default null */
+            search_lang: string | null;
+            /** @description Google Custom Search Engine ID */
+            cx: string;
+        } | {
+            /** @enum {string} */
+            type: "exa";
+            api_key: string;
+        };
+        ToolInput: {
+            /** @description Name of the tool */
+            name: string;
+            /** @description Description of the tool */
+            description: string;
+            /** @description Tool-specific configuration */
+            config: components["schemas"]["ToolConfig"];
         };
         ChatRsProviderKeyMeta: {
             /** Format: uuid */
@@ -1065,6 +1284,337 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": number[];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_all_tools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsTool"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToolInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsTool"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    execute_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+                tool_call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsMessage"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    execute_all_tools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsMessage"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
                 };
             };
             /** @description Bad request */
