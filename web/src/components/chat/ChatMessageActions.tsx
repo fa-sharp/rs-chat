@@ -115,50 +115,46 @@ export function InfoButton({
           aria-label="Message metadata"
         />
       </PopoverTrigger>
-      <PopoverContent>
-        <div className="p-2">
-          <p className="text-sm">
-            {interrupted && (
-              <div className="flex items-center gap-1 mb-2">
-                <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
-                Stream was interrupted
-              </div>
-            )}
-            {provider && (
-              <div>
-                <span className="font-bold">Provider:</span> {provider}
-              </div>
-            )}
-            {model && (
-              <div>
-                <span className="font-bold">Model:</span> {model}
-              </div>
-            )}
-            {temperature && (
-              <div>
-                <span className="font-bold">Temperature:</span> {temperature}
-              </div>
-            )}
-            {usage?.input_tokens && (
-              <div>
-                <span className="font-bold">Input:</span>{" "}
-                {usage.input_tokens?.toLocaleString()} tokens
-              </div>
-            )}
-            {usage?.output_tokens && (
-              <div>
-                <span className="font-bold">Output:</span>{" "}
-                {usage.output_tokens?.toLocaleString()} tokens
-                {maxTokens ? ` (Max: ${maxTokens.toLocaleString()})` : ""}
-              </div>
-            )}
-            {usage?.cost && (
-              <div>
-                <span className="font-bold">Cost:</span> {usage.cost.toFixed(3)}
-              </div>
-            )}
-          </p>
-        </div>
+      <PopoverContent className="text-sm">
+        {interrupted && (
+          <div className="flex items-center gap-1 mb-2">
+            <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+            Stream was interrupted
+          </div>
+        )}
+        {provider && (
+          <div>
+            <span className="font-bold">Provider:</span> {provider}
+          </div>
+        )}
+        {model && (
+          <div>
+            <span className="font-bold">Model:</span> {model}
+          </div>
+        )}
+        {temperature && (
+          <div>
+            <span className="font-bold">Temperature:</span> {temperature}
+          </div>
+        )}
+        {usage?.input_tokens && (
+          <div>
+            <span className="font-bold">Input:</span>{" "}
+            {usage.input_tokens?.toLocaleString()} tokens
+          </div>
+        )}
+        {usage?.output_tokens && (
+          <div>
+            <span className="font-bold">Output:</span>{" "}
+            {usage.output_tokens?.toLocaleString()} tokens
+            {maxTokens ? ` (Max: ${maxTokens.toLocaleString()})` : ""}
+          </div>
+        )}
+        {usage?.cost && (
+          <div>
+            <span className="font-bold">Cost:</span> {usage.cost.toFixed(3)}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
