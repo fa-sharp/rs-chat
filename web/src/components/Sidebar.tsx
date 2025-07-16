@@ -14,6 +14,7 @@ import {
   Minus,
   Plus,
   RefreshCwIcon,
+  Settings,
   UserRound,
 } from "lucide-react";
 import * as React from "react";
@@ -141,6 +142,12 @@ export function AppSidebar({
                     <Link to="/app/app-keys">
                       <KeyRound />
                       API Keys
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/tools">
+                      <Settings />
+                      Tools
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
