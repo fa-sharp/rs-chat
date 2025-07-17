@@ -153,7 +153,7 @@ impl<'a> WebSearchTool<'a> {
             results.len()
         ));
 
-        for (i, result) in results.iter().enumerate().take(6) {
+        for (i, result) in results.iter().enumerate() {
             formatted.push_str(&format!("{}. {}\n", i + 1, result.title));
             formatted.push_str(&format!("   URL: {}\n", result.url));
             if !result.description.is_empty() {
@@ -165,10 +165,6 @@ impl<'a> WebSearchTool<'a> {
                 formatted.push_str(&format!("   {}\n", truncated));
             }
             formatted.push('\n');
-        }
-
-        if results.len() > 6 {
-            formatted.push_str(&format!("... and {} more results\n", results.len() - 6));
         }
 
         formatted

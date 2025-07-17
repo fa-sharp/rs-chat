@@ -54,8 +54,12 @@ export default function ChatMessageToolCalls({
           messages.some((m) => m.meta.executed_tool_call?.id === toolCall.id),
         ) && (
           <p>
-            <Button onClick={onExecuteAll} disabled={isExecuting}>
-              <PlayCircle />
+            <Button
+              onClick={onExecuteAll}
+              loading={isExecuting}
+              disabled={isExecuting}
+            >
+              {!isExecuting && <PlayCircle />}
               {isExecuting ? "Executing..." : "Execute All"}
             </Button>
           </p>
@@ -92,8 +96,8 @@ function ChatMessageToolCall({
         {!messages.some(
           (m) => m.meta.executed_tool_call?.id === toolCall.id,
         ) && (
-          <Button size="sm" disabled={isExecuting}>
-            <PlayCircle />
+          <Button size="sm" loading={isExecuting} disabled={isExecuting}>
+            {!isExecuting && <PlayCircle />}
             Execute
           </Button>
         )}
@@ -101,7 +105,7 @@ function ChatMessageToolCall({
       <pre className="text-nowrap">{JSON.stringify(toolCall.parameters)}</pre>
     </div>
   ) : (
-    <div key={toolCall.id}>
+    <div key={toolCall.id} className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 font-semibold">
           {tool && getToolIcon(tool)}
@@ -124,8 +128,7 @@ function ChatMessageToolCall({
       </Suspense>
       <div className="text-sm text-muted-foreground">
         Tool call ID: {toolCall.id}
-      </div>
-      <div className="text-sm text-muted-foreground">
+        <br />
         Tool ID: {toolCall.tool_id}
       </div>
     </div>

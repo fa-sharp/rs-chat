@@ -1,3 +1,4 @@
+import { Bot, Wrench } from "lucide-react";
 import React, { Suspense, useCallback, useEffect } from "react";
 import Markdown from "react-markdown";
 
@@ -5,7 +6,7 @@ import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import { useDeleteChatMessage } from "@/lib/api/session";
 import { useExecuteAllTools, useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
+import { cn, escapeBackticks } from "@/lib/utils";
 import {
   ChatBubble,
   ChatBubbleAvatar,
@@ -18,14 +19,15 @@ import ChatMessageToolCalls from "./ChatMessageToolCalls";
 const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 
 interface Props {
-  isGenerating: boolean;
+  isWaitingForAssistant: boolean;
   isCompleted: boolean;
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   tools?: Array<components["schemas"]["ChatRsTool"]>;
+  onGetAgenticResponse: () => void;
   streamedResponse?: string;
   error?: string;
-  sessionId?: string;
+  sessionId: string;
 }
 
 const proseClasses =
@@ -41,8 +43,9 @@ export default function ChatMessages({
   messages,
   tools,
   sessionId,
-  isGenerating,
+  isWaitingForAssistant,
   isCompleted,
+  onGetAgenticResponse,
   streamedResponse,
   error,
 }: Props) {
@@ -72,6 +75,18 @@ export default function ChatMessages({
   const executeToolCall = useExecuteTool();
   const executeAllToolCalls = useExecuteAllTools();
 
+  const onExecuteAllToolCalls = useCallback(
+    (messageId: string) => {
+      executeAllToolCalls.mutate(
+        { messageId },
+        {
+          onSuccess: () => onGetAgenticResponse(),
+        },
+      );
+    },
+    [executeAllToolCalls, onGetAgenticResponse],
+  );
+
   return (
     <ChatMessageList>
       {messages
@@ -89,11 +104,13 @@ export default function ChatMessages({
             <ChatBubbleAvatar
               src={(message.role === "User" && user?.avatar_url) || undefined}
               fallback={
-                message.role === "User"
-                  ? "🧑🏽‍💻"
-                  : message.role === "Tool"
-                    ? "🔧"
-                    : "🤖"
+                message.role === "User" ? (
+                  "🧑🏽‍💻"
+                ) : message.role === "Tool" ? (
+                  <Wrench className="size-4" />
+                ) : (
+                  <Bot className="size-4" />
+                )
               }
             />
             <ChatBubbleMessage
@@ -119,45 +136,60 @@ export default function ChatMessages({
                       messages={messages}
                       tools={tools}
                       toolCalls={message.meta.tool_calls}
-                      onExecuteAll={() =>
-                        executeAllToolCalls.mutate({ messageId: message.id })
-                      }
+                      onExecuteAll={() => onExecuteAllToolCalls(message.id)}
                       isExecuting={
                         executeToolCall.isPending ||
                         executeAllToolCalls.isPending
                       }
                     />
                   )}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                      <InfoButton meta={message.meta} />
+                      <CopyButton message={message.content} />
+                      <DeleteButton
+                        onDelete={() => onDeleteMessage(message.id)}
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(message.created_at)}
+                    </div>
+                  </div>
+                </>
+              )}
+              {message.role === "User" && (
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                    <CopyButton message={message.content} variant="default" />
+                    <DeleteButton
+                      onDelete={() => onDeleteMessage(message.id)}
+                      variant="default"
+                    />
+                  </div>
+                  <div className="text-xs text-muted">
+                    {formatDate(message.created_at)}
+                  </div>
+                </div>
+              )}
+              {message.role === "Tool" && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                     <InfoButton meta={message.meta} />
                     <CopyButton message={message.content} />
                     <DeleteButton
                       onDelete={() => onDeleteMessage(message.id)}
                     />
                   </div>
-                </>
-              )}
-              {message.role === "User" && (
-                <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                  <CopyButton message={message.content} variant="default" />
-                  <DeleteButton
-                    onDelete={() => onDeleteMessage(message.id)}
-                    variant="default"
-                  />
-                </div>
-              )}
-              {message.role === "Tool" && (
-                <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                  <InfoButton meta={message.meta} />
-                  <CopyButton message={message.content} />
-                  <DeleteButton onDelete={() => onDeleteMessage(message.id)} />
+                  <div className="text-xs text-muted-foreground">
+                    {formatDate(message.created_at)}
+                  </div>
                 </div>
               )}
             </ChatBubbleMessage>
           </ChatBubble>
         ))}
 
-      {isGenerating && (
+      {isWaitingForAssistant && (
         <ChatBubble variant="received">
           <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
           <ChatBubbleMessage isLoading />
@@ -192,5 +224,19 @@ export default function ChatMessages({
 }
 
 function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${message.content}\n\`\`\``;
+  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
 }
+
+const now = new Date();
+const formatDate = (date: string) => {
+  const parsedDate = new Date(date);
+  const isToday = parsedDate.toDateString() === now.toDateString();
+  return new Intl.DateTimeFormat(undefined, {
+    year:
+      parsedDate.getFullYear() === now.getFullYear() ? undefined : "numeric",
+    month: isToday ? undefined : "short",
+    day: isToday ? undefined : "numeric",
+    hour: "numeric",
+    minute: "numeric",
+  }).format(parsedDate);
+};

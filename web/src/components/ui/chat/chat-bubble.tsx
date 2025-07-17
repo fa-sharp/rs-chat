@@ -56,7 +56,7 @@ ChatBubble.displayName = "ChatBubble";
 // ChatBubbleAvatar
 interface ChatBubbleAvatarProps {
   src?: string;
-  fallback?: string;
+  fallback?: React.ReactNode;
   className?: string;
 }
 

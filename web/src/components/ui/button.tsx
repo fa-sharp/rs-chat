@@ -39,11 +39,14 @@ function Button({
   className,
   variant,
   size,
+  children,
   asChild = false,
+  loading = false,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    loading?: boolean;
   }) {
   const Comp = asChild ? Slot : "button";
 
@@ -52,7 +55,16 @@ function Button({
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {loading && (
+        <div className={cn("animate-spin rounded-full border-b border-primary-foreground", {
+          "w-4 h-4": !size || size === "default",
+          "w-3 h-3": size === "sm",
+          "w-5 h-5": size === "lg",
+        })} />
+      )}
+      {children}
+    </Comp>
   );
 }
 

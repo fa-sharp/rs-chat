@@ -4,6 +4,7 @@ import ChatMessageInput from "@/components/chat/ChatMessageInput";
 import ChatMessages from "@/components/chat/ChatMessages";
 import ErrorComponent from "@/components/Error";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useChatInputState } from "@/hooks/useChatInputState";
 import {
   chatSessionQueryKey,
   getChatSession,
@@ -40,6 +41,15 @@ function RouteComponent() {
   const { data: tools } = useTools();
   const { streamedChats, onUserSubmit } = useStreamingChats();
 
+  const inputState = useChatInputState({
+    isGenerating: streamedChats[sessionId]?.status === "streaming",
+    onSubmit: (input) => onUserSubmit(sessionId, input),
+    providerConfig: data?.messages.findLast(
+      (m) => m.role === "Assistant" && !!m.meta.provider_config,
+    )?.meta.provider_config,
+    sessionId,
+  });
+
   return (
     <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 md:pt-0 overflow-hidden">
       <ChatMessages
@@ -47,26 +57,17 @@ function RouteComponent() {
         messages={data?.messages || []}
         tools={tools}
         sessionId={sessionId}
+        onGetAgenticResponse={inputState.onSubmitWithoutUserMessage}
         error={streamedChats[sessionId]?.error}
         streamedResponse={streamedChats[sessionId]?.content}
-        isGenerating={
+        isWaitingForAssistant={
           streamedChats[sessionId]?.status === "streaming" &&
           streamedChats[sessionId]?.content === ""
         }
         isCompleted={streamedChats[sessionId]?.status === "completed"}
       />
       <div className="w-full px-4 pb-4">
-        <ChatMessageInput
-          onSubmit={(input) => onUserSubmit(sessionId, input)}
-          isGenerating={streamedChats[sessionId]?.status === "streaming"}
-          sessionId={sessionId}
-          providerConfig={
-            data?.messages.findLast(
-              (m) => m.role === "Assistant" && !!m.meta.provider_config,
-            )?.meta.provider_config
-          }
-          shouldSubmitWithoutMessage={data?.messages.at(-1)?.role === "Tool"}
-        />
+        <ChatMessageInput inputState={inputState} />
       </div>
     </div>
   );

@@ -33,8 +33,8 @@ impl<'a> WebSearchProvider for ExaSearchTool<'a> {
         http_client: &reqwest::Client,
         query: &str,
     ) -> Result<Vec<WebSearchResult>, ToolError> {
-        let builder = HttpRequestBuilder::new("GET", "https://api.exa.ai/search")
-            .header("Authorization", &format!("Bearer {}", &self.config.api_key))?
+        let builder = HttpRequestBuilder::new("POST", "https://api.exa.ai/search")
+            .header("X-Api-Key", &self.config.api_key)?
             .body(
                 serde_json::json!({
                     "query": query,
