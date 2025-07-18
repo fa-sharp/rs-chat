@@ -10,7 +10,7 @@ CREATE TABLE providers (
   user_id UUID NOT NULL REFERENCES users (id),
   base_url TEXT,
   default_model TEXT NOT NULL,
-  api_key_id UUID REFERENCES secrets (id),
+  api_key_id UUID REFERENCES secrets (id) ON UPDATE CASCADE ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

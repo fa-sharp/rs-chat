@@ -160,9 +160,17 @@ async fn delete_provider(
     mut db: DbConnection,
     provider_id: i32,
 ) -> Result<Json<ChatRsProvider>, ApiError> {
-    let deleted = ProviderDbService::new(&mut db)
+    let (provider, api_key_secret) = ProviderDbService::new(&mut db)
+        .get_by_id(&user_id, provider_id)
+        .await?;
+    if let Some(secret) = api_key_secret {
+        SecretDbService::new(&mut db)
+            .delete(&user_id, &secret.id)
+            .await?;
+    }
+    ProviderDbService::new(&mut db)
         .delete(&user_id, provider_id)
         .await?;
 
-    Ok(Json(deleted))
+    Ok(Json(provider))
 }
