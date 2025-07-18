@@ -21,7 +21,7 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 }
 
 /// List all Provider API keys
-#[openapi(tag = "Provider Keys")]
+#[openapi(tag = "Secrets")]
 #[get("/")]
 async fn get_all_provider_keys(
     user_id: ChatRsUserId,
@@ -38,10 +38,11 @@ async fn get_all_provider_keys(
 struct ProviderKeyInput {
     provider: ChatRsProviderKeyType,
     key: String,
+    name: String,
 }
 
 /// Create a new Provider API key
-#[openapi(tag = "Provider Keys")]
+#[openapi(tag = "Secrets")]
 #[post("/", data = "<input>")]
 async fn create_provider_key(
     user_id: ChatRsUserId,
@@ -53,6 +54,7 @@ async fn create_provider_key(
     let id = SecretDbService::new(&mut db)
         .create(NewChatRsSecret {
             user_id: &user_id,
+            name: &input.name,
             provider: &input.provider,
             ciphertext: &ciphertext,
             nonce: &nonce,
@@ -63,7 +65,7 @@ async fn create_provider_key(
 }
 
 /// Delete a Provider API key
-#[openapi(tag = "Provider Keys")]
+#[openapi(tag = "Secrets")]
 #[delete("/<api_key_id>")]
 async fn delete_provider_key(
     user_id: ChatRsUserId,

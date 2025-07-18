@@ -57,9 +57,9 @@ diesel::table! {
         provider_type -> Text,
         user_id -> Uuid,
         base_url -> Nullable<Text>,
+        default_model -> Text,
         api_key_id -> Nullable<Uuid>,
         created_at -> Timestamptz,
-        updated_at -> Timestamptz,
     }
 }
 
@@ -74,6 +74,7 @@ diesel::table! {
         ciphertext -> Bytea,
         nonce -> Bytea,
         created_at -> Timestamptz,
+        name -> Text,
     }
 }
 

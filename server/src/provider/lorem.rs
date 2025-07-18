@@ -69,10 +69,6 @@ impl Stream for LoremStream {
 
 #[rocket::async_trait]
 impl LlmApiProvider for LoremProvider {
-    fn default_model(&self) -> &'static str {
-        "lorem-ipsum"
-    }
-
     async fn chat_stream(
         &self,
         _messages: Vec<ChatRsMessage>,

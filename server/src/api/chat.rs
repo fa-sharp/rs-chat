@@ -35,8 +35,11 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
+    /// The new chat message
     message: Option<Cow<'a, str>>,
+    /// The ID of the provider to chat with
     provider_id: i32,
+    /// Provider options
     provider_options: LlmApiProviderSharedOptions,
 }
 
@@ -84,6 +87,7 @@ pub async fn send_chat_stream(
                 &session_id,
                 &user_message,
                 provider_type,
+                &provider.default_model,
                 provider.base_url.as_deref(),
                 api_key.clone(),
                 http_client,

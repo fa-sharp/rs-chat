@@ -180,10 +180,6 @@ impl<'a> OpenAIProvider<'a> {
 
 #[async_trait]
 impl<'a> LlmApiProvider for OpenAIProvider<'a> {
-    fn default_model(&self) -> &'static str {
-        "gpt-4o-mini-2024-07-18"
-    }
-
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,

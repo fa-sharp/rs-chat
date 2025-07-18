@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsProviderKeyType, ChatRsSecret, ChatRsSecretMeta, NewChatRsSecret},
+    models::{ChatRsSecretMeta, NewChatRsSecret, UpdateChatRsSecret},
     schema::secrets,
     DbConnection,
 };
@@ -31,25 +31,9 @@ impl<'a> SecretDbService<'a> {
         Ok(keys)
     }
 
-    pub async fn find_by_user_and_provider(
-        &mut self,
-        user_id: &Uuid,
-        provider: &ChatRsProviderKeyType,
-    ) -> Result<Option<ChatRsSecret>, Error> {
-        let key = secrets::table
-            .filter(secrets::user_id.eq(user_id))
-            .filter(secrets::provider.eq(provider))
-            .select(ChatRsSecret::as_select())
-            .first(self.db)
-            .await
-            .optional()?;
-
-        Ok(key)
-    }
-
-    pub async fn create(&mut self, api_key: NewChatRsSecret<'_>) -> Result<Uuid, Error> {
+    pub async fn create(&mut self, secret: NewChatRsSecret<'_>) -> Result<Uuid, Error> {
         let id: Uuid = diesel::insert_into(secrets::table)
-            .values(api_key)
+            .values(secret)
             .returning(secrets::id)
             .get_result(self.db)
             .await?;
@@ -57,9 +41,26 @@ impl<'a> SecretDbService<'a> {
         Ok(id)
     }
 
-    pub async fn delete(&mut self, user_id: &Uuid, api_key_id: &Uuid) -> Result<Uuid, Error> {
+    pub async fn update(
+        &mut self,
+        user_id: &Uuid,
+        secret_id: &Uuid,
+        data: UpdateChatRsSecret<'_>,
+    ) -> Result<Uuid, Error> {
+        let id: Uuid = diesel::update(secrets::table)
+            .filter(secrets::id.eq(secret_id))
+            .filter(secrets::user_id.eq(user_id))
+            .set(data)
+            .returning(secrets::id)
+            .get_result(self.db)
+            .await?;
+
+        Ok(id)
+    }
+
+    pub async fn delete(&mut self, user_id: &Uuid, secret_id: &Uuid) -> Result<Uuid, Error> {
         let id: Uuid = diesel::delete(secrets::table)
-            .filter(secrets::id.eq(api_key_id))
+            .filter(secrets::id.eq(secret_id))
             .filter(secrets::user_id.eq(user_id))
             .returning(secrets::id)
             .get_result(self.db)

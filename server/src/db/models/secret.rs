@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use diesel::{
-    prelude::{Associations, Identifiable, Insertable, Queryable},
+    prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
     Selectable,
 };
 use schemars::JsonSchema;
@@ -26,6 +26,7 @@ pub enum ChatRsProviderKeyType {
 pub struct ChatRsSecret {
     pub id: Uuid,
     pub user_id: Uuid,
+    pub name: String,
     pub ciphertext: Vec<u8>,
     pub nonce: Vec<u8>,
     pub created_at: DateTime<Utc>,
@@ -38,6 +39,7 @@ pub struct ChatRsSecretMeta {
     pub id: Uuid,
     #[serde(skip)]
     pub user_id: Uuid,
+    pub name: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -45,7 +47,17 @@ pub struct ChatRsSecretMeta {
 #[diesel(table_name = super::schema::secrets)]
 pub struct NewChatRsSecret<'r> {
     pub user_id: &'r Uuid,
+    pub name: &'r str,
+    #[deprecated(note = "No longer used. Should be removed in the next major release.")]
     pub provider: &'r ChatRsProviderKeyType,
     pub ciphertext: &'r Vec<u8>,
     pub nonce: &'r Vec<u8>,
+}
+
+#[derive(Default, AsChangeset)]
+#[diesel(table_name = super::schema::secrets)]
+pub struct UpdateChatRsSecret<'r> {
+    pub name: Option<&'r str>,
+    pub ciphertext: Option<&'r Vec<u8>>,
+    pub nonce: Option<&'r Vec<u8>>,
 }

@@ -70,9 +70,6 @@ pub struct LlmApiProviderSharedOptions {
 /// Unified API for LLM providers
 #[async_trait]
 pub trait LlmApiProvider {
-    /// Default model to use if not specified (e.g. when generating titles)
-    fn default_model(&self) -> &'static str;
-
     /// Stream a chat response from the provider
     async fn chat_stream(
         &self,

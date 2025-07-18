@@ -241,10 +241,6 @@ impl<'a> AnthropicProvider<'a> {
 
 #[async_trait]
 impl<'a> LlmApiProvider for AnthropicProvider<'a> {
-    fn default_model(&self) -> &'static str {
-        "claude-3-7-sonnet-latest"
-    }
-
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
