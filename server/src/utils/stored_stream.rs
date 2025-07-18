@@ -13,21 +13,20 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
+        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsToolCall, NewChatRsMessage},
         services::ChatDbService,
         DbConnection, DbPool,
     },
-    provider::{ChatRsToolCall, ChatRsUsage},
-    utils::create_provider::ProviderConfigInput,
+    provider::{LlmApiProviderSharedOptions, LlmUsage},
 };
 
 /// A wrapper around the chat assistant stream that intermittently caches output in Redis, and
 /// saves the assistant's response to the database at the end of the stream.
 pub struct StoredChatRsStream<
-    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>>,
 > {
     inner: Pin<Box<S>>,
-    provider_config: Option<ProviderConfigInput>,
+    provider_options: Option<LlmApiProviderSharedOptions>,
     redis_client: Client,
     db_pool: DbPool,
     session_id: Uuid,
@@ -44,18 +43,18 @@ const CACHE_INTERVAL: Duration = Duration::from_secs(1); // cache the response e
 
 impl<S> StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>>,
 {
     pub fn new(
         stream: S,
-        provider_config: ProviderConfigInput,
+        provider_options: LlmApiProviderSharedOptions,
         db_pool: DbPool,
         redis_client: Client,
         session_id: Option<Uuid>,
     ) -> Self {
         Self {
             inner: Box::pin(stream),
-            provider_config: Some(provider_config),
+            provider_options: Some(provider_options),
             db_pool,
             redis_client,
             session_id: session_id.unwrap_or_else(|| Uuid::new_v4()),
@@ -76,10 +75,10 @@ where
         let redis_client = self.redis_client.clone();
         let pool = self.db_pool.clone();
         let session_id = self.session_id.clone();
-        let config = self.provider_config.take();
+        let provider_options = self.provider_options.take();
         let content = self.buffer.join("");
         let tool_calls = self.tool_calls.take();
-        let usage = Some(ChatRsUsage {
+        let usage = Some(LlmUsage {
             input_tokens: Some(self.input_tokens),
             output_tokens: Some(self.output_tokens),
             cost: self.cost,
@@ -97,7 +96,7 @@ where
                     content: &content,
                     session_id: &session_id,
                     meta: ChatRsMessageMeta {
-                        provider_config: config,
+                        provider_options,
                         interrupted,
                         usage,
                         tool_calls,
@@ -123,9 +122,9 @@ where
 
 impl<S> Stream for StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>>,
 {
-    type Item = Result<String, crate::provider::ChatRsError>;
+    type Item = Result<String, crate::provider::LlmError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.inner.as_mut().poll_next(cx) {
@@ -202,7 +201,7 @@ where
 
 impl<S> Drop for StoredChatRsStream<S>
 where
-    S: Stream<Item = Result<crate::provider::ChatRsStreamChunk, crate::provider::ChatRsError>>,
+    S: Stream<Item = Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>>,
 {
     /// Stream was interrupted. Save response and mark as interrupted
     fn drop(&mut self) {

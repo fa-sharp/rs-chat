@@ -19,7 +19,7 @@ use crate::{
     },
     db::{
         models::ChatRsUser,
-        services::{ApiKeyDbService, ChatDbService, ProviderKeyDbService, UserDbService},
+        services::{ApiKeyDbService, ChatDbService, SecretDbService, UserDbService},
         DbConnection,
     },
     errors::ApiError,
@@ -117,7 +117,7 @@ async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, A
 #[delete("/user/delete-but-only-if-you-are-sure")]
 async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String, ApiError> {
     // Delete Provider keys
-    let provider_keys = ProviderKeyDbService::new(&mut db)
+    let provider_keys = SecretDbService::new(&mut db)
         .delete_by_user(&user.id)
         .await?;
 

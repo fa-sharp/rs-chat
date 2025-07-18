@@ -1,10 +1,13 @@
+//! OpenAI (and OpenAI compatible) LLM provider
+
 use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolCall},
     provider::{
-        ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsToolCall, ChatRsUsage,
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
+        LlmUsage,
     },
 };
 
@@ -13,28 +16,15 @@ const API_BASE_URL: &str = "https://api.openai.com/v1";
 /// OpenAI chat provider
 pub struct OpenAIProvider<'a> {
     client: reqwest::Client,
-    api_key: String,
-    model: &'a str,
-    max_tokens: Option<u32>,
-    temperature: Option<f32>,
+    api_key: &'a str,
     base_url: &'a str,
 }
 
 impl<'a> OpenAIProvider<'a> {
-    pub fn new(
-        http_client: &reqwest::Client,
-        api_key: &str,
-        model: &'a str,
-        max_tokens: Option<u32>,
-        temperature: Option<f32>,
-        base_url: Option<&'a str>,
-    ) -> Self {
+    pub fn new(http_client: &reqwest::Client, api_key: &'a str, base_url: Option<&'a str>) -> Self {
         Self {
             client: http_client.clone(),
-            api_key: api_key.to_string(),
-            model,
-            max_tokens,
-            temperature,
+            api_key,
             base_url: base_url.unwrap_or(API_BASE_URL),
         }
     }
@@ -96,7 +86,7 @@ impl<'a> OpenAIProvider<'a> {
         &self,
         mut response: reqwest::Response,
         tools: Option<Vec<ChatRsTool>>,
-    ) -> ChatRsStream {
+    ) -> LlmApiStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
             let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
@@ -122,7 +112,7 @@ impl<'a> OpenAIProvider<'a> {
                                         if let Some(choice) = response.choices.pop() {
                                             if let Some(delta) = choice.delta {
                                                 if delta.content.is_some() {
-                                                    yield Ok(ChatRsStreamChunk {
+                                                    yield Ok(LlmStreamChunk {
                                                         text: delta.content,
                                                         ..Default::default()
                                                     });
@@ -144,7 +134,7 @@ impl<'a> OpenAIProvider<'a> {
 
                                         // Yield usage information if available
                                         if let Some(usage) = response.usage {
-                                            yield Ok(ChatRsStreamChunk {
+                                            yield Ok(LlmStreamChunk {
                                                 usage: Some(usage.into()),
                                                 ..Default::default()
                                             });
@@ -166,7 +156,7 @@ impl<'a> OpenAIProvider<'a> {
                     }
                     Err(e) => {
                         rocket::warn!("Stream chunk error: {}", e);
-                        yield Err(ChatRsError::OpenAIError(format!("Stream error: {}", e)));
+                        yield Err(LlmError::OpenAIError(format!("Stream error: {}", e)));
                         break;
                     }
                 }
@@ -174,7 +164,7 @@ impl<'a> OpenAIProvider<'a> {
 
             if let Some(rs_chat_tools) = tools {
                 if !tool_calls.is_empty() {
-                    yield Ok(ChatRsStreamChunk {
+                    yield Ok(LlmStreamChunk {
                         tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.convert(&rs_chat_tools)).collect()),
                         ..Default::default()
                     });
@@ -189,20 +179,25 @@ impl<'a> OpenAIProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> ChatRsProvider for OpenAIProvider<'a> {
+impl<'a> LlmApiProvider for OpenAIProvider<'a> {
+    fn default_model(&self) -> &'static str {
+        "gpt-4o-mini-2024-07-18"
+    }
+
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
         tools: Option<Vec<ChatRsTool>>,
-    ) -> Result<ChatRsStream, ChatRsError> {
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<LlmApiStream, LlmError> {
         let openai_messages = self.build_messages(&messages);
         let openai_tools = tools.as_ref().map(|t| self.build_tools(t));
 
         let request = OpenAIRequest {
-            model: self.model,
+            model: &options.model,
             messages: openai_messages,
-            max_tokens: self.max_tokens,
-            temperature: self.temperature,
+            max_tokens: options.max_tokens,
+            temperature: options.temperature,
             stream: Some(true),
             stream_options: Some(OpenAIStreamOptions {
                 include_usage: true,
@@ -218,12 +213,12 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::OpenAIError(format!(
+            return Err(LlmError::OpenAIError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
@@ -232,16 +227,20 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
         Ok(self.parse_sse_stream(response, tools).await)
     }
 
-    async fn prompt(&self, message: &str) -> Result<String, ChatRsError> {
+    async fn prompt(
+        &self,
+        message: &str,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<String, LlmError> {
         let request = OpenAIRequest {
-            model: self.model,
+            model: &options.model,
             messages: vec![OpenAIMessage {
                 role: "user",
                 content: Some(message),
                 ..Default::default()
             }],
-            max_tokens: self.max_tokens,
-            temperature: self.temperature,
+            max_tokens: options.max_tokens,
+            temperature: options.temperature,
             ..Default::default()
         };
 
@@ -253,12 +252,12 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::OpenAIError(format!(
+            return Err(LlmError::OpenAIError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
@@ -267,17 +266,17 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
         let openai_response: OpenAIResponse = response
             .json()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Failed to parse response: {}", e)))?;
 
         let text = openai_response
             .choices
             .first()
             .and_then(|choice| choice.message.as_ref())
             .and_then(|message| message.content.as_ref())
-            .ok_or(ChatRsError::NoResponse)?;
+            .ok_or(LlmError::NoResponse)?;
 
         if let Some(usage) = openai_response.usage {
-            let usage: ChatRsUsage = usage.into();
+            let usage: LlmUsage = usage.into();
             println!("Prompt usage: {:?}", usage);
         }
 
@@ -430,9 +429,9 @@ struct OpenAIUsage {
     // total_tokens: Option<u32>,
 }
 
-impl From<OpenAIUsage> for ChatRsUsage {
+impl From<OpenAIUsage> for LlmUsage {
     fn from(usage: OpenAIUsage) -> Self {
-        ChatRsUsage {
+        LlmUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
             cost: usage.cost,

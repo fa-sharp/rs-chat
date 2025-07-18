@@ -15,20 +15,6 @@ pub mod sql_types {
 }
 
 diesel::table! {
-    use diesel::sql_types::*;
-    use super::sql_types::LlmProvider;
-
-    api_keys (id) {
-        id -> Uuid,
-        user_id -> Uuid,
-        provider -> LlmProvider,
-        ciphertext -> Bytea,
-        nonce -> Bytea,
-        created_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     app_api_keys (id) {
         id -> Uuid,
         user_id -> Uuid,
@@ -65,6 +51,33 @@ diesel::table! {
 }
 
 diesel::table! {
+    providers (id) {
+        id -> Int4,
+        name -> Text,
+        provider_type -> Text,
+        user_id -> Uuid,
+        base_url -> Nullable<Text>,
+        api_key_id -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::LlmProvider;
+
+    secrets (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        provider -> LlmProvider,
+        ciphertext -> Bytea,
+        nonce -> Bytea,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     tools (id) {
         id -> Uuid,
         user_id -> Uuid,
@@ -91,17 +104,20 @@ diesel::table! {
     }
 }
 
-diesel::joinable!(api_keys -> users (user_id));
 diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
+diesel::joinable!(providers -> secrets (api_key_id));
+diesel::joinable!(providers -> users (user_id));
+diesel::joinable!(secrets -> users (user_id));
 diesel::joinable!(tools -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    api_keys,
     app_api_keys,
     chat_messages,
     chat_sessions,
+    providers,
+    secrets,
     tools,
     users,
 );

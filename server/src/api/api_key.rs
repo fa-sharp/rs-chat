@@ -8,8 +8,8 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsProviderKeyMeta, ChatRsProviderKeyType, NewChatRsProviderKey},
-        services::ProviderKeyDbService,
+        models::{ChatRsProviderKeyType, ChatRsSecretMeta, NewChatRsSecret},
+        services::SecretDbService,
         DbConnection,
     },
     errors::ApiError,
@@ -26,8 +26,8 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 async fn get_all_provider_keys(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-) -> Result<Json<Vec<ChatRsProviderKeyMeta>>, ApiError> {
-    let keys = ProviderKeyDbService::new(&mut db)
+) -> Result<Json<Vec<ChatRsSecretMeta>>, ApiError> {
+    let keys = SecretDbService::new(&mut db)
         .find_by_user_id(&user_id)
         .await?;
 
@@ -50,8 +50,8 @@ async fn create_provider_key(
     input: Json<ProviderKeyInput>,
 ) -> Result<String, ApiError> {
     let (ciphertext, nonce) = encryptor.encrypt_string(&input.key)?;
-    let id = ProviderKeyDbService::new(&mut db)
-        .create(NewChatRsProviderKey {
+    let id = SecretDbService::new(&mut db)
+        .create(NewChatRsSecret {
             user_id: &user_id,
             provider: &input.provider,
             ciphertext: &ciphertext,
@@ -70,7 +70,7 @@ async fn delete_provider_key(
     mut db: DbConnection,
     api_key_id: Uuid,
 ) -> Result<(), ApiError> {
-    let _ = ProviderKeyDbService::new(&mut db)
+    let _ = SecretDbService::new(&mut db)
         .delete(&user_id, &api_key_id)
         .await?;
 

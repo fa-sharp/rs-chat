@@ -7,7 +7,7 @@ use rocket::{
 use rocket_okapi::response::OpenApiResponderInner;
 use schemars::JsonSchema;
 
-use crate::{provider::ChatRsError, tools::ToolError};
+use crate::{provider::LlmError, tools::ToolError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApiError {
@@ -18,7 +18,7 @@ pub enum ApiError {
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
     #[error(transparent)]
-    Chat(#[from] ChatRsError),
+    Chat(#[from] LlmError),
     #[error(transparent)]
     Tool(#[from] ToolError),
 }

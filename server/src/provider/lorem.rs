@@ -1,3 +1,5 @@
+//! Lorem ipsum LLM provider (for testing)
+
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -7,7 +9,9 @@ use tokio::time::{interval, Interval};
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsTool},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk},
+    provider::{
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
+    },
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...'
@@ -20,13 +24,21 @@ pub struct LoremConfig {
     pub interval: u32,
 }
 
+impl LoremProvider {
+    pub fn new() -> Self {
+        LoremProvider {
+            config: LoremConfig { interval: 400 },
+        }
+    }
+}
+
 struct LoremStream {
     words: Vec<&'static str>,
     index: usize,
     interval: Interval,
 }
 impl Stream for LoremStream {
-    type Item = Result<ChatRsStreamChunk, ChatRsError>;
+    type Item = Result<LlmStreamChunk, LlmError>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -41,13 +53,13 @@ impl Stream for LoremStream {
                 let word = self.words[self.index];
                 self.index += 1;
                 if self.index == 0 || self.index % 10 != 0 {
-                    std::task::Poll::Ready(Some(Ok(ChatRsStreamChunk {
+                    std::task::Poll::Ready(Some(Ok(LlmStreamChunk {
                         text: Some(word.to_owned()),
                         tool_calls: None,
                         usage: None,
                     })))
                 } else {
-                    std::task::Poll::Ready(Some(Err(ChatRsError::LoremError("Test error"))))
+                    std::task::Poll::Ready(Some(Err(LlmError::LoremError("Test error"))))
                 }
             }
             std::task::Poll::Pending => std::task::Poll::Pending,
@@ -56,12 +68,17 @@ impl Stream for LoremStream {
 }
 
 #[rocket::async_trait]
-impl ChatRsProvider for LoremProvider {
+impl LlmApiProvider for LoremProvider {
+    fn default_model(&self) -> &'static str {
+        "lorem-ipsum"
+    }
+
     async fn chat_stream(
         &self,
         _messages: Vec<ChatRsMessage>,
         _tools: Option<Vec<ChatRsTool>>,
-    ) -> Result<ChatRsStream, ChatRsError> {
+        _options: &LlmApiProviderSharedOptions,
+    ) -> Result<LlmApiStream, LlmError> {
         let lorem_words = vec![
             "Lorem ipsum ",
             "dolor sit ",
@@ -91,7 +108,7 @@ impl ChatRsProvider for LoremProvider {
             "nulla pariatur.",
         ];
 
-        let stream: ChatRsStream = Box::pin(LoremStream {
+        let stream: LlmApiStream = Box::pin(LoremStream {
             words: lorem_words,
             index: 0,
             interval: interval(Duration::from_millis(self.config.interval.into())),
@@ -102,7 +119,11 @@ impl ChatRsProvider for LoremProvider {
         Ok(stream)
     }
 
-    async fn prompt(&self, _request: &str) -> Result<String, ChatRsError> {
+    async fn prompt(
+        &self,
+        _request: &str,
+        _options: &LlmApiProviderSharedOptions,
+    ) -> Result<String, LlmError> {
         Ok("Lorem ipsum".to_string())
     }
 }

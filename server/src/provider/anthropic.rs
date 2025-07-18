@@ -1,13 +1,15 @@
+//! Anthropic LLM provider
+
 use std::collections::HashMap;
 
 use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolCall},
     provider::{
-        ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsToolCall, ChatRsUsage,
-        DEFAULT_MAX_TOKENS,
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
+        LlmUsage, DEFAULT_MAX_TOKENS,
     },
 };
 
@@ -17,26 +19,14 @@ const API_VERSION: &str = "2023-06-01";
 /// Anthropic chat provider
 pub struct AnthropicProvider<'a> {
     client: reqwest::Client,
-    api_key: String,
-    model: &'a str,
-    max_tokens: Option<u32>,
-    temperature: Option<f32>,
+    api_key: &'a str,
 }
 
 impl<'a> AnthropicProvider<'a> {
-    pub fn new(
-        http_client: &reqwest::Client,
-        api_key: &str,
-        model: &'a str,
-        max_tokens: Option<u32>,
-        temperature: Option<f32>,
-    ) -> Self {
+    pub fn new(http_client: &reqwest::Client, api_key: &'a str) -> Self {
         Self {
             client: http_client.clone(),
-            api_key: api_key.to_string(),
-            model,
-            max_tokens,
-            temperature,
+            api_key,
         }
     }
 
@@ -117,7 +107,7 @@ impl<'a> AnthropicProvider<'a> {
         &self,
         mut response: reqwest::Response,
         tools: Option<Vec<ChatRsTool>>,
-    ) -> ChatRsStream {
+    ) -> LlmApiStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
             let mut current_tool_calls: Vec<Option<AnthropicStreamToolCall>> = Vec::new();
@@ -143,7 +133,7 @@ impl<'a> AnthropicProvider<'a> {
                                         match event {
                                             AnthropicStreamEvent::MessageStart { message } => {
                                                 if let Some(usage) = message.usage {
-                                                    yield Ok(ChatRsStreamChunk {
+                                                    yield Ok(LlmStreamChunk {
                                                         text: Some(String::new()),
                                                         tool_calls: None,
                                                         usage: Some(usage.into()),
@@ -153,7 +143,7 @@ impl<'a> AnthropicProvider<'a> {
                                             AnthropicStreamEvent::ContentBlockStart { content_block, index } => {
                                                 match content_block {
                                                     AnthropicResponseContentBlock::Text { text } => {
-                                                        yield Ok(ChatRsStreamChunk {
+                                                        yield Ok(LlmStreamChunk {
                                                             text: Some(text),
                                                             tool_calls: None,
                                                             usage: None,
@@ -172,7 +162,7 @@ impl<'a> AnthropicProvider<'a> {
                                             AnthropicStreamEvent::ContentBlockDelta { delta, index } => {
                                                 match delta {
                                                     AnthropicDelta::TextDelta { text } => {
-                                                        yield Ok(ChatRsStreamChunk {
+                                                        yield Ok(LlmStreamChunk {
                                                             text: Some(text),
                                                             tool_calls: None,
                                                             usage: None,
@@ -194,7 +184,7 @@ impl<'a> AnthropicProvider<'a> {
                                                             .and_then(|tc| tc.take())
                                                             .and_then(|tc| tc.convert(rs_chat_tools));
                                                         if let Some(converted_call) = converted_call {
-                                                            yield Ok(ChatRsStreamChunk {
+                                                            yield Ok(LlmStreamChunk {
                                                                 text: None,
                                                                 tool_calls: Some(vec![converted_call]),
                                                                 usage: None,
@@ -205,7 +195,7 @@ impl<'a> AnthropicProvider<'a> {
                                             }
                                             AnthropicStreamEvent::MessageDelta { usage } => {
                                                 if let Some(usage) = usage {
-                                                    yield Ok(ChatRsStreamChunk {
+                                                    yield Ok(LlmStreamChunk {
                                                         text: Some(String::new()),
                                                         tool_calls: None,
                                                         usage: Some(usage.into()),
@@ -213,7 +203,7 @@ impl<'a> AnthropicProvider<'a> {
                                                 }
                                             }
                                             AnthropicStreamEvent::Error { error } => {
-                                                yield Err(ChatRsError::AnthropicError(
+                                                yield Err(LlmError::AnthropicError(
                                                     format!("{}: {}", error.error_type, error.message)
                                                 ));
                                             }
@@ -236,7 +226,7 @@ impl<'a> AnthropicProvider<'a> {
                     }
                     Err(e) => {
                         rocket::warn!("Stream chunk error: {}", e);
-                        yield Err(ChatRsError::AnthropicError(format!("Stream error: {}", e)));
+                        yield Err(LlmError::AnthropicError(format!("Stream error: {}", e)));
                         break;
                     }
                 }
@@ -250,20 +240,25 @@ impl<'a> AnthropicProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> ChatRsProvider for AnthropicProvider<'a> {
+impl<'a> LlmApiProvider for AnthropicProvider<'a> {
+    fn default_model(&self) -> &'static str {
+        "claude-3-7-sonnet-latest"
+    }
+
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
         tools: Option<Vec<ChatRsTool>>,
-    ) -> Result<ChatRsStream, ChatRsError> {
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<LlmApiStream, LlmError> {
         let (anthropic_messages, system_prompt) = self.build_messages(&messages);
         let anthropic_tools = tools.as_ref().map(|t| self.build_tools(t));
 
         let request = AnthropicRequest {
-            model: self.model,
+            model: &options.model,
             messages: anthropic_messages,
-            max_tokens: self.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
-            temperature: self.temperature,
+            max_tokens: options.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
+            temperature: options.temperature,
             system: system_prompt,
             stream: Some(true),
             tools: anthropic_tools,
@@ -274,16 +269,16 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
             .post(MESSAGES_API_URL)
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            .header("x-api-key", &self.api_key)
+            .header("x-api-key", self.api_key)
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::AnthropicError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::AnthropicError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::AnthropicError(format!(
+            return Err(LlmError::AnthropicError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
@@ -292,15 +287,19 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
         Ok(self.parse_sse_stream(response, tools).await)
     }
 
-    async fn prompt(&self, message: &str) -> Result<String, ChatRsError> {
+    async fn prompt(
+        &self,
+        message: &str,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<String, LlmError> {
         let request = AnthropicRequest {
-            model: self.model,
+            model: &options.model,
             messages: vec![AnthropicMessage {
                 role: "user",
                 content: vec![AnthropicContentBlock::Text { text: message }],
             }],
-            max_tokens: self.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
-            temperature: self.temperature,
+            max_tokens: options.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
+            temperature: options.temperature,
             system: None,
             stream: None,
             tools: None,
@@ -311,16 +310,16 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
             .post(MESSAGES_API_URL)
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            .header("x-api-key", &self.api_key)
+            .header("x-api-key", self.api_key)
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::AnthropicError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::AnthropicError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::AnthropicError(format!(
+            return Err(LlmError::AnthropicError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
@@ -329,7 +328,7 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
         let anthropic_response: AnthropicResponse = response
             .json()
             .await
-            .map_err(|e| ChatRsError::AnthropicError(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| LlmError::AnthropicError(format!("Failed to parse response: {}", e)))?;
 
         let text = anthropic_response
             .content
@@ -338,10 +337,10 @@ impl<'a> ChatRsProvider for AnthropicProvider<'a> {
                 AnthropicResponseContentBlock::Text { text } => Some(text.clone()),
                 _ => None,
             })
-            .ok_or_else(|| ChatRsError::NoResponse)?;
+            .ok_or_else(|| LlmError::NoResponse)?;
 
         if let Some(usage) = anthropic_response.usage {
-            let usage: ChatRsUsage = usage.into();
+            let usage: LlmUsage = usage.into();
             println!("Prompt usage: {:?}", usage);
         }
 
@@ -413,9 +412,9 @@ struct AnthropicUsage {
     output_tokens: Option<u32>,
 }
 
-impl From<AnthropicUsage> for ChatRsUsage {
+impl From<AnthropicUsage> for LlmUsage {
     fn from(usage: AnthropicUsage) -> Self {
-        ChatRsUsage {
+        LlmUsage {
             input_tokens: usage.input_tokens,
             output_tokens: usage.output_tokens,
             cost: None,

@@ -17,17 +17,15 @@ use crate::{
     api::session::DEFAULT_SESSION_TITLE,
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsMessageMeta, ChatRsMessageRole, NewChatRsMessage},
-        services::{ChatDbService, ProviderKeyDbService, ToolDbService},
+        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsProviderType, NewChatRsMessage},
+        services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
+    provider::{build_llm_provider_api, LlmApiProviderSharedOptions},
     redis::RedisClient,
     utils::{
-        create_provider::{create_provider, ProviderConfigInput},
-        encryption::Encryptor,
-        generate_title::generate_title,
-        stored_stream::StoredChatRsStream,
+        encryption::Encryptor, generate_title::generate_title, stored_stream::StoredChatRsStream,
     },
 };
 
@@ -38,7 +36,8 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
     message: Option<Cow<'a, str>>,
-    provider: ProviderConfigInput,
+    provider_id: i32,
+    provider_options: LlmApiProviderSharedOptions,
 }
 
 /// Send a chat message and stream the response
@@ -60,14 +59,19 @@ pub async fn send_chat_stream(
         .await?;
 
     // Build the chat provider
-    let provider = create_provider(
-        &user_id,
-        &input.provider,
-        &mut ProviderKeyDbService::new(&mut db),
-        encryptor,
+    let (provider, api_key_secret) = ProviderDbService::new(&mut db)
+        .get_by_id(&user_id, input.provider_id)
+        .await?;
+    let provider_type: ChatRsProviderType = provider.provider_type.as_str().try_into()?;
+    let api_key = api_key_secret
+        .map(|secret| encryptor.decrypt_string(&secret.ciphertext, &secret.nonce))
+        .transpose()?;
+    let provider_api = build_llm_provider_api(
+        &provider_type,
+        provider.base_url.as_deref(),
+        api_key.as_deref(),
         http_client,
-    )
-    .await?;
+    )?;
 
     // Fetch user's tools
     let user_tools = ToolDbService::new(&mut db).find_by_user(&user_id).await?;
@@ -79,8 +83,9 @@ pub async fn send_chat_stream(
                 &user_id,
                 &session_id,
                 &user_message,
-                &input.provider,
-                encryptor,
+                provider_type,
+                provider.base_url.as_deref(),
+                api_key.clone(),
                 http_client,
                 db_pool,
             );
@@ -99,10 +104,10 @@ pub async fn send_chat_stream(
 
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
-        provider
-            .chat_stream(current_messages, Some(user_tools))
+        provider_api
+            .chat_stream(current_messages, Some(user_tools), &input.provider_options)
             .await?,
-        input.provider.clone(),
+        input.provider_options.clone(),
         db_pool.inner().clone(),
         redis.clone(),
         Some(session_id),
