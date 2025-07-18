@@ -19,8 +19,8 @@ pub struct ChatRsProvider {
     pub provider_type: String,
     #[serde(skip_serializing)]
     pub user_id: Uuid,
-    pub base_url: Option<String>,
     pub default_model: String,
+    pub base_url: Option<String>,
     pub api_key_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }

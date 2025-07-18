@@ -42,11 +42,11 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
         "/auth" => api::auth_routes(&openapi_settings),
-        "/providers" => api::provider_routes(&openapi_settings),
+        "/provider" => api::provider_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
         "/tool" => api::tool_routes(&openapi_settings),
-        "/provider_key" => api::provider_key_routes(&openapi_settings),
+        "/secret" => api::secret_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };
 

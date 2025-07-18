@@ -17,38 +17,38 @@ use crate::{
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: get_all_provider_keys, create_provider_key, delete_provider_key]
+    openapi_get_routes_spec![settings: get_all_secrets, create_secret, delete_secret]
 }
 
-/// List all Provider API keys
+/// List all secrets
 #[openapi(tag = "Secrets")]
 #[get("/")]
-async fn get_all_provider_keys(
+async fn get_all_secrets(
     user_id: ChatRsUserId,
     mut db: DbConnection,
 ) -> Result<Json<Vec<ChatRsSecretMeta>>, ApiError> {
-    let keys = SecretDbService::new(&mut db)
+    let secrets = SecretDbService::new(&mut db)
         .find_by_user_id(&user_id)
         .await?;
 
-    Ok(Json(keys))
+    Ok(Json(secrets))
 }
 
 #[derive(JsonSchema, serde::Deserialize)]
-struct ProviderKeyInput {
+struct SecretInput {
     provider: ChatRsProviderKeyType,
     key: String,
     name: String,
 }
 
-/// Create a new Provider API key
+/// Create a new secret
 #[openapi(tag = "Secrets")]
 #[post("/", data = "<input>")]
-async fn create_provider_key(
+async fn create_secret(
     user_id: ChatRsUserId,
     mut db: DbConnection,
     encryptor: &State<Encryptor>,
-    input: Json<ProviderKeyInput>,
+    input: Json<SecretInput>,
 ) -> Result<String, ApiError> {
     let (ciphertext, nonce) = encryptor.encrypt_string(&input.key)?;
     let id = SecretDbService::new(&mut db)
@@ -64,16 +64,16 @@ async fn create_provider_key(
     Ok(id.to_string())
 }
 
-/// Delete a Provider API key
+/// Delete a secret
 #[openapi(tag = "Secrets")]
-#[delete("/<api_key_id>")]
-async fn delete_provider_key(
+#[delete("/<secret_id>")]
+async fn delete_secret(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-    api_key_id: Uuid,
+    secret_id: Uuid,
 ) -> Result<(), ApiError> {
     let _ = SecretDbService::new(&mut db)
-        .delete(&user_id, &api_key_id)
+        .delete(&user_id, &secret_id)
         .await?;
 
     Ok(())
