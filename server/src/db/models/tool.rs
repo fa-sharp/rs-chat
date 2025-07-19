@@ -16,6 +16,7 @@ use crate::{db::models::ChatRsUser, tools::ToolConfig};
 #[diesel(table_name = super::schema::tools)]
 pub struct ChatRsTool {
     pub id: Uuid,
+    #[serde(skip_serializing)]
     pub user_id: Uuid,
     pub name: String,
     pub description: String,

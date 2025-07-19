@@ -83,4 +83,15 @@ impl<'a> ProviderDbService<'a> {
             .get_result(self.db)
             .await
     }
+
+    pub async fn delete_by_user(
+        &mut self,
+        user_id: &Uuid,
+    ) -> Result<Vec<ChatRsProvider>, diesel::result::Error> {
+        diesel::delete(providers::table)
+            .filter(providers::user_id.eq(user_id))
+            .returning(ChatRsProvider::as_returning())
+            .get_results(self.db)
+            .await
+    }
 }

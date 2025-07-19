@@ -176,7 +176,7 @@ impl<'a> ChatDbService<'a> {
         Ok(id)
     }
 
-    pub async fn delete_all_sessions(
+    pub async fn delete_by_user(
         &mut self,
         user_id: &Uuid,
     ) -> Result<Vec<Uuid>, diesel::result::Error> {

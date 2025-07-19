@@ -1,7 +1,6 @@
 use rocket::{
     delete, get, post,
     request::{FromRequest, Outcome},
-    routes,
     serde::json::Json,
     Route,
 };
@@ -19,7 +18,10 @@ use crate::{
     },
     db::{
         models::ChatRsUser,
-        services::{ApiKeyDbService, ChatDbService, SecretDbService, UserDbService},
+        services::{
+            ApiKeyDbService, ChatDbService, ProviderDbService, SecretDbService, ToolDbService,
+            UserDbService,
+        },
         DbConnection,
     },
     errors::ApiError,
@@ -27,12 +29,7 @@ use crate::{
 
 /// Auth routes
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: user, auth_config, logout]
-}
-
-/// Undocumented auth routes: account deletion
-pub fn get_undocumented_routes() -> Vec<Route> {
-    routes![delete_account]
+    openapi_get_routes_spec![settings: user, auth_config, logout, delete_account]
 }
 
 /// Get the current user info
@@ -113,31 +110,50 @@ async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, A
     Ok("Logout successful".to_string())
 }
 
+#[derive(Debug, JsonSchema, serde::Deserialize)]
+struct DeleteAccountInput {
+    confirm: DeleteAccountConfirmation,
+}
+
+#[derive(Debug, PartialEq, JsonSchema, serde::Deserialize)]
+enum DeleteAccountConfirmation {
+    #[serde(rename = "DELETE MY ACCOUNT")]
+    DeleteMyAccount,
+}
+
 /// Delete account
-#[delete("/user/delete-but-only-if-you-are-sure")]
-async fn delete_account(user: ChatRsUser, mut db: DbConnection) -> Result<String, ApiError> {
-    // Delete Provider keys
-    let provider_keys = SecretDbService::new(&mut db)
+#[openapi(tag = "Auth")]
+#[delete("/user/delete-my-account", data = "<input>")]
+async fn delete_account(
+    user: ChatRsUser,
+    mut db: DbConnection,
+    input: Json<DeleteAccountInput>,
+) -> Result<String, ApiError> {
+    if input.confirm != DeleteAccountConfirmation::DeleteMyAccount {
+        return Err(ApiError::Authentication("Invalid confirmation".to_string()));
+    }
+
+    let sessions = ChatDbService::new(&mut db).delete_by_user(&user.id).await?;
+    let providers = ProviderDbService::new(&mut db)
         .delete_by_user(&user.id)
         .await?;
-
-    // Delete API keys
+    let tools = ToolDbService::new(&mut db).delete_by_user(&user.id).await?;
+    let secrets = SecretDbService::new(&mut db)
+        .delete_by_user(&user.id)
+        .await?;
     let api_keys = ApiKeyDbService::new(&mut db)
         .delete_by_user(&user.id)
-        .await?;
-
-    // Delete chat sessions
-    let sessions = ChatDbService::new(&mut db)
-        .delete_all_sessions(&user.id)
         .await?;
 
     let user_id = UserDbService::new(&mut db).delete(&user.id).await?;
 
     Ok(format!(
-        "Deleted user {}: {} sessions, {} provider keys, {} API keys",
+        "Deleted user {}:  {} providers, {} sessions, {} tools, {} secrets, {} API keys",
         user_id,
+        providers.len(),
         sessions.len(),
-        provider_keys.len(),
+        tools.len(),
+        secrets.len(),
         api_keys.len()
     ))
 }

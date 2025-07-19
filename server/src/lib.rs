@@ -13,7 +13,6 @@ use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec};
 
 use crate::{
-    api::auth_undocumented_routes,
     auth::setup_auth,
     config::{get_config_provider, AppConfig},
     db::setup_db,
@@ -34,7 +33,6 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_static_files())
         .manage(reqwest::Client::new())
         .register("/", get_catchers())
-        .mount("/api/auth", auth_undocumented_routes())
         .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
