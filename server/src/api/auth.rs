@@ -32,6 +32,7 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![settings: user, auth_config, logout, delete_account]
 }
 
+/// # Get User
 /// Get the current user info
 #[openapi(tag = "Auth")]
 #[get("/user")]
@@ -94,6 +95,7 @@ impl<'r> FromRequest<'r> for AuthConfig {
     }
 }
 
+/// # Get Auth Config
 /// Get the current auth configuration
 #[openapi(tag = "Auth")]
 #[get("/config")]
@@ -101,7 +103,7 @@ async fn auth_config(config: AuthConfig) -> Json<AuthConfig> {
     Json(config)
 }
 
-/// Log out
+/// # Log out
 #[openapi(tag = "Auth")]
 #[post("/logout")]
 async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, ApiError> {
@@ -112,16 +114,12 @@ async fn logout(mut session: Session<'_, ChatRsAuthSession>) -> Result<String, A
 
 #[derive(Debug, JsonSchema, serde::Deserialize)]
 struct DeleteAccountInput {
-    confirm: DeleteAccountConfirmation,
+    /// Confirmation message: "DELETE MY ACCOUNT"
+    confirm: String,
 }
 
-#[derive(Debug, PartialEq, JsonSchema, serde::Deserialize)]
-enum DeleteAccountConfirmation {
-    #[serde(rename = "DELETE MY ACCOUNT")]
-    DeleteMyAccount,
-}
-
-/// Delete account
+/// # Delete account
+/// Delete account and all associated data. ⚠️ WARNING: This action is irreversible.
 #[openapi(tag = "Auth")]
 #[delete("/user/delete-my-account", data = "<input>")]
 async fn delete_account(
@@ -129,7 +127,7 @@ async fn delete_account(
     mut db: DbConnection,
     input: Json<DeleteAccountInput>,
 ) -> Result<String, ApiError> {
-    if input.confirm != DeleteAccountConfirmation::DeleteMyAccount {
+    if input.confirm != "DELETE MY ACCOUNT" {
         return Err(ApiError::Authentication("Invalid confirmation".to_string()));
     }
 
