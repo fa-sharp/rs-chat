@@ -4,6 +4,7 @@ pub mod config;
 pub mod db;
 pub mod errors;
 pub mod provider;
+pub mod provider_models;
 pub mod redis;
 pub mod tools;
 pub mod utils;

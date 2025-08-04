@@ -73,7 +73,8 @@ pub async fn send_chat_stream(
         &provider_type,
         provider.base_url.as_deref(),
         api_key.as_deref(),
-        http_client,
+        &http_client,
+        &redis,
     )?;
 
     // Fetch user's tools
@@ -90,7 +91,8 @@ pub async fn send_chat_stream(
                 &provider.default_model,
                 provider.base_url.as_deref(),
                 api_key.clone(),
-                http_client,
+                &http_client,
+                &redis,
                 db_pool,
             );
         }

@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use crate::{
     db::models::{ChatRsMessage, ChatRsProviderType, ChatRsTool, ChatRsToolCall},
     provider::{anthropic::AnthropicProvider, lorem::LoremProvider, openai::OpenAIProvider},
+    provider_models::LlmModel,
 };
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
@@ -28,6 +29,8 @@ pub enum LlmError {
     AnthropicError(String),
     #[error("OpenAI error: {0}")]
     OpenAIError(String),
+    #[error("models.dev error: {0}")]
+    ModelsDevError(String),
     #[error("No chat response")]
     NoResponse,
     #[error("Unsupported provider")]
@@ -36,6 +39,8 @@ pub enum LlmError {
     EncryptionError,
     #[error("Decryption error")]
     DecryptionError,
+    #[error("Redis error: {0}")]
+    Redis(#[from] fred::error::Error),
 }
 
 /// A streaming chunk of data from the LLM provider
@@ -84,6 +89,9 @@ pub trait LlmApiProvider {
         message: &str,
         options: &LlmApiProviderSharedOptions,
     ) -> Result<String, LlmError>;
+
+    /// List available models from the provider
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError>;
 }
 
 /// Build the LLM API provider to make calls to the provider
@@ -92,15 +100,18 @@ pub fn build_llm_provider_api<'a>(
     base_url: Option<&'a str>,
     api_key: Option<&'a str>,
     http_client: &reqwest::Client,
+    redis: &'a fred::prelude::Client,
 ) -> Result<Box<dyn LlmApiProvider + Send + 'a>, LlmError> {
     match provider_type {
         ChatRsProviderType::Openai => Ok(Box::new(OpenAIProvider::new(
             http_client,
+            redis,
             api_key.ok_or(LlmError::MissingApiKey)?,
             base_url,
         ))),
         ChatRsProviderType::Anthropic => Ok(Box::new(AnthropicProvider::new(
             http_client,
+            redis,
             api_key.ok_or(LlmError::MissingApiKey)?,
         ))),
         ChatRsProviderType::Lorem => Ok(Box::new(LoremProvider::new())),

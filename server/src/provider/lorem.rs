@@ -12,6 +12,7 @@ use crate::{
     provider::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
     },
+    provider_models::LlmModel,
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...'
@@ -121,5 +122,9 @@ impl LlmApiProvider for LoremProvider {
         _options: &LlmApiProviderSharedOptions,
     ) -> Result<String, LlmError> {
         Ok("Lorem ipsum".to_string())
+    }
+
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
+        Ok(vec![])
     }
 }

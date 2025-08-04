@@ -9,23 +9,32 @@ use crate::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
         LlmUsage,
     },
+    provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
 
-const API_BASE_URL: &str = "https://api.openai.com/v1";
+const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
+const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
 /// OpenAI chat provider
 pub struct OpenAIProvider<'a> {
     client: reqwest::Client,
+    redis: &'a fred::prelude::Client,
     api_key: &'a str,
     base_url: &'a str,
 }
 
 impl<'a> OpenAIProvider<'a> {
-    pub fn new(http_client: &reqwest::Client, api_key: &'a str, base_url: Option<&'a str>) -> Self {
+    pub fn new(
+        http_client: &reqwest::Client,
+        redis: &'a fred::prelude::Client,
+        api_key: &'a str,
+        base_url: Option<&'a str>,
+    ) -> Self {
         Self {
             client: http_client.clone(),
+            redis,
             api_key,
-            base_url: base_url.unwrap_or(API_BASE_URL),
+            base_url: base_url.unwrap_or(OPENAI_API_BASE_URL),
         }
     }
 
@@ -277,6 +286,20 @@ impl<'a> LlmApiProvider for OpenAIProvider<'a> {
         }
 
         Ok(text.clone())
+    }
+
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
+        let models_service = ModelsDevService::new(self.redis.clone(), self.client.clone());
+        let models = models_service
+            .list_models({
+                match self.base_url {
+                    OPENROUTER_API_BASE_URL => ModelsDevServiceProvider::OpenRouter,
+                    _ => ModelsDevServiceProvider::OpenAI,
+                }
+            })
+            .await?;
+
+        Ok(models)
     }
 }
 

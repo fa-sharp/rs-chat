@@ -11,6 +11,7 @@ use crate::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
         LlmUsage, DEFAULT_MAX_TOKENS,
     },
+    provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
 
 const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -19,13 +20,19 @@ const API_VERSION: &str = "2023-06-01";
 /// Anthropic chat provider
 pub struct AnthropicProvider<'a> {
     client: reqwest::Client,
+    redis: &'a fred::prelude::Client,
     api_key: &'a str,
 }
 
 impl<'a> AnthropicProvider<'a> {
-    pub fn new(http_client: &reqwest::Client, api_key: &'a str) -> Self {
+    pub fn new(
+        http_client: &reqwest::Client,
+        redis: &'a fred::prelude::Client,
+        api_key: &'a str,
+    ) -> Self {
         Self {
             client: http_client.clone(),
+            redis,
             api_key,
         }
     }
@@ -341,6 +348,15 @@ impl<'a> LlmApiProvider for AnthropicProvider<'a> {
         }
 
         Ok(text)
+    }
+
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
+        let models_service = ModelsDevService::new(self.redis.clone(), self.client.clone());
+        let models = models_service
+            .list_models(ModelsDevServiceProvider::Anthropic)
+            .await?;
+
+        Ok(models)
     }
 }
 

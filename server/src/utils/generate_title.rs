@@ -21,6 +21,7 @@ pub fn generate_title(
     base_url: Option<&str>,
     api_key: Option<String>,
     http_client: &reqwest::Client,
+    redis: &fred::prelude::Client,
     pool: &DbPool,
 ) {
     let user_id = user_id.to_owned();
@@ -29,6 +30,7 @@ pub fn generate_title(
     let model = model.to_owned();
     let base_url = base_url.map(|url| url.to_owned());
     let http_client = http_client.clone();
+    let redis = redis.clone();
     let pool = pool.clone();
 
     tokio::spawn(async move {
@@ -42,6 +44,7 @@ pub fn generate_title(
             base_url.as_deref(),
             api_key.as_deref(),
             &http_client,
+            &redis,
         ) else {
             rocket::warn!("Error creating provider for chat {}", session_id);
             return;

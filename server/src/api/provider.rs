@@ -16,13 +16,23 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
+    provider::build_llm_provider_api,
+    provider_models::LlmModel,
+    redis::RedisClient,
     utils::encryption::Encryptor,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: get_all_providers, create_provider, update_provider, delete_provider]
+    openapi_get_routes_spec![
+        settings: get_all_providers,
+        list_models,
+        create_provider,
+        update_provider,
+        delete_provider
+    ]
 }
 
+/// # List providers
 /// List all configured providers
 #[openapi(tag = "Providers")]
 #[get("/")]
@@ -37,6 +47,36 @@ async fn get_all_providers(
     Ok(Json(providers))
 }
 
+/// # List models
+/// List all models for a provider
+#[openapi(tag = "Providers")]
+#[get("/<provider_id>/models")]
+async fn list_models(
+    user_id: ChatRsUserId,
+    mut db: DbConnection,
+    redis: RedisClient,
+    encryptor: &State<Encryptor>,
+    http_client: &State<reqwest::Client>,
+    provider_id: i32,
+) -> Result<Json<Vec<LlmModel>>, ApiError> {
+    let (provider, api_key_secret) = ProviderDbService::new(&mut db)
+        .get_by_id(&user_id, provider_id)
+        .await?;
+    let provider_type: ChatRsProviderType = provider.provider_type.as_str().try_into()?;
+    let api_key = api_key_secret
+        .map(|secret| encryptor.decrypt_string(&secret.ciphertext, &secret.nonce))
+        .transpose()?;
+    let provider_api = build_llm_provider_api(
+        &provider_type,
+        provider.base_url.as_deref(),
+        api_key.as_deref(),
+        &http_client,
+        &redis,
+    )?;
+
+    Ok(Json(provider_api.list_models().await?))
+}
+
 #[derive(JsonSchema, serde::Deserialize)]
 struct ProviderCreateInput {
     name: String,
@@ -46,6 +86,7 @@ struct ProviderCreateInput {
     api_key: Option<String>,
 }
 
+/// # Create provider
 /// Create a new LLM provider
 #[openapi(tag = "Providers")]
 #[post("/", data = "<input>")]
@@ -91,6 +132,7 @@ struct ProviderUpdateInput {
     api_key: Option<String>,
 }
 
+/// # Update provider
 /// Update an LLM Provider
 #[openapi(tag = "Providers")]
 #[patch("/<provider_id>", data = "<input>")]
@@ -152,6 +194,7 @@ async fn update_provider(
     Ok(Json(updated))
 }
 
+/// # Delete provider
 /// Delete an LLM Provider
 #[openapi(tag = "Providers")]
 #[delete("/<provider_id>")]
