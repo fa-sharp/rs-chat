@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use enum_iterator::{all, Sequence};
 use fred::prelude::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -88,11 +89,7 @@ impl ModelsDevService {
 
             let mut models: Option<Vec<LlmModel>> = None;
             let mut cache: HashMap<String, String> = HashMap::new();
-            for model_provider in [
-                ModelsDevServiceProvider::Anthropic,
-                ModelsDevServiceProvider::OpenAI,
-                ModelsDevServiceProvider::OpenRouter,
-            ] {
+            for model_provider in all::<ModelsDevServiceProvider>() {
                 let provider_str: &str = (&model_provider).into();
                 let provider_response = res.remove(provider_str).ok_or_else(|| {
                     LlmError::ModelsDevError(format!("Provider '{}' not found", provider_str))
@@ -125,7 +122,7 @@ fn parse_models(provider_response: ModelsDevProviderResponse) -> Vec<LlmModel> {
         .collect()
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Sequence)]
 #[serde(rename_all = "lowercase")]
 pub enum ModelsDevServiceProvider {
     OpenAI,
