@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::provider::LlmError;
 
-const CACHE_KEY: &'static str = "models";
+const CACHE_KEY: &str = "models";
 const CACHE_TTL: i64 = 86400; // 1 day in seconds
 
 /// A model supported by the LLM provider
@@ -94,14 +94,18 @@ impl ModelsDevService {
                 let provider_response = res.remove(provider_str).ok_or_else(|| {
                     LlmError::ModelsDevError(format!("Provider '{}' not found", provider_str))
                 })?;
-                let parsed_models = parse_models(provider_response);
-                if provider == model_provider {
-                    models = Some(parsed_models.clone());
-                }
-
-                let models_str = serde_json::to_string(&parsed_models)
+                let parsed_models: Vec<LlmModel> = provider_response
+                    .models
+                    .into_iter()
+                    .map(|(_, model)| model)
+                    .collect();
+                let parsed_models_str = serde_json::to_string(&parsed_models)
                     .map_err(|e| LlmError::ModelsDevError(e.to_string()))?;
-                cache.insert(provider_str.to_owned(), models_str);
+
+                if provider == model_provider {
+                    models = Some(parsed_models);
+                }
+                cache.insert(provider_str.to_owned(), parsed_models_str);
             }
 
             let pipeline = self.redis.pipeline();
@@ -112,14 +116,6 @@ impl ModelsDevService {
             Ok(models.unwrap_or_default())
         }
     }
-}
-
-fn parse_models(provider_response: ModelsDevProviderResponse) -> Vec<LlmModel> {
-    provider_response
-        .models
-        .into_iter()
-        .map(|(_, model)| model)
-        .collect()
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Sequence)]
