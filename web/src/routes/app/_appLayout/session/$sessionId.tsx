@@ -5,6 +5,7 @@ import ChatMessages from "@/components/chat/ChatMessages";
 import ErrorComponent from "@/components/Error";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatInputState } from "@/hooks/useChatInputState";
+import { useProviders } from "@/lib/api/provider";
 import {
   chatSessionQueryKey,
   getChatSession,
@@ -38,15 +39,20 @@ function RouteComponent() {
   const { user } = Route.useRouteContext();
   const { sessionId } = Route.useParams();
   const { data } = useGetChatSession(sessionId);
+  const { data: providers } = useProviders();
   const { data: tools } = useTools();
   const { streamedChats, onUserSubmit } = useStreamingChats();
 
   const inputState = useChatInputState({
+    providers,
+    initialProviderId: data?.messages.findLast(
+      (m) => m.role === "Assistant" && !!m.meta.provider_id,
+    )?.meta.provider_id,
+    initialOptions: data?.messages.findLast(
+      (m) => m.role === "Assistant" && !!m.meta.provider_options,
+    )?.meta.provider_options,
     isGenerating: streamedChats[sessionId]?.status === "streaming",
     onSubmit: (input) => onUserSubmit(sessionId, input),
-    providerConfig: data?.messages.findLast(
-      (m) => m.role === "Assistant" && !!m.meta.provider_config,
-    )?.meta.provider_config,
     sessionId,
   });
 

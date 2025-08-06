@@ -13,8 +13,8 @@ export default function ChatMessageInput({
   inputState: ReturnType<typeof useChatInputState>;
 }) {
   const {
-    provider,
-    model,
+    providerId,
+    modelId,
     maxTokens,
     temperature,
     error,
@@ -63,8 +63,8 @@ export default function ChatMessageInput({
       />
       <div className="flex flex-wrap items-center gap-2 p-3 pt-0">
         <ChatModelSelect
-          currentProviderKey={provider}
-          currentModel={model}
+          currentProviderId={providerId}
+          currentModel={modelId}
           currentMaxTokens={maxTokens}
           currentTemperature={temperature}
           onSelect={onSelectModel}

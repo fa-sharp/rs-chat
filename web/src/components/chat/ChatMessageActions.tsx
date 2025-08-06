@@ -110,8 +110,7 @@ export function InfoButton({
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
 }) {
-  const { provider, model, temperature, maxTokens } = useMessageMeta(meta);
-  const { interrupted, usage, executed_tool_call } = meta;
+  const { provider_options, interrupted, usage, executed_tool_call } = meta;
 
   return (
     <Popover>
@@ -142,19 +141,20 @@ export function InfoButton({
             Tool call error
           </div>
         )}
-        {provider && (
+        {/*{provider && (
           <div>
             <span className="font-bold">Provider:</span> {provider}
           </div>
-        )}
-        {model && (
+        )}*/}
+        {provider_options?.model && (
           <div>
-            <span className="font-bold">Model:</span> {model}
+            <span className="font-bold">Model:</span> {provider_options.model}
           </div>
         )}
-        {temperature && (
+        {provider_options?.temperature && (
           <div>
-            <span className="font-bold">Temperature:</span> {temperature}
+            <span className="font-bold">Temperature:</span>{" "}
+            {provider_options.temperature}
           </div>
         )}
         {executed_tool_call?.id && (
@@ -179,7 +179,9 @@ export function InfoButton({
           <div>
             <span className="font-bold">Output:</span>{" "}
             {usage.output_tokens?.toLocaleString()} tokens
-            {maxTokens ? ` (Max: ${maxTokens.toLocaleString()})` : ""}
+            {provider_options?.max_tokens
+              ? ` (Max: ${provider_options.max_tokens.toLocaleString()})`
+              : ""}
           </div>
         )}
         {usage?.cost && (
@@ -190,46 +192,4 @@ export function InfoButton({
       </PopoverContent>
     </Popover>
   );
-}
-
-function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
-  const providerSpecificMeta = useMemo(() => {
-    if (typeof meta.provider_config === "string") {
-      return {
-        provider: meta.provider_config,
-      };
-    } else if (meta.provider_config && "OpenAI" in meta.provider_config) {
-      return {
-        provider: "OpenAI",
-        model: meta.provider_config.OpenAI.model,
-        temperature: meta.provider_config.OpenAI.temperature,
-        maxTokens: meta.provider_config.OpenAI.max_tokens,
-      };
-    } else if (meta.provider_config && "Anthropic" in meta.provider_config) {
-      return {
-        provider: "Anthropic",
-        model: meta.provider_config.Anthropic.model,
-        temperature: meta.provider_config.Anthropic.temperature,
-        maxTokens: meta.provider_config.Anthropic.max_tokens,
-      };
-    } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
-      return {
-        provider: "OpenRouter",
-        model: meta.provider_config.OpenRouter.model,
-        temperature: meta.provider_config.OpenRouter.temperature,
-        maxTokens: meta.provider_config.OpenRouter.max_tokens,
-      };
-    } else if (meta.provider_config && "Llm" in meta.provider_config) {
-      return {
-        provider: meta.provider_config.Llm.backend,
-        model: meta.provider_config.Llm.model,
-        temperature: meta.provider_config.Llm.temperature,
-        maxTokens: meta.provider_config.Llm.max_tokens,
-      };
-    }
-
-    return {};
-  }, [meta]);
-
-  return providerSpecificMeta;
 }

@@ -15,8 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useProviderKeys } from "@/lib/api/providerKey";
-import { type ProviderKey, providers } from "@/lib/providerInfo";
+import { useProviderModels, useProviders } from "@/lib/api/provider";
 import { cn } from "@/lib/utils";
 import { Label } from "../ui/label";
 import {
@@ -31,29 +30,28 @@ import {
 
 export function ChatModelSelect({
   onSelect,
-  currentProviderKey,
+  currentProviderId,
   currentModel,
   currentMaxTokens,
   onSelectMaxTokens,
   currentTemperature,
   onSelectTemperature,
 }: {
-  currentProviderKey?: ProviderKey;
+  currentProviderId?: number | null;
   currentModel: string;
-  onSelect: (provider?: ProviderKey, model?: string) => void;
+  onSelect: (providerId?: number | null, model?: string) => void;
   currentMaxTokens: number;
   onSelectMaxTokens: (maxTokens: number) => void;
   currentTemperature: number;
   onSelectTemperature: (temperature: number) => void;
 }) {
-  const { data: apiKeys } = useProviderKeys();
-
+  const { data: providers } = useProviders();
   const currentProvider = React.useMemo(() => {
-    return providers.find((p) => p.value === currentProviderKey);
-  }, [currentProviderKey]);
+    return providers?.find((p) => p.id === currentProviderId);
+  }, [providers, currentProviderId]);
 
   const setCurrentModel = (model: string) => {
-    onSelect(currentProvider?.value, model);
+    onSelect(currentProviderId, model);
   };
 
   const [open, setOpen] = React.useState(false);
@@ -68,9 +66,7 @@ export function ChatModelSelect({
             aria-expanded={open}
             className="w-[140px] justify-between"
           >
-            {currentProvider
-              ? providers.find((p) => p.value === currentProvider.value)?.label
-              : "Select provider"}
+            {currentProvider ? currentProvider.name : "Select provider"}
             <ChevronsUpDown className="opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -80,32 +76,22 @@ export function ChatModelSelect({
             <CommandList>
               <CommandEmpty>No provider found.</CommandEmpty>
               <CommandGroup>
-                {providers.map((provider) => {
-                  const missingApiKey =
-                    provider.apiKeyType &&
-                    !apiKeys?.find(
-                      (key) => key.provider === provider.apiKeyType,
-                    );
-
+                {providers?.map((provider) => {
                   return (
                     <CommandItem
-                      key={provider.value}
-                      disabled={missingApiKey}
-                      value={provider.value}
+                      key={provider.id}
+                      value={String(provider.id)}
                       onSelect={() => {
-                        const newProvider = providers.find(
-                          (p) => p.value === provider.value,
-                        );
-                        onSelect(newProvider?.value, "");
+                        onSelect(provider.id, "");
                         setOpen(false);
                       }}
                     >
-                      {missingApiKey && <Lock />}
-                      {provider.label}
+                      {provider.api_key_id && <Lock />}
+                      {provider.name}
                       <Check
                         className={cn(
                           "ml-auto",
-                          currentProvider?.value === provider.value
+                          currentProvider?.id === provider.id
                             ? "opacity-100"
                             : "opacity-0",
                         )}
@@ -118,11 +104,11 @@ export function ChatModelSelect({
           </Command>
         </PopoverContent>
       </Popover>
-      {currentProvider && currentProvider.value !== "Lorem" && (
+      {currentProvider && currentProvider.provider_type !== "lorem" && (
         <>
           <ProviderModelSelect
-            provider={currentProvider}
-            currentModel={currentModel}
+            providerId={currentProviderId}
+            currentModelId={currentModel}
             onSelect={setCurrentModel}
           />
 
@@ -193,14 +179,16 @@ export function ChatModelSelect({
 }
 
 function ProviderModelSelect({
-  provider,
-  currentModel,
+  providerId,
+  currentModelId,
   onSelect,
 }: {
-  provider: (typeof providers)[number];
-  currentModel: string;
+  providerId?: number | null;
+  currentModelId: string;
   onSelect: (model: string) => void;
 }) {
+  const { data: models } = useProviderModels(providerId);
+
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -213,8 +201,9 @@ function ProviderModelSelect({
           className="w-[280px] justify-between"
         >
           <span className="overflow-hidden text-ellipsis">
-            {currentModel
-              ? provider.models.find((model) => model === currentModel)
+            {currentModelId
+              ? models?.find((model) => model.id === currentModelId)?.name ||
+                currentModelId
               : "Select model"}
           </span>
           <ChevronsUpDown className="opacity-50" />
@@ -226,20 +215,20 @@ function ProviderModelSelect({
           <CommandList>
             <CommandEmpty>No models found.</CommandEmpty>
             <CommandGroup>
-              {provider.models.map((model) => (
+              {models?.map((model) => (
                 <CommandItem
-                  key={model}
-                  value={model}
+                  key={model.id}
+                  value={model.id}
                   onSelect={() => {
-                    onSelect(model);
+                    onSelect(model.id);
                     setOpen(false);
                   }}
                 >
-                  {model}
+                  {model.name}
                   <Check
                     className={cn(
                       "ml-auto",
-                      currentModel === model ? "opacity-100" : "opacity-0",
+                      currentModelId === model.id ? "opacity-100" : "opacity-0",
                     )}
                   />
                 </CommandItem>

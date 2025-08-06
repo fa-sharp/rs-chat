@@ -34,7 +34,7 @@ export const useStreamingChats = () => {
               id: crypto.randomUUID(),
               content: input.message,
               role: "User",
-              timestamp: new Date(),
+              created_at: new Date().toISOString(),
             },
           ],
         };

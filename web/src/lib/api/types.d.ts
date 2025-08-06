@@ -28,7 +28,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get the current user info */
+        /**
+         * Get User
+         * @description Get the current user info
+         */
         get: operations["user"];
         put?: never;
         post?: never;
@@ -45,7 +48,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get the current auth configuration */
+        /**
+         * Get Auth Config
+         * @description Get the current auth configuration
+         */
         get: operations["auth_config"];
         put?: never;
         post?: never;
@@ -64,12 +70,100 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Log out */
+        /** Log out */
         post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/auth/user/delete-my-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete account
+         * @description Delete account and all associated data. ⚠️ WARNING: This action is irreversible.
+         */
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List providers
+         * @description List all configured providers
+         */
+        get: operations["get_all_providers"];
+        put?: never;
+        /**
+         * Create provider
+         * @description Create a new LLM provider
+         */
+        post: operations["create_provider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/{provider_id}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List models
+         * @description List all models for a provider
+         */
+        get: operations["list_models"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete provider
+         * @description Delete an LLM Provider
+         */
+        delete: operations["delete_provider"];
+        options?: never;
+        head?: never;
+        /**
+         * Update provider
+         * @description Update an LLM Provider
+         */
+        patch: operations["update_provider"];
         trace?: never;
     };
     "/session/": {
@@ -229,25 +323,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/provider_key/": {
+    "/secret/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description List all Provider API keys */
-        get: operations["get_all_provider_keys"];
+        /** @description List all secrets */
+        get: operations["get_all_secrets"];
         put?: never;
-        /** @description Create a new Provider API key */
-        post: operations["create_provider_key"];
+        /** @description Create a new secret */
+        post: operations["create_secret"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/provider_key/{api_key_id}": {
+    "/secret/{secret_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -257,8 +351,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Delete a Provider API key */
-        delete: operations["delete_provider_key"];
+        /** @description Delete a secret */
+        delete: operations["delete_secret"];
         options?: never;
         head?: never;
         patch?: never;
@@ -346,6 +440,63 @@ export interface components {
             /** @description The URL to redirect to after logout */
             logout_url?: string | null;
         };
+        DeleteAccountInput: {
+            /** @description Confirmation message: "DELETE MY ACCOUNT" */
+            confirm: string;
+        };
+        ChatRsProvider: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            provider_type: components["schemas"]["ChatRsProviderType"];
+            /** Format: uuid */
+            user_id: string;
+            default_model: string;
+            base_url?: string | null;
+            /** Format: uuid */
+            api_key_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description The API type of the provider
+         * @enum {string}
+         */
+        ChatRsProviderType: "anthropic" | "openai" | "lorem";
+        /** @description A model supported by the LLM provider */
+        LlmModel: {
+            id: string;
+            name: string;
+            attachment?: boolean | null;
+            reasoning?: boolean | null;
+            temperature?: boolean | null;
+            tool_call?: boolean | null;
+            release_date?: string | null;
+            knowledge?: string | null;
+            modalities?: components["schemas"]["Modalities"] | null;
+            modified_at?: string | null;
+            format?: string | null;
+            family?: string | null;
+        };
+        Modalities: {
+            input: components["schemas"]["ModalityType"][];
+            output: components["schemas"]["ModalityType"][];
+        };
+        /** @enum {string} */
+        ModalityType: "text" | "image" | "audio" | "video" | "pdf";
+        ProviderCreateInput: {
+            name: string;
+            type: components["schemas"]["ChatRsProviderType"];
+            base_url?: string | null;
+            default_model: string;
+            api_key?: string | null;
+        };
+        ProviderUpdateInput: {
+            name?: string | null;
+            base_url?: string | null;
+            default_model?: string | null;
+            api_key?: string | null;
+        };
         ChatRsSession: {
             /** Format: uuid */
             id: string;
@@ -381,11 +532,11 @@ export interface components {
             /** @description Tool messages: the executed tool call that produced this result */
             executed_tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
             /** @description Assistant messages: provider usage information */
-            usage?: components["schemas"]["ChatRsUsage"] | null;
+            usage?: components["schemas"]["LlmUsage"] | null;
             /** @description Assistant messages: whether this is a partial or interrupted message */
             interrupted?: boolean | null;
-            /** @description Assistant messages: the configuration options for the AI provider */
-            provider_config?: components["schemas"]["ProviderConfigInput"] | null;
+            /** @description Assistant messages: options passed to the LLM provider */
+            provider_options?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
         };
         /** @description A tool call requested by the provider */
         ChatRsToolCall: {
@@ -403,6 +554,7 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description Metadata for an executed tool call */
         ChatRsExecutedToolCall: {
             /** @description ID of the tool call */
             id: string;
@@ -420,8 +572,8 @@ export interface components {
             /** @description Whether the tool call resulted in an error */
             is_error?: boolean | null;
         };
-        /** @description Usage stats from provider */
-        ChatRsUsage: {
+        /** @description Usage stats from the LLM provider */
+        LlmUsage: {
             /** Format: uint32 */
             input_tokens?: number | null;
             /** Format: uint32 */
@@ -432,41 +584,8 @@ export interface components {
              */
             cost?: number | null;
         };
-        /** @description Provider configuration input */
-        ProviderConfigInput: "Lorem" | {
-            Anthropic: components["schemas"]["AnthropicConfig"];
-        } | {
-            OpenAI: components["schemas"]["OpenAIConfig"];
-        } | {
-            OpenRouter: components["schemas"]["OpenRouterConfig"];
-        } | {
-            Llm: components["schemas"]["LLMConfig"];
-        };
-        AnthropicConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-        };
-        OpenAIConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-            base_url?: string | null;
-        };
-        OpenRouterConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-        };
-        /** @deprecated */
-        LLMConfig: {
-            backend: string;
+        /** @description Shared configuration for LLM provider requests */
+        LlmApiProviderSharedOptions: {
             model: string;
             /** Format: float */
             temperature?: number | null;
@@ -490,8 +609,17 @@ export interface components {
             title: string;
         };
         SendChatInput: {
+            /** @description The new chat message */
             message?: string | null;
-            provider: components["schemas"]["ProviderConfigInput"];
+            /**
+             * Format: int32
+             * @description The ID of the provider to chat with
+             */
+            provider_id: number;
+            /** @description Provider options */
+            provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
+            /** @description IDs of the tools that the provider can use */
+            tools?: string[] | null;
         };
         ChatRsTool: {
             /** Format: uuid */
@@ -599,19 +727,20 @@ export interface components {
             /** @description Tool-specific configuration */
             config: components["schemas"]["ToolConfig"];
         };
-        ChatRsProviderKeyMeta: {
+        ChatRsSecretMeta: {
             /** Format: uuid */
             id: string;
-            provider: components["schemas"]["ChatRsProviderKeyType"];
+            name: string;
             /** Format: date-time */
             created_at: string;
         };
-        /** @enum {string} */
-        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
-        ProviderKeyInput: {
+        SecretInput: {
             provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;
+            name: string;
         };
+        /** @enum {string} */
+        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
         ChatRsApiKey: {
             /** Format: uuid */
             id: string;
@@ -753,6 +882,408 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_all_providers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCreateInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    list_models: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmModel"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    update_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderUpdateInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
                 };
             };
             /** @description Bad request */
@@ -1664,7 +2195,7 @@ export interface operations {
             };
         };
     };
-    get_all_provider_keys: {
+    get_all_secrets: {
         parameters: {
             query?: never;
             header?: never;
@@ -1678,7 +2209,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsProviderKeyMeta"][];
+                    "application/json": components["schemas"]["ChatRsSecretMeta"][];
                 };
             };
             /** @description Bad request */
@@ -1728,7 +2259,7 @@ export interface operations {
             };
         };
     };
-    create_provider_key: {
+    create_secret: {
         parameters: {
             query?: never;
             header?: never;
@@ -1737,7 +2268,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProviderKeyInput"];
+                "application/json": components["schemas"]["SecretInput"];
             };
         };
         responses: {
@@ -1796,12 +2327,12 @@ export interface operations {
             };
         };
     };
-    delete_provider_key: {
+    delete_secret: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                api_key_id: string;
+                secret_id: string;
             };
             cookie?: never;
         };
