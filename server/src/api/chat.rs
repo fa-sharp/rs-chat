@@ -41,6 +41,8 @@ pub struct SendChatInput<'a> {
     provider_id: i32,
     /// Provider options
     provider_options: LlmApiProviderSharedOptions,
+    /// IDs of the tools that the provider can use
+    tools: Option<Vec<Uuid>>,
 }
 
 /// Send a chat message and stream the response
@@ -77,8 +79,16 @@ pub async fn send_chat_stream(
         &redis,
     )?;
 
-    // Fetch user's tools
-    let user_tools = ToolDbService::new(&mut db).find_by_user(&user_id).await?;
+    // Get the user's chosen tools
+    let available_tools = match &input.tools {
+        None => Vec::new(),
+        Some(available_tool_ids) => ToolDbService::new(&mut db)
+            .find_by_user(&user_id)
+            .await?
+            .into_iter()
+            .filter(|tool| available_tool_ids.iter().any(|tool_id| *tool_id == tool.id))
+            .collect::<Vec<_>>(),
+    };
 
     // Save user message to session, and generate title if needed
     if let Some(user_message) = &input.message {
@@ -111,7 +121,11 @@ pub async fn send_chat_stream(
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
         provider_api
-            .chat_stream(current_messages, Some(user_tools), &input.provider_options)
+            .chat_stream(
+                current_messages,
+                Some(available_tools),
+                &input.provider_options,
+            )
             .await?,
         input.provider_options.clone(),
         db_pool.inner().clone(),
