@@ -36,6 +36,16 @@ export const useChatInputState = ({
   );
   const [error, setError] = useState<string>("");
 
+  // Reset state when session changes
+  useEffect(() => {
+    if (!sessionId) return;
+    setProviderId(initialProviderId || null);
+    setModel(initialOptions?.model || "");
+    setMaxTokens(initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS);
+    setTemperature(initialOptions?.temperature ?? DEFAULT_TEMPERATURE);
+    setError("");
+  }, [initialProviderId, initialOptions, sessionId]);
+
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Focus input when switching sessions

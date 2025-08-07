@@ -7,7 +7,7 @@ import {
   Info,
   Trash2,
 } from "lucide-react";
-import { type FormEventHandler, useMemo, useState } from "react";
+import { type FormEventHandler, useState } from "react";
 
 import {
   AlertDialog,
@@ -107,18 +107,18 @@ export function DeleteButton({
 
 export function InfoButton({
   meta,
+  providers,
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
+  providers?: components["schemas"]["ChatRsProvider"][];
 }) {
-  const { provider_options, interrupted, usage, executed_tool_call } = meta;
-
   return (
     <Popover>
       <PopoverTrigger asChild>
         <ChatBubbleAction
           className="size-5"
           icon={
-            interrupted || executed_tool_call?.is_error ? (
+            meta.assistant?.partial || meta.tool_call?.is_error ? (
               <AlertCircle className="size-4.5 text-yellow-700 dark:text-yellow-300" />
             ) : (
               <Info className="size-4.5" />
@@ -129,64 +129,65 @@ export function InfoButton({
         />
       </PopoverTrigger>
       <PopoverContent className="text-sm">
-        {interrupted && (
+        {meta.assistant?.partial && (
           <div className="flex items-center gap-1 mb-2">
             <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
             Stream was interrupted
           </div>
         )}
-        {executed_tool_call?.is_error && (
+        {meta.tool_call?.is_error && (
           <div className="flex items-center gap-1 mb-2">
             <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
             Tool call error
           </div>
         )}
-        {/*{provider && (
+        {meta.assistant?.provider_id && (
           <div>
-            <span className="font-bold">Provider:</span> {provider}
-          </div>
-        )}*/}
-        {provider_options?.model && (
-          <div>
-            <span className="font-bold">Model:</span> {provider_options.model}
+            <span className="font-bold">Provider:</span>{" "}
+            {providers?.find((p) => p.id === meta.assistant?.provider_id)?.name}
           </div>
         )}
-        {provider_options?.temperature && (
+        {meta.assistant?.provider_options?.model && (
+          <div>
+            <span className="font-bold">Model:</span>{" "}
+            {meta.assistant?.provider_options.model}
+          </div>
+        )}
+        {meta.assistant?.provider_options?.temperature && (
           <div>
             <span className="font-bold">Temperature:</span>{" "}
-            {provider_options.temperature}
+            {meta.assistant?.provider_options.temperature}
           </div>
         )}
-        {executed_tool_call?.id && (
+        {meta.tool_call?.id && (
           <div>
-            <span className="font-bold">Tool Call ID:</span>{" "}
-            {executed_tool_call.id}
+            <span className="font-bold">Tool Call ID:</span> {meta.tool_call.id}
           </div>
         )}
-        {executed_tool_call?.tool_id && (
+        {meta.tool_call?.tool_id && (
           <div>
-            <span className="font-bold">Tool ID:</span>{" "}
-            {executed_tool_call.tool_id}
+            <span className="font-bold">Tool ID:</span> {meta.tool_call.tool_id}
           </div>
         )}
-        {usage?.input_tokens && (
+        {meta.assistant?.usage?.input_tokens && (
           <div>
             <span className="font-bold">Input:</span>{" "}
-            {usage.input_tokens?.toLocaleString()} tokens
+            {meta.assistant?.usage.input_tokens?.toLocaleString()} tokens
           </div>
         )}
-        {usage?.output_tokens && (
+        {meta.assistant?.usage?.output_tokens && (
           <div>
             <span className="font-bold">Output:</span>{" "}
-            {usage.output_tokens?.toLocaleString()} tokens
-            {provider_options?.max_tokens
-              ? ` (Max: ${provider_options.max_tokens.toLocaleString()})`
+            {meta.assistant?.usage.output_tokens?.toLocaleString()} tokens
+            {meta.assistant.provider_options?.max_tokens
+              ? ` (Max: ${meta.assistant.provider_options.max_tokens.toLocaleString()})`
               : ""}
           </div>
         )}
-        {usage?.cost && (
+        {typeof meta.assistant?.usage?.cost === "number" && (
           <div>
-            <span className="font-bold">Cost:</span> {usage.cost.toFixed(3)}
+            <span className="font-bold">Cost:</span>{" "}
+            {meta.assistant?.usage.cost.toFixed(3)}
           </div>
         )}
       </PopoverContent>

@@ -23,6 +23,7 @@ interface Props {
   isCompleted: boolean;
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
+  providers?: Array<components["schemas"]["ChatRsProvider"]>;
   tools?: Array<components["schemas"]["ChatRsTool"]>;
   onGetAgenticResponse: () => void;
   streamedResponse?: string;
@@ -41,6 +42,7 @@ const proseAssistantClasses =
 export default function ChatMessages({
   user,
   messages,
+  providers,
   tools,
   sessionId,
   isWaitingForAssistant,
@@ -93,7 +95,7 @@ export default function ChatMessages({
         .filter(
           (message, idx) =>
             !streamedResponse ||
-            !(message.meta?.interrupted && idx === messages.length - 1), // don't show the partial assistant response if still streaming
+            !(message.meta.assistant?.partial && idx === messages.length - 1), // don't show the partial assistant response if still streaming
         )
         .map((message) => (
           <ChatBubble
@@ -131,11 +133,11 @@ export default function ChatMessages({
               </Suspense>
               {message.role === "Assistant" && (
                 <>
-                  {message.meta.tool_calls && (
+                  {message.meta.assistant?.tool_calls && (
                     <ChatMessageToolCalls
                       messages={messages}
                       tools={tools}
-                      toolCalls={message.meta.tool_calls}
+                      toolCalls={message.meta.assistant.tool_calls}
                       onExecuteAll={() => onExecuteAllToolCalls(message.id)}
                       isExecuting={
                         executeToolCall.isPending ||
@@ -145,7 +147,7 @@ export default function ChatMessages({
                   )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                      <InfoButton meta={message.meta} />
+                      <InfoButton meta={message.meta} providers={providers} />
                       <CopyButton message={message.content} />
                       <DeleteButton
                         onDelete={() => onDeleteMessage(message.id)}
@@ -174,7 +176,7 @@ export default function ChatMessages({
               {message.role === "Tool" && (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                    <InfoButton meta={message.meta} />
+                    <InfoButton meta={message.meta} providers={providers} />
                     <CopyButton message={message.content} />
                     <DeleteButton
                       onDelete={() => onDeleteMessage(message.id)}
@@ -191,14 +193,20 @@ export default function ChatMessages({
 
       {isWaitingForAssistant && (
         <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
+          <ChatBubbleAvatar
+            fallback={<Bot className="size-4" />}
+            className="animate-pulse"
+          />
           <ChatBubbleMessage isLoading />
         </ChatBubble>
       )}
 
       {animatedText && (
         <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback="🤖" className="animate-pulse" />
+          <ChatBubbleAvatar
+            fallback={<Bot className="size-4" />}
+            className="animate-pulse"
+          />
           <ChatBubbleMessage
             className={cn(
               proseClasses,
@@ -213,7 +221,7 @@ export default function ChatMessages({
 
       {error && (
         <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback="🤖" />
+          <ChatBubbleAvatar fallback={<Bot className="size-4" />} />
           <ChatBubbleMessage className="text-destructive-foreground">
             {error}
           </ChatBubbleMessage>
@@ -224,7 +232,7 @@ export default function ChatMessages({
 }
 
 function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `### Tool Response: ${message.meta.executed_tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
+  return `### Tool Response: ${message.meta.tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
 }
 
 const now = new Date();

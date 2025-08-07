@@ -18,7 +18,7 @@ export default function ChatMessageToolCalls({
   isExecuting: boolean;
   onExecuteAll: () => void;
   tools?: components["schemas"]["ChatRsTool"][];
-  toolCalls: components["schemas"]["ChatRsMessage"]["meta"]["tool_calls"];
+  toolCalls?: components["schemas"]["ChatRsToolCall"][];
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -51,7 +51,7 @@ export default function ChatMessageToolCalls({
           />
         ))}
         {!toolCalls.some((toolCall) =>
-          messages.some((m) => m.meta.executed_tool_call?.id === toolCall.id),
+          messages.some((m) => m.meta.tool_call?.id === toolCall.id),
         ) && (
           <p>
             <Button
@@ -76,9 +76,7 @@ function ChatMessageToolCall({
   expanded,
   isExecuting,
 }: {
-  toolCall: NonNullable<
-    components["schemas"]["ChatRsMessage"]["meta"]["tool_calls"]
-  >[number];
+  toolCall: components["schemas"]["ChatRsToolCall"];
   messages: components["schemas"]["ChatRsMessage"][];
   tools?: components["schemas"]["ChatRsTool"][];
   isExecuting: boolean;
@@ -93,9 +91,7 @@ function ChatMessageToolCall({
           {tool && getToolIcon(tool)}
           {toolCall.tool_name}
         </div>
-        {!messages.some(
-          (m) => m.meta.executed_tool_call?.id === toolCall.id,
-        ) && (
+        {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
           <Button size="sm" loading={isExecuting} disabled={isExecuting}>
             {!isExecuting && <PlayCircle />}
             Execute
@@ -112,9 +108,7 @@ function ChatMessageToolCall({
           {tool && `${getToolTypeLabel(tool)}: `}
           {toolCall.tool_name}
         </div>
-        {!messages.some(
-          (m) => m.meta.executed_tool_call?.id === toolCall.id,
-        ) && (
+        {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
           <Button size="sm" disabled={isExecuting}>
             <PlayCircle />
             Execute

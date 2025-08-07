@@ -35,6 +35,8 @@ export const useStreamingChats = () => {
               content: input.message,
               role: "User",
               created_at: new Date().toISOString(),
+              session_id: sessionId,
+              meta: {},
             },
           ],
         };
@@ -134,7 +136,7 @@ const useChatStreamManager = () => {
             updatedData?.messages?.some(
               (msg) =>
                 msg.role === "Assistant" &&
-                !msg.meta.interrupted &&
+                !msg.meta.assistant?.partial &&
                 new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
             ) || false;
 

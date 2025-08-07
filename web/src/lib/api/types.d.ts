@@ -527,16 +527,33 @@ export interface components {
         /** @enum {string} */
         ChatRsMessageRole: "User" | "Assistant" | "System" | "Tool";
         ChatRsMessageMeta: {
-            /** @description Assistant messages: the tool calls requested by the assistant */
-            tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
-            /** @description Tool messages: the executed tool call that produced this result */
-            executed_tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
-            /** @description Assistant messages: provider usage information */
-            usage?: components["schemas"]["LlmUsage"] | null;
-            /** @description Assistant messages: whether this is a partial or interrupted message */
-            interrupted?: boolean | null;
-            /** @description Assistant messages: options passed to the LLM provider */
+            /** @description Assistant messages: metadata associated with the assistant message */
+            assistant?: components["schemas"]["AssistantMeta"] | null;
+            /** @description Tool messages: metadata of the executed tool call */
+            tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
+        };
+        AssistantMeta: {
+            /**
+             * Format: int32
+             * @description The ID of the LLM provider used to generate this message
+             */
+            provider_id: number;
+            /** @description Options passed to the LLM provider */
             provider_options?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+            /** @description The tool calls requested by the assistant */
+            tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
+            /** @description Provider usage information */
+            usage?: components["schemas"]["LlmUsage"] | null;
+            /** @description Whether this is a partial and/or interrupted message */
+            partial?: boolean | null;
+        };
+        /** @description Shared configuration for LLM provider requests */
+        LlmApiProviderSharedOptions: {
+            model: string;
+            /** Format: float */
+            temperature?: number | null;
+            /** Format: uint32 */
+            max_tokens?: number | null;
         };
         /** @description A tool call requested by the provider */
         ChatRsToolCall: {
@@ -553,6 +570,18 @@ export interface components {
             parameters: {
                 [key: string]: unknown;
             };
+        };
+        /** @description Usage stats from the LLM provider */
+        LlmUsage: {
+            /** Format: uint32 */
+            input_tokens?: number | null;
+            /** Format: uint32 */
+            output_tokens?: number | null;
+            /**
+             * Format: float
+             * @description Only included by OpenRouter
+             */
+            cost?: number | null;
         };
         /** @description Metadata for an executed tool call */
         ChatRsExecutedToolCall: {
@@ -571,26 +600,6 @@ export interface components {
             };
             /** @description Whether the tool call resulted in an error */
             is_error?: boolean | null;
-        };
-        /** @description Usage stats from the LLM provider */
-        LlmUsage: {
-            /** Format: uint32 */
-            input_tokens?: number | null;
-            /** Format: uint32 */
-            output_tokens?: number | null;
-            /**
-             * Format: float
-             * @description Only included by OpenRouter
-             */
-            cost?: number | null;
-        };
-        /** @description Shared configuration for LLM provider requests */
-        LlmApiProviderSharedOptions: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
         };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {

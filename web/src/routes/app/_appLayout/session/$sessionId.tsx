@@ -38,19 +38,19 @@ export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const { sessionId } = Route.useParams();
-  const { data } = useGetChatSession(sessionId);
+  const { data: session } = useGetChatSession(sessionId);
   const { data: providers } = useProviders();
   const { data: tools } = useTools();
   const { streamedChats, onUserSubmit } = useStreamingChats();
 
   const inputState = useChatInputState({
     providers,
-    initialProviderId: data?.messages.findLast(
-      (m) => m.role === "Assistant" && !!m.meta.provider_id,
-    )?.meta.provider_id,
-    initialOptions: data?.messages.findLast(
-      (m) => m.role === "Assistant" && !!m.meta.provider_options,
-    )?.meta.provider_options,
+    initialProviderId: session?.messages.findLast(
+      (m) => m.role === "Assistant" && !!m.meta.assistant?.provider_id,
+    )?.meta.assistant?.provider_id,
+    initialOptions: session?.messages.findLast(
+      (m) => m.role === "Assistant" && !!m.meta.assistant?.provider_options,
+    )?.meta.assistant?.provider_options,
     isGenerating: streamedChats[sessionId]?.status === "streaming",
     onSubmit: (input) => onUserSubmit(sessionId, input),
     sessionId,
@@ -60,7 +60,8 @@ function RouteComponent() {
     <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 md:pt-0 overflow-hidden">
       <ChatMessages
         user={user}
-        messages={data?.messages || []}
+        messages={session?.messages || []}
+        providers={providers}
         tools={tools}
         sessionId={sessionId}
         onGetAgenticResponse={inputState.onSubmitWithoutUserMessage}
