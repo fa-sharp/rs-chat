@@ -80,7 +80,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
   const checkIfExpandButtonNeeded = useCallback(() => {
     if (ref.current) {
       const maxHeight =
-        parseFloat(getComputedStyle(ref.current).lineHeight) * 10; // 10 lines
+        parseFloat(getComputedStyle(ref.current).lineHeight) * 12; // 12 lines
       const actualHeight = ref.current.scrollHeight;
       console.log({ maxHeight, actualHeight });
       setShowExpandButton(actualHeight > maxHeight);
@@ -93,11 +93,11 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
 
   if (!children) return null;
   return (
+    // `not-prose` disables the Tailwind typography styles
     <div className="not-prose relative">
-      {/* `not-prose` disables the Tailwind typography styles */}
       <Button
         aria-label="Copy code"
-        className="absolute top-1.5 right-1.5 size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
+        className="absolute top-1.5 right-1.5 z-[999] size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
         onClick={handleCopy}
         variant="outline"
         size="icon"
@@ -112,7 +112,9 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
         ref={ref}
         className={cn(
           "text-xs md:text-sm overflow-x-auto rounded-md transition-all",
-          !isExpanded && showExpandButton && "max-h-[10lh] overflow-hidden",
+          !isExpanded &&
+            showExpandButton &&
+            "max-h-[11lh] overflow-hidden mask-b-from-80%",
         )}
         style={{ lineHeight: "1.5" }}
       >
@@ -124,7 +126,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
           onClick={toggleExpanded}
           variant="outline"
           size="icon"
-          className="absolute bottom-1 left-1/2 transform -translate-x-1/2 dark:bg-secondary dark:hover:bg-secondary rounded-full text-xs opacity-75 hover:opacity-100 focus-visible:opacity-100"
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 dark:bg-secondary dark:hover:bg-secondary rounded-full text-xs opacity-85 hover:opacity-100 focus-visible:opacity-100"
         >
           {isExpanded ? (
             <ChevronUp className="size-5" />

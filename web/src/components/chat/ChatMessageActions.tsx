@@ -153,10 +153,10 @@ export function InfoButton({
             {meta.assistant?.provider_options.model}
           </div>
         )}
-        {meta.assistant?.provider_options?.temperature && (
+        {typeof meta.assistant?.provider_options?.temperature === "number" && (
           <div>
             <span className="font-bold">Temperature:</span>{" "}
-            {meta.assistant?.provider_options.temperature}
+            {meta.assistant.provider_options.temperature}
           </div>
         )}
         {meta.tool_call?.id && (
@@ -169,17 +169,17 @@ export function InfoButton({
             <span className="font-bold">Tool ID:</span> {meta.tool_call.tool_id}
           </div>
         )}
-        {meta.assistant?.usage?.input_tokens && (
+        {typeof meta.assistant?.usage?.input_tokens === "number" && (
           <div>
             <span className="font-bold">Input:</span>{" "}
-            {meta.assistant?.usage.input_tokens?.toLocaleString()} tokens
+            {meta.assistant.usage.input_tokens.toLocaleString()} tokens
           </div>
         )}
-        {meta.assistant?.usage?.output_tokens && (
+        {typeof meta.assistant?.usage?.output_tokens === "number" && (
           <div>
             <span className="font-bold">Output:</span>{" "}
-            {meta.assistant?.usage.output_tokens?.toLocaleString()} tokens
-            {meta.assistant.provider_options?.max_tokens
+            {meta.assistant.usage.output_tokens.toLocaleString()} tokens
+            {typeof meta.assistant.provider_options?.max_tokens === "number"
               ? ` (Max: ${meta.assistant.provider_options.max_tokens.toLocaleString()})`
               : ""}
           </div>
@@ -187,7 +187,7 @@ export function InfoButton({
         {typeof meta.assistant?.usage?.cost === "number" && (
           <div>
             <span className="font-bold">Cost:</span>{" "}
-            {meta.assistant?.usage.cost.toFixed(3)}
+            {meta.assistant.usage.cost.toFixed(3)}
           </div>
         )}
       </PopoverContent>
