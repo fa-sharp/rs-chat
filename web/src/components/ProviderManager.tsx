@@ -1,5 +1,5 @@
 import { Bot, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { type FormEventHandler, useState } from "react";
 
 import {
   AlertDialog,
@@ -59,7 +59,7 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     keyFormat: "sk-...",
     color:
       "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-    defaultModel: "gpt-4.1-nano",
+    defaultModel: "gpt-4o-mini",
   },
   anthropic: {
     name: "Anthropic",
@@ -77,7 +77,7 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     baseUrl: "https://openrouter.ai/api/v1",
     keyFormat: "sk-or-...",
     color: "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700",
-    defaultModel: "openai/gpt-4.1-nano",
+    defaultModel: "openai/gpt-4o-mini",
   },
   lorem: {
     name: "Lorem Ipsum",
@@ -106,8 +106,13 @@ export function ProviderManager({
   const [name, setName] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
 
-  const handleCreateKey = () => {
-    if (!selectedProvider || !newApiKey.trim()) return;
+  const handleCreateKey: FormEventHandler<HTMLFormElement> = (event) => {
+    event.preventDefault();
+    if (
+      !selectedProvider ||
+      (PROVIDERS[selectedProvider].apiType !== "lorem" && !newApiKey.trim())
+    )
+      return;
 
     createProvider.mutate(
       {
@@ -115,13 +120,14 @@ export function ProviderManager({
         type: PROVIDERS[selectedProvider].apiType,
         base_url: PROVIDERS[selectedProvider].baseUrl,
         default_model: PROVIDERS[selectedProvider].defaultModel,
-        api_key: newApiKey,
+        api_key: newApiKey || null,
       },
       {
         onSettled: () => {
           setSelectedProvider(null);
           setIsCreateDialogOpen(false);
           setNewApiKey("");
+          setName("");
         },
       },
     );
@@ -163,7 +169,7 @@ export function ProviderManager({
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="size-4 mr-2" />
+              <Plus className="size-4" />
               Add Provider
             </Button>
           </DialogTrigger>
@@ -172,94 +178,87 @@ export function ProviderManager({
               <DialogTitle>Add AI Provider</DialogTitle>
               <DialogDescription>Select a provider to add.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label>Provider</Label>
+            <form onSubmit={handleCreateKey}>
+              <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  {availableProviders.map((provider) => (
-                    <button
-                      key={provider}
-                      type="button"
-                      className={cn(
-                        "p-3 border rounded-lg cursor-pointer transition-colors",
-                        selectedProvider === provider
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:bg-muted/50",
-                      )}
-                      onClick={() => setSelectedProvider(provider)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col items-start">
-                          <div className="font-medium">
-                            {PROVIDERS[provider].name}
+                  <Label>Provider</Label>
+                  <div className="grid gap-2">
+                    {availableProviders.map((provider) => (
+                      <button
+                        key={provider}
+                        type="button"
+                        className={cn(
+                          "p-3 border rounded-lg cursor-pointer transition-colors",
+                          selectedProvider === provider
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:bg-muted/50",
+                        )}
+                        onClick={() => setSelectedProvider(provider)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">
+                              {PROVIDERS[provider].name}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {PROVIDERS[provider].description}
+                            </div>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {PROVIDERS[provider].description}
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {PROVIDERS[provider].keyFormat}
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground font-mono">
-                          {PROVIDERS[provider].keyFormat}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  autoFocus
-                  required
-                  id="name"
-                  type="text"
-                  placeholder={
-                    selectedProvider ? PROVIDERS[selectedProvider].name : ""
-                  }
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              {selectedProvider && PROVIDERS[selectedProvider].keyFormat && (
                 <div className="grid gap-2">
-                  <Label htmlFor="api-key">API Key</Label>
+                  <Label htmlFor="name">Name</Label>
                   <Input
                     required
-                    id="api-key"
-                    type="password"
-                    placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
-                    value={newApiKey}
-                    onChange={(e) => setNewApiKey(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleCreateKey();
-                      }
-                    }}
+                    id="name"
+                    type="text"
+                    placeholder={
+                      selectedProvider ? PROVIDERS[selectedProvider].name : ""
+                    }
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                   />
                 </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsCreateDialogOpen(false);
-                  setSelectedProvider(null);
-                  setNewApiKey("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateKey}
-                disabled={
-                  !selectedProvider ||
-                  !newApiKey.trim() ||
-                  createProvider.isPending
-                }
-              >
-                {createProvider.isPending ? "Adding..." : "Add Key"}
-              </Button>
-            </DialogFooter>
+                {selectedProvider && PROVIDERS[selectedProvider].keyFormat && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="api-key">API Key</Label>
+                    <Input
+                      required
+                      id="api-key"
+                      type="password"
+                      placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
+                      value={newApiKey}
+                      onChange={(e) => setNewApiKey(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="reset"
+                  variant="outline"
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setSelectedProvider(null);
+                    setNewApiKey("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!selectedProvider || createProvider.isPending}
+                >
+                  {createProvider.isPending ? "Adding..." : "Add Provider"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -295,7 +294,11 @@ export function ProviderManager({
                         {provider.name}
                       </CardTitle>
                       <CardDescription>
-                        Added {formatDate(provider.created_at)}
+                        <p>Type: {PROVIDERS[provider.provider_type].name}</p>
+                        {provider.base_url && (
+                          <p>Base URL: {provider.base_url}</p>
+                        )}
+                        <p>Added: {formatDate(provider.created_at)}</p>
                       </CardDescription>
                     </div>
                     <AlertDialog>

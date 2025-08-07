@@ -830,7 +830,7 @@ export function ToolsManager({
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDeleteTool(tool.id)}
-                          className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                          className="bg-red-600 hover:bg-red-700 dark:bg-red-400 dark:hover:bg-red-300"
                         >
                           Delete Tool
                         </AlertDialogAction>
