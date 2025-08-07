@@ -127,6 +127,7 @@ pub async fn send_chat_stream(
                 &input.provider_options,
             )
             .await?,
+        input.provider_id,
         input.provider_options.clone(),
         db_pool.inner().clone(),
         redis.clone(),

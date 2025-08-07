@@ -51,24 +51,25 @@ impl<'a> OpenAIProvider<'a> {
                 let openai_message = OpenAIMessage {
                     role,
                     content: Some(&message.content),
-                    tool_call_id: message
+                    tool_call_id: message.meta.tool_call.as_ref().map(|tc| tc.id.as_str()),
+                    tool_calls: message
                         .meta
-                        .executed_tool_call
+                        .assistant
                         .as_ref()
-                        .map(|tc| tc.id.as_str()),
-                    tool_calls: message.meta.tool_calls.as_ref().map(|tc| {
-                        tc.iter()
-                            .map(|tc| OpenAIToolCall {
-                                id: &tc.id,
-                                tool_type: "function",
-                                function: OpenAIToolCallFunction {
-                                    name: &tc.tool_name,
-                                    arguments: serde_json::to_string(&tc.parameters)
-                                        .unwrap_or_default(),
-                                },
-                            })
-                            .collect()
-                    }),
+                        .and_then(|meta| meta.tool_calls.as_ref())
+                        .map(|tc| {
+                            tc.iter()
+                                .map(|tc| OpenAIToolCall {
+                                    id: &tc.id,
+                                    tool_type: "function",
+                                    function: OpenAIToolCallFunction {
+                                        name: &tc.tool_name,
+                                        arguments: serde_json::to_string(&tc.parameters)
+                                            .unwrap_or_default(),
+                                    },
+                                })
+                                .collect()
+                        }),
                 };
 
                 openai_message

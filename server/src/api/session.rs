@@ -11,8 +11,8 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{
-            ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession, NewChatRsSession,
-            UpdateChatRsSession,
+            AssistantMeta, ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSession,
+            NewChatRsSession, UpdateChatRsSession,
         },
         services::ChatDbService,
         DbConnection,
@@ -103,7 +103,10 @@ async fn get_session(
             content: interrupted_response,
             created_at: chrono::Utc::now(),
             meta: ChatRsMessageMeta {
-                interrupted: Some(true),
+                assistant: Some(AssistantMeta {
+                    partial: Some(true),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
         });

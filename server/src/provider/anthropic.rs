@@ -60,7 +60,7 @@ impl<'a> AnthropicProvider<'a> {
 
                 // Handle tool result messages
                 if message.role == ChatRsMessageRole::Tool {
-                    if let Some(executed_call) = &message.meta.executed_tool_call {
+                    if let Some(executed_call) = &message.meta.tool_call {
                         content_blocks.push(AnthropicContentBlock::ToolResult {
                             tool_use_id: &executed_call.id,
                             content: &message.content,
@@ -74,7 +74,12 @@ impl<'a> AnthropicProvider<'a> {
                         });
                     }
                     // Handle tool calls in assistant messages
-                    if let Some(tool_calls) = &message.meta.tool_calls {
+                    if let Some(tool_calls) = message
+                        .meta
+                        .assistant
+                        .as_ref()
+                        .and_then(|a| a.tool_calls.as_ref())
+                    {
                         for tool_call in tool_calls {
                             content_blocks.push(AnthropicContentBlock::ToolUse {
                                 id: &tool_call.id,

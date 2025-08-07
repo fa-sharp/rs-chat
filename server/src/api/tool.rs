@@ -95,7 +95,8 @@ async fn execute_tool(
         .await?;
     let tool_call = message
         .meta
-        .tool_calls
+        .assistant
+        .and_then(|meta| meta.tool_calls)
         .and_then(|tool_calls| {
             tool_calls
                 .into_iter()
@@ -115,7 +116,7 @@ async fn execute_tool(
             role: ChatRsMessageRole::Tool,
             content: &content,
             meta: ChatRsMessageMeta {
-                executed_tool_call: Some(ChatRsExecutedToolCall {
+                tool_call: Some(ChatRsExecutedToolCall {
                     id: tool_call.id,
                     tool_id: tool_call.tool_id,
                     tool_name: tool_call.tool_name,
@@ -145,7 +146,11 @@ async fn execute_all_tools(
         ToolDbService::new(&mut db_2).find_by_user(&user_id),
     )
     .await?;
-    let tool_calls = message.meta.tool_calls.ok_or(ToolError::ToolCallNotFound)?;
+    let tool_calls = message
+        .meta
+        .assistant
+        .and_then(|meta| meta.tool_calls)
+        .ok_or(ToolError::ToolCallNotFound)?;
 
     let tool_response_futures = tool_calls
         .iter()
@@ -166,7 +171,7 @@ async fn execute_all_tools(
             role: ChatRsMessageRole::Tool,
             content: &response.0,
             meta: ChatRsMessageMeta {
-                executed_tool_call: Some(ChatRsExecutedToolCall {
+                tool_call: Some(ChatRsExecutedToolCall {
                     id: tool_call.id,
                     tool_id: tool_call.tool_id,
                     tool_name: tool_call.tool_name,

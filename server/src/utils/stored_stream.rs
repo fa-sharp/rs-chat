@@ -13,7 +13,9 @@ use uuid::Uuid;
 
 use crate::{
     db::{
-        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsToolCall, NewChatRsMessage},
+        models::{
+            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsToolCall, NewChatRsMessage,
+        },
         services::ChatDbService,
         DbConnection, DbPool,
     },
@@ -26,6 +28,7 @@ pub struct StoredChatRsStream<
     S: Stream<Item = Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>>,
 > {
     inner: Pin<Box<S>>,
+    provider_id: i32,
     provider_options: Option<LlmApiProviderSharedOptions>,
     redis_client: Client,
     db_pool: DbPool,
@@ -47,6 +50,7 @@ where
 {
     pub fn new(
         stream: S,
+        provider_id: i32,
         provider_options: LlmApiProviderSharedOptions,
         db_pool: DbPool,
         redis_client: Client,
@@ -54,6 +58,7 @@ where
     ) -> Self {
         Self {
             inner: Box::pin(stream),
+            provider_id,
             provider_options: Some(provider_options),
             db_pool,
             redis_client,
@@ -75,6 +80,7 @@ where
         let redis_client = self.redis_client.clone();
         let pool = self.db_pool.clone();
         let session_id = self.session_id.clone();
+        let provider_id = self.provider_id.clone();
         let provider_options = self.provider_options.take();
         let content = self.buffer.join("");
         let tool_calls = self.tool_calls.take();
@@ -96,10 +102,13 @@ where
                     content: &content,
                     session_id: &session_id,
                     meta: ChatRsMessageMeta {
-                        provider_options,
-                        interrupted,
-                        usage,
-                        tool_calls,
+                        assistant: Some(AssistantMeta {
+                            provider_id,
+                            provider_options,
+                            partial: interrupted,
+                            usage,
+                            tool_calls,
+                        }),
                         ..Default::default()
                     },
                 })

@@ -62,21 +62,30 @@ pub struct ChatRsMessage {
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
-    /// Assistant messages: the tool calls requested by the assistant
+    /// Assistant messages: metadata associated with the assistant message
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ChatRsToolCall>>,
-    /// Tool messages: the executed tool call that produced this result
+    pub assistant: Option<AssistantMeta>,
+    /// Tool messages: metadata of the executed tool call
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub executed_tool_call: Option<ChatRsExecutedToolCall>,
-    /// Assistant messages: provider usage information
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<LlmUsage>,
-    /// Assistant messages: whether this is a partial or interrupted message
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub interrupted: Option<bool>,
-    /// Assistant messages: options passed to the LLM provider
+    pub tool_call: Option<ChatRsExecutedToolCall>,
+}
+
+#[derive(Debug, Default, JsonSchema, Serialize, Deserialize)]
+pub struct AssistantMeta {
+    /// The ID of the LLM provider used to generate this message
+    pub provider_id: i32,
+    /// Options passed to the LLM provider
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_options: Option<LlmApiProviderSharedOptions>,
+    /// The tool calls requested by the assistant
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    /// Provider usage information
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<LlmUsage>,
+    /// Whether this is a partial and/or interrupted message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partial: Option<bool>,
 }
 
 #[derive(Insertable)]
