@@ -81,13 +81,20 @@ pub async fn send_chat_stream(
 
     // Get the user's chosen tools
     let available_tools = match &input.tools {
-        None => Vec::new(),
-        Some(available_tool_ids) => ToolDbService::new(&mut db)
-            .find_by_user(&user_id)
-            .await?
-            .into_iter()
-            .filter(|tool| available_tool_ids.iter().any(|tool_id| *tool_id == tool.id))
-            .collect::<Vec<_>>(),
+        Some(available_tool_ids) => {
+            let tools = ToolDbService::new(&mut db)
+                .find_by_user(&user_id)
+                .await?
+                .into_iter()
+                .filter(|tool| available_tool_ids.iter().any(|tool_id| *tool_id == tool.id))
+                .collect::<Vec<_>>();
+            if tools.is_empty() {
+                None
+            } else {
+                Some(tools)
+            }
+        }
+        None => None,
     };
 
     // Save user message to session, and generate title if needed
@@ -121,11 +128,7 @@ pub async fn send_chat_stream(
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
         provider_api
-            .chat_stream(
-                current_messages,
-                Some(available_tools),
-                &input.provider_options,
-            )
+            .chat_stream(current_messages, available_tools, &input.provider_options)
             .await?,
         input.provider_id,
         input.provider_options.clone(),
