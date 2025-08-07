@@ -56,14 +56,18 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
-      {loading && (
-        <div className={cn("animate-spin rounded-full border-b border-primary-foreground", {
-          "w-4 h-4": !size || size === "default",
-          "w-3 h-3": size === "sm",
-          "w-5 h-5": size === "lg",
-        })} />
-      )}
-      {children}
+       {loading ? (
+          <>
+            <div className={cn("animate-spin rounded-full border-b border-primary-foreground", {
+              "w-4 h-4": !size || size === "default",
+              "w-3 h-3": size === "sm",
+              "w-5 h-5": size === "lg",
+            })} />
+            {children}
+          </>
+        ) : (
+          children
+        )}
     </Comp>
   );
 }

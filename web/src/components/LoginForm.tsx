@@ -40,7 +40,7 @@ export function LoginForm({
           </div>
           <div className="flex flex-col gap-2">
             {config.github && (
-              <Button asChild variant="outline" type="button">
+              <Button asChild variant="outline">
                 <a href={`${API_URL}/auth/login/github`}>
                   <GitHub />
                   Login with GitHub
@@ -48,12 +48,7 @@ export function LoginForm({
               </Button>
             )}
             {config.google && (
-              <Button
-                asChild
-                variant="outline"
-                type="button"
-                className="w-full"
-              >
+              <Button asChild variant="outline">
                 <a href={`${API_URL}/auth/login/google`}>
                   <Google />
                   Login with Google
@@ -61,12 +56,7 @@ export function LoginForm({
               </Button>
             )}
             {config.discord && (
-              <Button
-                asChild
-                variant="outline"
-                type="button"
-                className="w-full"
-              >
+              <Button asChild variant="outline">
                 <a href={`${API_URL}/auth/login/discord`}>
                   <Discord />
                   Login with Discord
@@ -74,12 +64,7 @@ export function LoginForm({
               </Button>
             )}
             {config.oidc?.enabled && (
-              <Button
-                asChild
-                variant="outline"
-                type="button"
-                className="w-full"
-              >
+              <Button asChild variant="outline">
                 <a href={`${API_URL}/auth/login/oidc`}>
                   <GlobeLock />
                   Login with {config.oidc.name}
