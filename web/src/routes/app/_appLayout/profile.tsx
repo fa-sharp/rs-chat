@@ -64,7 +64,7 @@ function ProfilePage() {
 
   const handleDeleteAccount = () => {
     if (deleteConfirmation === "DELETE MY ACCOUNT") {
-      deleteAccountMutation.mutate();
+      deleteAccountMutation.mutate({ confirm: deleteConfirmation });
     }
   };
 
