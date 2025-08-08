@@ -10,6 +10,7 @@ export const useChatInputState = ({
   providers,
   initialProviderId,
   initialOptions,
+  initialToolIds,
   isGenerating,
   onSubmit,
 }: {
@@ -17,6 +18,7 @@ export const useChatInputState = ({
   providers?: components["schemas"]["ChatRsProvider"][];
   initialProviderId?: number | null;
   initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+  initialToolIds?: string[];
   isGenerating: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
 }) => {
@@ -28,6 +30,7 @@ export const useChatInputState = ({
     [providers, providerId],
   );
   const [modelId, setModel] = useState(initialOptions?.model || "");
+  const [toolIds, setToolIds] = useState<string[]>(initialToolIds || []);
   const [maxTokens, setMaxTokens] = useState<number>(
     initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS,
   );
@@ -41,10 +44,11 @@ export const useChatInputState = ({
     if (!sessionId) return;
     setProviderId(initialProviderId || null);
     setModel(initialOptions?.model || "");
+    setToolIds(initialToolIds || []);
     setMaxTokens(initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS);
     setTemperature(initialOptions?.temperature ?? DEFAULT_TEMPERATURE);
     setError("");
-  }, [initialProviderId, initialOptions, sessionId]);
+  }, [initialProviderId, initialOptions, initialToolIds, sessionId]);
 
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -66,6 +70,16 @@ export const useChatInputState = ({
     },
     [providers],
   );
+
+  const onToggleTool = useCallback((toolId: string) => {
+    setToolIds((prevToolIds) => {
+      if (prevToolIds.includes(toolId)) {
+        return prevToolIds.filter((id) => id !== toolId);
+      } else {
+        return [...prevToolIds, toolId];
+      }
+    });
+  }, []);
 
   const onSubmitUserMessage = useCallback(() => {
     if (isGenerating || !inputRef.current?.value) {
@@ -89,12 +103,14 @@ export const useChatInputState = ({
         temperature,
         max_tokens: maxTokens,
       },
+      tools: toolIds,
     });
     formRef.current?.reset();
   }, [
     providerId,
     selectedProvider,
     modelId,
+    toolIds,
     temperature,
     maxTokens,
     onSubmit,
@@ -118,6 +134,7 @@ export const useChatInputState = ({
   return {
     providerId,
     modelId,
+    toolIds,
     maxTokens,
     temperature,
     error,
@@ -127,6 +144,7 @@ export const useChatInputState = ({
     setTemperature,
     isGenerating,
     onSelectModel,
+    onToggleTool,
     onSubmitUserMessage,
     onSubmitWithoutUserMessage,
   };

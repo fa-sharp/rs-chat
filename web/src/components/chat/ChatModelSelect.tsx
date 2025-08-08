@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown, Lock, Settings } from "lucide-react";
+import { Check, ChevronsUpDown, KeyRound, Settings } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useProviderModels, useProviders } from "@/lib/api/provider";
+import { useTools } from "@/lib/api/tool";
 import { cn } from "@/lib/utils";
 import { Label } from "../ui/label";
 import {
@@ -27,31 +28,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import ChatToolSelect from "./ChatToolSelect";
 
 export function ChatModelSelect({
-  onSelect,
   currentProviderId,
   currentModel,
+  onSelectModel,
   currentMaxTokens,
   onSelectMaxTokens,
   currentTemperature,
   onSelectTemperature,
+  currentToolIds,
+  onToggleTool,
 }: {
   currentProviderId?: number | null;
   currentModel: string;
-  onSelect: (providerId?: number | null, model?: string) => void;
+  onSelectModel: (providerId?: number | null, model?: string) => void;
   currentMaxTokens: number;
   onSelectMaxTokens: (maxTokens: number) => void;
   currentTemperature: number;
   onSelectTemperature: (temperature: number) => void;
+  currentToolIds: string[];
+  onToggleTool: (toolId: string) => void;
 }) {
   const { data: providers } = useProviders();
+  const { data: tools } = useTools();
   const currentProvider = React.useMemo(() => {
     return providers?.find((p) => p.id === currentProviderId);
   }, [providers, currentProviderId]);
 
   const setCurrentModel = (model: string) => {
-    onSelect(currentProviderId, model);
+    onSelectModel(currentProviderId, model);
   };
 
   const [open, setOpen] = React.useState(false);
@@ -76,29 +83,27 @@ export function ChatModelSelect({
             <CommandList>
               <CommandEmpty>No provider found.</CommandEmpty>
               <CommandGroup>
-                {providers?.map((provider) => {
-                  return (
-                    <CommandItem
-                      key={provider.id}
-                      value={String(provider.id)}
-                      onSelect={() => {
-                        onSelect(provider.id, "");
-                        setOpen(false);
-                      }}
-                    >
-                      {provider.api_key_id && <Lock />}
-                      {provider.name}
-                      <Check
-                        className={cn(
-                          "ml-auto",
-                          currentProvider?.id === provider.id
-                            ? "opacity-100"
-                            : "opacity-0",
-                        )}
-                      />
-                    </CommandItem>
-                  );
-                })}
+                {providers?.map((provider) => (
+                  <CommandItem
+                    key={provider.id}
+                    value={String(provider.id)}
+                    onSelect={() => {
+                      onSelectModel(provider.id, "");
+                      setOpen(false);
+                    }}
+                  >
+                    {provider.api_key_id && <KeyRound />}
+                    {provider.name}
+                    <Check
+                      className={cn(
+                        "ml-auto",
+                        currentProvider?.id === provider.id
+                          ? "opacity-100"
+                          : "opacity-0",
+                      )}
+                    />
+                  </CommandItem>
+                ))}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -172,6 +177,11 @@ export function ChatModelSelect({
               </Label>
             </PopoverContent>
           </Popover>
+          <ChatToolSelect
+            tools={tools}
+            selectedToolIds={currentToolIds}
+            toggleTool={onToggleTool}
+          />
         </>
       )}
     </>

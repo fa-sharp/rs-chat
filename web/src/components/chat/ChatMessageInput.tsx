@@ -15,6 +15,7 @@ export default function ChatMessageInput({
   const {
     providerId,
     modelId,
+    toolIds,
     maxTokens,
     temperature,
     error,
@@ -22,6 +23,7 @@ export default function ChatMessageInput({
     formRef,
     isGenerating,
     onSelectModel,
+    onToggleTool,
     setMaxTokens,
     setTemperature,
     onSubmitUserMessage,
@@ -67,14 +69,12 @@ export default function ChatMessageInput({
           currentModel={modelId}
           currentMaxTokens={maxTokens}
           currentTemperature={temperature}
-          onSelect={onSelectModel}
+          currentToolIds={toolIds}
+          onSelectModel={onSelectModel}
           onSelectMaxTokens={setMaxTokens}
           onSelectTemperature={setTemperature}
+          onToggleTool={onToggleTool}
         />
-        {error && (
-          <div className="text-sm text-destructive-foreground">{error}</div>
-        )}
-
         <Button
           type="button"
           variant="outline"
@@ -85,6 +85,10 @@ export default function ChatMessageInput({
           <CornerDownLeft className="size-3.5" />
           <span className="sr-only">Toggle Enter key</span>
         </Button>
+        {error && (
+          <div className="text-sm text-destructive-foreground">{error}</div>
+        )}
+
         <Button
           disabled={isGenerating}
           type="submit"
