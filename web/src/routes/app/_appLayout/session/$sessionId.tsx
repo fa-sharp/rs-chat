@@ -51,6 +51,7 @@ function RouteComponent() {
     initialOptions: session?.messages.findLast(
       (m) => m.role === "Assistant" && !!m.meta.assistant?.provider_options,
     )?.meta.assistant?.provider_options,
+    initialToolIds: session?.session.meta.tools,
     isGenerating: streamedChats[sessionId]?.status === "streaming",
     onSubmit: (input) => onUserSubmit(sessionId, input),
     sessionId,

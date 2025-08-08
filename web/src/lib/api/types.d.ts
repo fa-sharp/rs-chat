@@ -501,10 +501,15 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+            meta: components["schemas"]["ChatRsSessionMeta"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        ChatRsSessionMeta: {
+            /** @description IDs of the tools available to the assistant */
+            tools?: string[] | null;
         };
         SessionIdResponse: {
             session_id: string;
@@ -627,7 +632,7 @@ export interface components {
             provider_id: number;
             /** @description Provider options */
             provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
-            /** @description IDs of the tools that the provider can use */
+            /** @description IDs of the tools available to the assistant */
             tools?: string[] | null;
         };
         ChatRsTool: {

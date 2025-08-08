@@ -18,7 +18,7 @@ export const useChatInputState = ({
   providers?: components["schemas"]["ChatRsProvider"][];
   initialProviderId?: number | null;
   initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
-  initialToolIds?: string[];
+  initialToolIds?: string[] | null;
   isGenerating: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
 }) => {
