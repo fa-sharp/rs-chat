@@ -82,7 +82,6 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
       const maxHeight =
         parseFloat(getComputedStyle(ref.current).lineHeight) * 12; // 12 lines
       const actualHeight = ref.current.scrollHeight;
-      console.log({ maxHeight, actualHeight });
       setShowExpandButton(actualHeight > maxHeight);
     }
   }, []);
@@ -114,7 +113,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
           "text-xs md:text-sm overflow-x-auto rounded-md transition-all",
           !isExpanded &&
             showExpandButton &&
-            "max-h-[11lh] overflow-hidden mask-b-from-80%",
+            "max-h-[11lh] overflow-hidden mask-b-from-85%",
         )}
         style={{ lineHeight: "1.5" }}
       >
@@ -126,7 +125,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
           onClick={toggleExpanded}
           variant="outline"
           size="icon"
-          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 dark:bg-secondary dark:hover:bg-secondary rounded-full text-xs opacity-85 hover:opacity-100 focus-visible:opacity-100"
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 dark:bg-secondary dark:hover:bg-secondary rounded-full text-xs opacity-80 hover:opacity-100 focus-visible:opacity-100"
         >
           {isExpanded ? (
             <ChevronUp className="size-5" />
