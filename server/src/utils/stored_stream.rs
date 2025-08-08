@@ -197,7 +197,6 @@ where
             Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
             Poll::Ready(None) => {
                 // Stream ended, flush final buffer
-                println!("Tool calls: {:?}", self.tool_calls);
                 if !self.buffer.is_empty() || self.tool_calls.is_some() {
                     self.save_response(None);
                 }

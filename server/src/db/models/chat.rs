@@ -21,8 +21,16 @@ pub struct ChatRsSession {
     #[serde(skip)]
     pub user_id: Uuid,
     pub title: String,
+    pub meta: ChatRsSessionMeta,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Default, JsonSchema, Serialize, Deserialize, AsJsonb)]
+pub struct ChatRsSessionMeta {
+    /// IDs of the tools available to the assistant
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<String>>,
 }
 
 #[derive(Insertable)]
@@ -32,10 +40,11 @@ pub struct NewChatRsSession<'r> {
     pub title: &'r str,
 }
 
-#[derive(AsChangeset)]
+#[derive(AsChangeset, Default)]
 #[diesel(table_name = super::schema::chat_sessions)]
 pub struct UpdateChatRsSession<'r> {
-    pub title: &'r str,
+    pub title: Option<&'r str>,
+    pub meta: Option<&'r ChatRsSessionMeta>,
 }
 
 #[derive(diesel_derive_enum::DbEnum)]

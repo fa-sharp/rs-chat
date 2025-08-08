@@ -47,6 +47,7 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         user_id -> Uuid,
+        meta -> Jsonb,
     }
 }
 

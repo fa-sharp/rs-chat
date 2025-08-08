@@ -17,7 +17,10 @@ use crate::{
     api::session::DEFAULT_SESSION_TITLE,
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsMessageMeta, ChatRsMessageRole, ChatRsProviderType, NewChatRsMessage},
+        models::{
+            ChatRsMessageMeta, ChatRsMessageRole, ChatRsProviderType, ChatRsSessionMeta,
+            NewChatRsMessage, UpdateChatRsSession,
+        },
         services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
@@ -41,7 +44,7 @@ pub struct SendChatInput<'a> {
     provider_id: i32,
     /// Provider options
     provider_options: LlmApiProviderSharedOptions,
-    /// IDs of the tools that the provider can use
+    /// IDs of the tools available to the assistant
     tools: Option<Vec<Uuid>>,
 }
 
@@ -97,7 +100,7 @@ pub async fn send_chat_stream(
         None => None,
     };
 
-    // Save user message to session, and generate title if needed
+    // Save user message and generate session title if needed
     if let Some(user_message) = &input.message {
         if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
             generate_title(
@@ -123,6 +126,28 @@ pub async fn send_chat_stream(
             })
             .await?;
         current_messages.push(new_message);
+    }
+
+    // Update session metadata
+    if let Some(tool_ids) = input
+        .tools
+        .as_ref()
+        .map(|t| t.iter().map(Uuid::to_string).collect())
+    {
+        if session.meta.tools.is_none_or(|ids| ids != tool_ids) {
+            ChatDbService::new(&mut db)
+                .update_session(
+                    &user_id,
+                    &session_id,
+                    UpdateChatRsSession {
+                        meta: Some(&ChatRsSessionMeta {
+                            tools: Some(tool_ids),
+                        }),
+                        ..Default::default()
+                    },
+                )
+                .await?;
+        }
     }
 
     // Get the provider's stream response and wrap it in our StoredChatRsStream

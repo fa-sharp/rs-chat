@@ -36,6 +36,7 @@ impl<'a> ToolDbService<'a> {
         tools::table
             .filter(tools::user_id.eq(user_id))
             .select(ChatRsTool::as_select())
+            .order_by(tools::name.asc())
             .load(self.db)
             .await
     }

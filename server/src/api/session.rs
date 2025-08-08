@@ -148,7 +148,10 @@ async fn update_session(
         .update_session(
             &user_id,
             &session_id,
-            UpdateChatRsSession { title: &body.title },
+            UpdateChatRsSession {
+                title: Some(&body.title),
+                ..Default::default()
+            },
         )
         .await?;
 

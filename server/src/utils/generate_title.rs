@@ -70,7 +70,8 @@ pub fn generate_title(
                         &user_id,
                         &session_id,
                         UpdateChatRsSession {
-                            title: title.trim(),
+                            title: Some(title.trim()),
+                            ..Default::default()
                         },
                     )
                     .await
