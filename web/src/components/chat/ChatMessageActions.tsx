@@ -1,3 +1,4 @@
+import type { VariantProps } from "class-variance-authority";
 import {
   AlertCircle,
   AlertTriangle,
@@ -6,7 +7,7 @@ import {
   Info,
   Trash2,
 } from "lucide-react";
-import { type FormEventHandler, useMemo, useState } from "react";
+import { type FormEventHandler, useState } from "react";
 
 import {
   AlertDialog,
@@ -20,10 +21,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { components } from "@/lib/api/types";
+import type { buttonVariants } from "../ui/button";
 import { ChatBubbleAction } from "../ui/chat/chat-bubble";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
-export function CopyButton({ message }: { message: string }) {
+export function CopyButton({
+  message,
+  variant = "ghost",
+}: {
+  message: string;
+  variant?: VariantProps<typeof buttonVariants>["variant"];
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleClick = async () => {
@@ -39,7 +47,7 @@ export function CopyButton({ message }: { message: string }) {
   return (
     <ChatBubbleAction
       aria-label="Copy message"
-      variant="ghost"
+      variant={variant}
       className="size-5"
       icon={
         copied ? (
@@ -53,7 +61,13 @@ export function CopyButton({ message }: { message: string }) {
   );
 }
 
-export function DeleteButton({ onDelete }: { onDelete: () => void }) {
+export function DeleteButton({
+  onDelete,
+  variant = "ghost",
+}: {
+  onDelete: () => void;
+  variant?: VariantProps<typeof buttonVariants>["variant"];
+}) {
   const onSubmit: FormEventHandler<HTMLFormElement> = async (event) => {
     event.preventDefault();
     onDelete();
@@ -64,7 +78,7 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
       <AlertDialogTrigger asChild>
         <ChatBubbleAction
           aria-label="Delete message"
-          variant="ghost"
+          variant={variant}
           className="size-5"
           icon={<Trash2 className="size-4" />}
         />
@@ -93,19 +107,18 @@ export function DeleteButton({ onDelete }: { onDelete: () => void }) {
 
 export function InfoButton({
   meta,
+  providers,
 }: {
   meta: components["schemas"]["ChatRsMessageMeta"];
+  providers?: components["schemas"]["ChatRsProvider"][];
 }) {
-  const { provider, model, usage, temperature, maxTokens, interrupted } =
-    useMessageMeta(meta);
-
   return (
     <Popover>
       <PopoverTrigger asChild>
         <ChatBubbleAction
           className="size-5"
           icon={
-            meta.interrupted ? (
+            meta.assistant?.partial || meta.tool_call?.is_error ? (
               <AlertCircle className="size-4.5 text-yellow-700 dark:text-yellow-300" />
             ) : (
               <Info className="size-4.5" />
@@ -116,96 +129,68 @@ export function InfoButton({
         />
       </PopoverTrigger>
       <PopoverContent className="text-sm">
-        {interrupted && (
+        {meta.assistant?.partial && (
           <div className="flex items-center gap-1 mb-2">
             <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
             Stream was interrupted
           </div>
         )}
-        {provider && (
-          <div>
-            <span className="font-bold">Provider:</span> {provider}
+        {meta.tool_call?.is_error && (
+          <div className="flex items-center gap-1 mb-2">
+            <AlertTriangle className="size-5 inline text-yellow-700 dark:text-yellow-300" />{" "}
+            Tool call error
           </div>
         )}
-        {model && (
+        {meta.assistant?.provider_id && (
           <div>
-            <span className="font-bold">Model:</span> {model}
+            <span className="font-bold">Provider:</span>{" "}
+            {providers?.find((p) => p.id === meta.assistant?.provider_id)?.name}
           </div>
         )}
-        {temperature && (
+        {meta.assistant?.provider_options?.model && (
           <div>
-            <span className="font-bold">Temperature:</span> {temperature}
+            <span className="font-bold">Model:</span>{" "}
+            {meta.assistant?.provider_options.model}
           </div>
         )}
-        {usage?.input_tokens && (
+        {typeof meta.assistant?.provider_options?.temperature === "number" && (
+          <div>
+            <span className="font-bold">Temperature:</span>{" "}
+            {meta.assistant.provider_options.temperature}
+          </div>
+        )}
+        {meta.tool_call?.id && (
+          <div>
+            <span className="font-bold">Tool Call ID:</span> {meta.tool_call.id}
+          </div>
+        )}
+        {meta.tool_call?.tool_id && (
+          <div>
+            <span className="font-bold">Tool ID:</span> {meta.tool_call.tool_id}
+          </div>
+        )}
+        {typeof meta.assistant?.usage?.input_tokens === "number" && (
           <div>
             <span className="font-bold">Input:</span>{" "}
-            {usage.input_tokens?.toLocaleString()} tokens
+            {meta.assistant.usage.input_tokens.toLocaleString()} tokens
           </div>
         )}
-        {usage?.output_tokens && (
+        {typeof meta.assistant?.usage?.output_tokens === "number" && (
           <div>
             <span className="font-bold">Output:</span>{" "}
-            {usage.output_tokens?.toLocaleString()} tokens
-            {maxTokens ? ` (Max: ${maxTokens.toLocaleString()})` : ""}
+            {meta.assistant.usage.output_tokens.toLocaleString()} tokens
+            {typeof meta.assistant.provider_options?.max_tokens === "number"
+              ? ` (Max: ${meta.assistant.provider_options.max_tokens.toLocaleString()})`
+              : ""}
           </div>
         )}
-        {usage?.cost && (
+        {typeof meta.assistant?.usage?.cost === "number" && (
           <div>
-            <span className="font-bold">Cost:</span> {usage.cost.toFixed(3)}
+            <span className="font-bold">Cost:</span>{" "}
+            {meta.assistant.usage.cost.toFixed(3)}
           </div>
         )}
       </PopoverContent>
     </Popover>
   );
-}
-
-function useMessageMeta(meta: components["schemas"]["ChatRsMessageMeta"]) {
-  const providerSpecificMeta = useMemo(() => {
-    if (typeof meta.provider_config === "string") {
-      return {
-        provider: meta.provider_config,
-      };
-    } else if (meta.provider_config && "OpenAI" in meta.provider_config) {
-      return {
-        provider: "OpenAI",
-        model: meta.provider_config.OpenAI.model,
-        temperature: meta.provider_config.OpenAI.temperature,
-        maxTokens: meta.provider_config.OpenAI.max_tokens,
-      };
-    } else if (meta.provider_config && "Anthropic" in meta.provider_config) {
-      return {
-        provider: "Anthropic",
-        model: meta.provider_config.Anthropic.model,
-        temperature: meta.provider_config.Anthropic.temperature,
-        maxTokens: meta.provider_config.Anthropic.max_tokens,
-      };
-    } else if (meta.provider_config && "OpenRouter" in meta.provider_config) {
-      return {
-        provider: "OpenRouter",
-        model: meta.provider_config.OpenRouter.model,
-        temperature: meta.provider_config.OpenRouter.temperature,
-        maxTokens: meta.provider_config.OpenRouter.max_tokens,
-      };
-    } else if (meta.provider_config && "Llm" in meta.provider_config) {
-      return {
-        provider: meta.provider_config.Llm.backend,
-        model: meta.provider_config.Llm.model,
-        temperature: meta.provider_config.Llm.temperature,
-        maxTokens: meta.provider_config.Llm.max_tokens,
-      };
-    }
-
-    return {};
-  }, [meta]);
-
-  const mergedMeta = useMemo(() => {
-    return {
-      ...providerSpecificMeta,
-      interrupted: !!meta.interrupted,
-      usage: meta.usage,
-    };
-  }, [providerSpecificMeta, meta]);
-
-  return mergedMeta;
 }

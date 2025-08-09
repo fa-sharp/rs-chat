@@ -56,7 +56,7 @@ ChatBubble.displayName = "ChatBubble";
 // ChatBubbleAvatar
 interface ChatBubbleAvatarProps {
   src?: string;
-  fallback?: string;
+  fallback?: React.ReactNode;
   className?: string;
 }
 
@@ -81,7 +81,7 @@ const chatBubbleMessageVariants = cva("py-2 px-3", {
     },
     layout: {
       default: "",
-      ai: "border-t w-full rounded-none bg-transparent",
+      ai: "w-full",
     },
   },
   defaultVariants: {

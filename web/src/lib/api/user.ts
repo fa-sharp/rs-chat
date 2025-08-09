@@ -19,13 +19,12 @@ export const useGetUser = () =>
     queryFn: getUser,
   });
 
-export async function deleteAccount() {
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL || ""}/api/auth/user/delete-but-only-if-you-are-sure`,
-    { method: "DELETE" },
-  );
-  if (!response.ok) {
-    throw new Error(await response.json());
+export async function deleteAccount({ confirm }: { confirm: string }) {
+  const response = await client.DELETE("/auth/user/delete-my-account", {
+    body: { confirm },
+  });
+  if (response.error) {
+    throw new Error(response.error.message);
   }
-  return await response.text();
+  return response.data;
 }

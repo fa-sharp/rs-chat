@@ -64,7 +64,7 @@ function ProfilePage() {
 
   const handleDeleteAccount = () => {
     if (deleteConfirmation === "DELETE MY ACCOUNT") {
-      deleteAccountMutation.mutate();
+      deleteAccountMutation.mutate({ confirm: deleteConfirmation });
     }
   };
 
@@ -87,7 +87,7 @@ function ProfilePage() {
 
   return (
     <div className="overflow-auto bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Profile</h1>
           <p className="text-muted-foreground">Manage your account</p>
@@ -194,14 +194,14 @@ function ProfilePage() {
                 variant="outline"
                 className="w-full justify-start"
               >
-                <Link to="/app/api-keys">Manage Provider Keys</Link>
+                <Link to="/app/providers">Manage Providers</Link>
               </Button>
               <Button
                 asChild
                 variant="outline"
                 className="w-full justify-start"
               >
-                <Link to="/app/app-keys">Manage API Keys</Link>
+                <Link to="/app/api-keys">Manage API Keys</Link>
               </Button>
             </CardContent>
           </Card>

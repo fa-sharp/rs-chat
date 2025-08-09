@@ -1,3 +1,5 @@
+//! LLM providers API
+
 pub mod anthropic;
 pub mod lorem;
 pub mod openai;
@@ -7,13 +9,18 @@ use std::pin::Pin;
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
 
-use crate::db::models::ChatRsMessage;
+use crate::{
+    db::models::{ChatRsMessage, ChatRsProviderType, ChatRsTool, ChatRsToolCall},
+    provider::{anthropic::AnthropicProvider, lorem::LoremProvider, openai::OpenAIProvider},
+    provider_models::LlmModel,
+};
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
 pub const DEFAULT_TEMPERATURE: f32 = 0.7;
 
+/// LLM provider-related errors
 #[derive(Debug, thiserror::Error)]
-pub enum ChatRsError {
+pub enum LlmError {
     #[error("Missing API key")]
     MissingApiKey,
     #[error("Lorem ipsum error: {0}")]
@@ -22,6 +29,8 @@ pub enum ChatRsError {
     AnthropicError(String),
     #[error("OpenAI error: {0}")]
     OpenAIError(String),
+    #[error("models.dev error: {0}")]
+    ModelsDevError(String),
     #[error("No chat response")]
     NoResponse,
     #[error("Unsupported provider")]
@@ -30,28 +39,81 @@ pub enum ChatRsError {
     EncryptionError,
     #[error("Decryption error")]
     DecryptionError,
+    #[error("Redis error: {0}")]
+    Redis(#[from] fred::error::Error),
 }
 
+/// A streaming chunk of data from the LLM provider
+#[derive(Default)]
+pub struct LlmStreamChunk {
+    pub text: Option<String>,
+    pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    pub usage: Option<LlmUsage>,
+}
+
+/// Usage stats from the LLM provider
 #[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
-pub struct ChatRsUsage {
+pub struct LlmUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,
+    /// Only included by OpenRouter
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<f32>,
 }
 
-pub struct ChatRsStreamChunk {
-    pub text: String,
-    pub usage: Option<ChatRsUsage>,
+/// Shared stream type for LLM providers
+pub type LlmApiStream = Pin<Box<dyn Stream<Item = Result<LlmStreamChunk, LlmError>> + Send>>;
+
+/// Shared configuration for LLM provider requests
+#[derive(Clone, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct LlmApiProviderSharedOptions {
+    pub model: String,
+    pub temperature: Option<f32>,
+    pub max_tokens: Option<u32>,
 }
 
-pub type ChatRsStream = Pin<Box<dyn Stream<Item = Result<ChatRsStreamChunk, ChatRsError>> + Send>>;
-
-/// Interface for all chat providers
+/// Unified API for LLM providers
 #[async_trait]
-pub trait ChatRsProvider {
-    /// Stream a chat response given the message history
-    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError>;
+pub trait LlmApiProvider {
+    /// Stream a chat response from the provider
+    async fn chat_stream(
+        &self,
+        messages: Vec<ChatRsMessage>,
+        tools: Option<Vec<ChatRsTool>>,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<LlmApiStream, LlmError>;
 
     /// Submit a prompt to the provider (not streamed)
-    async fn prompt(&self, message: &str) -> Result<String, ChatRsError>;
+    async fn prompt(
+        &self,
+        message: &str,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<String, LlmError>;
+
+    /// List available models from the provider
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError>;
+}
+
+/// Build the LLM API provider to make calls to the provider
+pub fn build_llm_provider_api<'a>(
+    provider_type: &ChatRsProviderType,
+    base_url: Option<&'a str>,
+    api_key: Option<&'a str>,
+    http_client: &reqwest::Client,
+    redis: &'a fred::prelude::Client,
+) -> Result<Box<dyn LlmApiProvider + Send + 'a>, LlmError> {
+    match provider_type {
+        ChatRsProviderType::Openai => Ok(Box::new(OpenAIProvider::new(
+            http_client,
+            redis,
+            api_key.ok_or(LlmError::MissingApiKey)?,
+            base_url,
+        ))),
+        ChatRsProviderType::Anthropic => Ok(Box::new(AnthropicProvider::new(
+            http_client,
+            redis,
+            api_key.ok_or(LlmError::MissingApiKey)?,
+        ))),
+        ChatRsProviderType::Lorem => Ok(Box::new(LoremProvider::new())),
+    }
 }

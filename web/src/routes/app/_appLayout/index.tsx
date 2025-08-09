@@ -3,7 +3,7 @@ import { KeyRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { useProviderKeys } from "@/lib/api/providerKey";
+import { useProviders } from "@/lib/api/provider";
 import { useCreateChatSession } from "@/lib/api/session";
 
 export const Route = createFileRoute("/app/_appLayout/")({
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/app/_appLayout/")({
 function RouteComponent() {
   const navigate = useNavigate();
   const { mutate: createChatSession, isPending } = useCreateChatSession();
-  const { data: apiKeys } = useProviderKeys();
+  const { data: providers } = useProviders();
 
   const onCreateChat = () => {
     createChatSession(undefined, {
@@ -25,7 +25,7 @@ function RouteComponent() {
     });
   };
 
-  if (apiKeys && apiKeys.length === 0) {
+  if (providers && providers.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Card className="flex flex-col gap-4 items-center">

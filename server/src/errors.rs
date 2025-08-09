@@ -7,7 +7,7 @@ use rocket::{
 use rocket_okapi::response::OpenApiResponderInner;
 use schemars::JsonSchema;
 
-use crate::provider::ChatRsError;
+use crate::{provider::LlmError, tools::ToolError};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ApiError {
@@ -18,7 +18,9 @@ pub enum ApiError {
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
     #[error(transparent)]
-    Chat(#[from] ChatRsError),
+    Chat(#[from] LlmError),
+    #[error(transparent)]
+    Tool(#[from] ToolError),
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize)]
@@ -54,9 +56,9 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
                 ApiErrorResponse::Unauthorized(Json(Message::new(&error))).respond_to(req)
             }
             ApiError::Db(error) => match error {
-                diesel::result::Error::DatabaseError(kind, _info) => ApiErrorResponse::Server(
-                    Json(Message::new(&format!("Database error: {:?}", kind))),
-                )
+                diesel::result::Error::DatabaseError(kind, info) => ApiErrorResponse::Server(Json(
+                    Message::new(&format!("Database error: {:?} | {:?}", kind, info)),
+                ))
                 .respond_to(req),
                 diesel::result::Error::NotFound => {
                     ApiErrorResponse::NotFound(Json(Message::new("Not found!"))).respond_to(req)
@@ -64,7 +66,11 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
                 _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),
             },
             ApiError::Chat(error) => {
-                ApiErrorResponse::BadRequest(Json(Message::new(&format!("Error: {}", error))))
+                ApiErrorResponse::BadRequest(Json(Message::new(&format!("Chat error: {}", error))))
+                    .respond_to(req)
+            }
+            ApiError::Tool(error) => {
+                ApiErrorResponse::BadRequest(Json(Message::new(&format!("Tool error: {}", error))))
                     .respond_to(req)
             }
             _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),

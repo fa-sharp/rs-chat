@@ -28,7 +28,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get the current user info */
+        /**
+         * Get User
+         * @description Get the current user info
+         */
         get: operations["user"];
         put?: never;
         post?: never;
@@ -45,7 +48,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Get the current auth configuration */
+        /**
+         * Get Auth Config
+         * @description Get the current auth configuration
+         */
         get: operations["auth_config"];
         put?: never;
         post?: never;
@@ -64,12 +70,100 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Log out */
+        /** Log out */
         post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/auth/user/delete-my-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete account
+         * @description Delete account and all associated data. ⚠️ WARNING: This action is irreversible.
+         */
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List providers
+         * @description List all configured providers
+         */
+        get: operations["get_all_providers"];
+        put?: never;
+        /**
+         * Create provider
+         * @description Create a new LLM provider
+         */
+        post: operations["create_provider"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/{provider_id}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List models
+         * @description List all models for a provider
+         */
+        get: operations["list_models"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/provider/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete provider
+         * @description Delete an LLM Provider
+         */
+        delete: operations["delete_provider"];
+        options?: never;
+        head?: never;
+        /**
+         * Update provider
+         * @description Update an LLM Provider
+         */
+        patch: operations["update_provider"];
         trace?: never;
     };
     "/session/": {
@@ -160,25 +254,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/provider_key/": {
+    "/tool/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description List all Provider API keys */
-        get: operations["get_all_provider_keys"];
+        /** @description List all tools */
+        get: operations["get_all_tools"];
         put?: never;
-        /** @description Create a new Provider API key */
-        post: operations["create_provider_key"];
+        /** @description Create a new tool */
+        post: operations["create_tool"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/provider_key/{api_key_id}": {
+    "/tool/execute/{message_id}/{tool_call_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Execute a specific tool call in a message */
+        post: operations["execute_tool"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/execute/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Execute all tool calls in a message */
+        post: operations["execute_all_tools"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/{tool_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -188,8 +316,43 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Delete a Provider API key */
-        delete: operations["delete_provider_key"];
+        /** @description Delete a tool */
+        delete: operations["delete_tool"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/secret/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List all secrets */
+        get: operations["get_all_secrets"];
+        put?: never;
+        /** @description Create a new secret */
+        post: operations["create_secret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/secret/{secret_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete a secret */
+        delete: operations["delete_secret"];
         options?: never;
         head?: never;
         patch?: never;
@@ -277,14 +440,76 @@ export interface components {
             /** @description The URL to redirect to after logout */
             logout_url?: string | null;
         };
+        DeleteAccountInput: {
+            /** @description Confirmation message: "DELETE MY ACCOUNT" */
+            confirm: string;
+        };
+        ChatRsProvider: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            provider_type: components["schemas"]["ChatRsProviderType"];
+            /** Format: uuid */
+            user_id: string;
+            default_model: string;
+            base_url?: string | null;
+            /** Format: uuid */
+            api_key_id?: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description The API type of the provider
+         * @enum {string}
+         */
+        ChatRsProviderType: "anthropic" | "openai" | "lorem";
+        /** @description A model supported by the LLM provider */
+        LlmModel: {
+            id: string;
+            name: string;
+            attachment?: boolean | null;
+            reasoning?: boolean | null;
+            temperature?: boolean | null;
+            tool_call?: boolean | null;
+            release_date?: string | null;
+            knowledge?: string | null;
+            modalities?: components["schemas"]["Modalities"] | null;
+            modified_at?: string | null;
+            format?: string | null;
+            family?: string | null;
+        };
+        Modalities: {
+            input: components["schemas"]["ModalityType"][];
+            output: components["schemas"]["ModalityType"][];
+        };
+        /** @enum {string} */
+        ModalityType: "text" | "image" | "audio" | "video" | "pdf";
+        ProviderCreateInput: {
+            name: string;
+            type: components["schemas"]["ChatRsProviderType"];
+            base_url?: string | null;
+            default_model: string;
+            api_key?: string | null;
+        };
+        ProviderUpdateInput: {
+            name?: string | null;
+            base_url?: string | null;
+            default_model?: string | null;
+            api_key?: string | null;
+        };
         ChatRsSession: {
             /** Format: uuid */
             id: string;
             title: string;
+            meta: components["schemas"]["ChatRsSessionMeta"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        ChatRsSessionMeta: {
+            /** @description IDs of the tools available to the assistant */
+            tools?: string[] | null;
         };
         SessionIdResponse: {
             session_id: string;
@@ -305,60 +530,81 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        ChatRsMessageRole: "User" | "Assistant" | "System";
+        ChatRsMessageRole: "User" | "Assistant" | "System" | "Tool";
         ChatRsMessageMeta: {
-            provider_config?: components["schemas"]["ProviderConfigInput"] | null;
-            interrupted?: boolean | null;
-            usage?: components["schemas"]["ChatRsUsage"] | null;
+            /** @description Assistant messages: metadata associated with the assistant message */
+            assistant?: components["schemas"]["AssistantMeta"] | null;
+            /** @description Tool messages: metadata of the executed tool call */
+            tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
         };
-        /** @description Provider configuration input from API */
-        ProviderConfigInput: "Lorem" | {
-            Anthropic: components["schemas"]["AnthropicConfig"];
-        } | {
-            OpenAI: components["schemas"]["OpenAIConfig"];
-        } | {
-            OpenRouter: components["schemas"]["OpenRouterConfig"];
-        } | {
-            Llm: components["schemas"]["LLMConfig"];
+        AssistantMeta: {
+            /**
+             * Format: int32
+             * @description The ID of the LLM provider used to generate this message
+             */
+            provider_id: number;
+            /** @description Options passed to the LLM provider */
+            provider_options?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+            /** @description The tool calls requested by the assistant */
+            tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
+            /** @description Provider usage information */
+            usage?: components["schemas"]["LlmUsage"] | null;
+            /** @description Whether this is a partial and/or interrupted message */
+            partial?: boolean | null;
         };
-        AnthropicConfig: {
+        /** @description Shared configuration for LLM provider requests */
+        LlmApiProviderSharedOptions: {
             model: string;
             /** Format: float */
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
         };
-        OpenAIConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-            base_url?: string | null;
+        /** @description A tool call requested by the provider */
+        ChatRsToolCall: {
+            /** @description ID of the tool call */
+            id: string;
+            /**
+             * Format: uuid
+             * @description ID of the tool used
+             */
+            tool_id: string;
+            /** @description Name of the tool used */
+            tool_name: string;
+            /** @description Input parameters passed to the tool */
+            parameters: {
+                [key: string]: unknown;
+            };
         };
-        OpenRouterConfig: {
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-        };
-        /** @deprecated */
-        LLMConfig: {
-            backend: string;
-            model: string;
-            /** Format: float */
-            temperature?: number | null;
-            /** Format: uint32 */
-            max_tokens?: number | null;
-        };
-        ChatRsUsage: {
+        /** @description Usage stats from the LLM provider */
+        LlmUsage: {
             /** Format: uint32 */
             input_tokens?: number | null;
             /** Format: uint32 */
             output_tokens?: number | null;
-            /** Format: float */
+            /**
+             * Format: float
+             * @description Only included by OpenRouter
+             */
             cost?: number | null;
+        };
+        /** @description Metadata for an executed tool call */
+        ChatRsExecutedToolCall: {
+            /** @description ID of the tool call */
+            id: string;
+            /**
+             * Format: uuid
+             * @description ID of the tool used
+             */
+            tool_id: string;
+            /** @description Name of the tool used */
+            tool_name: string;
+            /** @description Input parameters passed to the tool */
+            parameters: {
+                [key: string]: unknown;
+            };
+            /** @description Whether the tool call resulted in an error */
+            is_error?: boolean | null;
         };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
@@ -377,22 +623,138 @@ export interface components {
             title: string;
         };
         SendChatInput: {
+            /** @description The new chat message */
             message?: string | null;
-            provider: components["schemas"]["ProviderConfigInput"];
+            /**
+             * Format: int32
+             * @description The ID of the provider to chat with
+             */
+            provider_id: number;
+            /** @description Provider options */
+            provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
+            /** @description IDs of the tools available to the assistant */
+            tools?: string[] | null;
         };
-        ChatRsProviderKeyMeta: {
+        ChatRsTool: {
             /** Format: uuid */
             id: string;
-            provider: components["schemas"]["ChatRsProviderKeyType"];
+            /** Format: uuid */
+            user_id: string;
+            name: string;
+            description: string;
+            config: components["schemas"]["ToolConfig"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description Tool configuration stored in the daabase */
+        ToolConfig: {
+            /** @enum {string} */
+            type: "Http";
+            input_schema: components["schemas"]["ToolJsonSchema"];
+            url: string;
+            method: string;
+            query?: {
+                [key: string]: string;
+            } | null;
+            body?: unknown;
+            headers?: {
+                [key: string]: string;
+            } | null;
+        } | {
+            /** @enum {string} */
+            type: "WebSearch";
+            /** @description Provider-specific configuration */
+            provider: components["schemas"]["WebSearchProviderConfig"];
+            /**
+             * Format: uint8
+             * @description Max search results to return.
+             * @default 10
+             */
+            count: number;
+        };
+        /** @description JSON schema for tool input parameters */
+        ToolJsonSchema: {
+            type: components["schemas"]["ToolJsonSchemaType"];
+            properties: {
+                [key: string]: unknown;
+            };
+            required?: string[] | null;
+            additionalProperties?: boolean | null;
+        };
+        /** @enum {string} */
+        ToolJsonSchemaType: "object";
+        WebSearchProviderConfig: {
+            /** @enum {string} */
+            type: "brave";
+            api_key: string;
+            /**
+             * @description Country code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#country-codes
+             * @default null
+             */
+            country: string | null;
+            /**
+             * @description Language code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#language-codes
+             * @default null
+             */
+            search_lang: string | null;
+        } | {
+            /** @enum {string} */
+            type: "serpapi";
+            api_key: string;
+            /**
+             * @description Country code for search results. See https://serpapi.com/google-countries
+             * @default null
+             */
+            country: string | null;
+            /**
+             * @description Language code for search results. See https://serpapi.com/google-lr-languages
+             * @default null
+             */
+            search_lang: string | null;
+            /**
+             * @description Search engine to use. See https://serpapi.com/search-api. Default: "google"
+             * @default null
+             */
+            engine: string | null;
+        } | {
+            /** @enum {string} */
+            type: "googlecustomsearch";
+            api_key: string;
+            /** @default null */
+            country: string | null;
+            /** @default null */
+            search_lang: string | null;
+            /** @description Google Custom Search Engine ID */
+            cx: string;
+        } | {
+            /** @enum {string} */
+            type: "exa";
+            api_key: string;
+        };
+        ToolInput: {
+            /** @description Name of the tool */
+            name: string;
+            /** @description Description of the tool */
+            description: string;
+            /** @description Tool-specific configuration */
+            config: components["schemas"]["ToolConfig"];
+        };
+        ChatRsSecretMeta: {
+            /** Format: uuid */
+            id: string;
+            name: string;
             /** Format: date-time */
             created_at: string;
         };
-        /** @enum {string} */
-        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
-        ProviderKeyInput: {
+        SecretInput: {
             provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;
+            name: string;
         };
+        /** @enum {string} */
+        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
         ChatRsApiKey: {
             /** Format: uuid */
             id: string;
@@ -534,6 +896,408 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_all_providers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCreateInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    list_models: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LlmModel"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    update_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderUpdateInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsProvider"];
                 };
             };
             /** @description Bad request */
@@ -1114,7 +1878,7 @@ export interface operations {
             };
         };
     };
-    get_all_provider_keys: {
+    get_all_tools: {
         parameters: {
             query?: never;
             header?: never;
@@ -1128,7 +1892,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsProviderKeyMeta"][];
+                    "application/json": components["schemas"]["ChatRsTool"][];
                 };
             };
             /** @description Bad request */
@@ -1178,7 +1942,7 @@ export interface operations {
             };
         };
     };
-    create_provider_key: {
+    create_tool: {
         parameters: {
             query?: never;
             header?: never;
@@ -1187,7 +1951,338 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProviderKeyInput"];
+                "application/json": components["schemas"]["ToolInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsTool"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    execute_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+                tool_call_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsMessage"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    execute_all_tools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsMessage"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    get_all_secrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsSecretMeta"][];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    create_secret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecretInput"];
             };
         };
         responses: {
@@ -1246,12 +2341,12 @@ export interface operations {
             };
         };
     };
-    delete_provider_key: {
+    delete_secret: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                api_key_id: string;
+                secret_id: string;
             };
             cookie?: never;
         };

@@ -4,7 +4,9 @@ pub mod config;
 pub mod db;
 pub mod errors;
 pub mod provider;
+pub mod provider_models;
 pub mod redis;
+pub mod tools;
 pub mod utils;
 pub mod web;
 
@@ -12,7 +14,6 @@ use rocket::{fairing::AdHoc, get};
 use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_spec};
 
 use crate::{
-    api::auth_undocumented_routes,
     auth::setup_auth,
     config::{get_config_provider, AppConfig},
     db::setup_db,
@@ -33,7 +34,6 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_static_files())
         .manage(reqwest::Client::new())
         .register("/", get_catchers())
-        .mount("/api/auth", auth_undocumented_routes())
         .mount("/api/docs", get_doc_routes());
 
     let openapi_settings = rocket_okapi::settings::OpenApiSettings::default();
@@ -41,9 +41,11 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
         "/auth" => api::auth_routes(&openapi_settings),
+        "/provider" => api::provider_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
-        "/provider_key" => api::provider_key_routes(&openapi_settings),
+        "/tool" => api::tool_routes(&openapi_settings),
+        "/secret" => api::secret_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };
 

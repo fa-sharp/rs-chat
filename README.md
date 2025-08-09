@@ -10,7 +10,7 @@ Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your 
 
 ### 🚀 Main Features
 
-- **Multiple AI Providers**: Chat with AI models from Anthropic (Claude) and OpenRouter
+- **Multiple AI Providers**: Chat with AI models from OpenAI, Anthropic, and OpenRouter
 - **Streaming**: Streams responses using SSE (Server-Sent Events)
 - **Concurrent Streaming**: Seamlessly switch between multiple AI conversations streamed at the same time
 - **Resumable Conversations**: Resume the conversation if your connection is lost or the page is refreshed
@@ -67,12 +67,13 @@ rs-chat/
 
 ## 🔑 Setting Up AI Providers
 
-After logging in with GitHub:
+After logging in:
 
 1. Click on name in top-left, and go to **API Keys**
 2. Add your provider API keys:
-   - **Anthropic**: Get your key from [Anthropic Console](https://console.anthropic.com/)
-   - **OpenRouter**: Get your key from [OpenRouter](https://openrouter.ai/keys)
+  - **OpenAI**: Get your key from [OpenAI](https://platform.openai.com/api-keys)
+  - **Anthropic**: Get your key from [Anthropic Console](https://console.anthropic.com/)
+  - **OpenRouter**: Get your key from [OpenRouter](https://openrouter.ai/settings/keys)
 
 Your API keys are encrypted and stored in the database.
 
@@ -149,7 +150,7 @@ services:
     # ports:
     #   - "8080:8080"
     environment:
-      RUST_LOG: warn   # 'info' for more logs
+      RUST_LOG: warn   # 'info' or 'debug' for more logs
       RS_CHAT_SERVER_ADDRESS: https://mydomain.com # where you're hosting the app
       RS_CHAT_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
       RS_CHAT_REDIS_URL: redis://myredis:6379 # Your Redis URL

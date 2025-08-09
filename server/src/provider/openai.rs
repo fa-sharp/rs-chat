@@ -1,39 +1,40 @@
+//! OpenAI (and OpenAI compatible) LLM provider
+
 use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::{ChatRsError, ChatRsProvider, ChatRsStream, ChatRsStreamChunk, ChatRsUsage},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolCall},
+    provider::{
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
+        LlmUsage,
+    },
+    provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
 
-const API_BASE_URL: &str = "https://api.openai.com/v1";
+const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
+const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
 /// OpenAI chat provider
 pub struct OpenAIProvider<'a> {
     client: reqwest::Client,
-    api_key: String,
-    model: &'a str,
-    max_tokens: Option<u32>,
-    temperature: Option<f32>,
+    redis: &'a fred::prelude::Client,
+    api_key: &'a str,
     base_url: &'a str,
 }
 
 impl<'a> OpenAIProvider<'a> {
     pub fn new(
         http_client: &reqwest::Client,
-        api_key: &str,
-        model: &'a str,
-        max_tokens: Option<u32>,
-        temperature: Option<f32>,
+        redis: &'a fred::prelude::Client,
+        api_key: &'a str,
         base_url: Option<&'a str>,
     ) -> Self {
         Self {
             client: http_client.clone(),
-            api_key: api_key.to_string(),
-            model,
-            max_tokens,
-            temperature,
-            base_url: base_url.unwrap_or(API_BASE_URL),
+            redis,
+            api_key,
+            base_url: base_url.unwrap_or(OPENAI_API_BASE_URL),
         }
     }
 
@@ -45,19 +46,60 @@ impl<'a> OpenAIProvider<'a> {
                     ChatRsMessageRole::User => "user",
                     ChatRsMessageRole::Assistant => "assistant",
                     ChatRsMessageRole::System => "system",
+                    ChatRsMessageRole::Tool => "tool",
+                };
+                let openai_message = OpenAIMessage {
+                    role,
+                    content: Some(&message.content),
+                    tool_call_id: message.meta.tool_call.as_ref().map(|tc| tc.id.as_str()),
+                    tool_calls: message
+                        .meta
+                        .assistant
+                        .as_ref()
+                        .and_then(|meta| meta.tool_calls.as_ref())
+                        .map(|tc| {
+                            tc.iter()
+                                .map(|tc| OpenAIToolCall {
+                                    id: &tc.id,
+                                    tool_type: "function",
+                                    function: OpenAIToolCallFunction {
+                                        name: &tc.tool_name,
+                                        arguments: serde_json::to_string(&tc.parameters)
+                                            .unwrap_or_default(),
+                                    },
+                                })
+                                .collect()
+                        }),
                 };
 
-                OpenAIMessage {
-                    role,
-                    content: &message.content,
-                }
+                openai_message
             })
             .collect()
     }
 
-    async fn parse_sse_stream(&self, mut response: reqwest::Response) -> ChatRsStream {
+    fn build_tools(&self, tools: &'a [ChatRsTool]) -> Vec<OpenAITool> {
+        tools
+            .iter()
+            .map(|tool| OpenAITool {
+                tool_type: "function",
+                function: OpenAIToolFunction {
+                    name: &tool.name,
+                    description: &tool.description,
+                    parameters: tool.get_input_schema(),
+                    strict: true,
+                },
+            })
+            .collect()
+    }
+
+    async fn parse_sse_stream(
+        &self,
+        mut response: reqwest::Response,
+        tools: Option<Vec<ChatRsTool>>,
+    ) -> LlmApiStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
+            let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
 
             while let Some(chunk) = response.chunk().await.transpose() {
                 match chunk {
@@ -79,20 +121,32 @@ impl<'a> OpenAIProvider<'a> {
                                     Ok(mut response) => {
                                         if let Some(choice) = response.choices.pop() {
                                             if let Some(delta) = choice.delta {
-                                                if let Some(content) = delta.content {
-                                                    yield Ok(ChatRsStreamChunk {
-                                                        text: content,
-                                                        usage: None,
+                                                if delta.content.is_some() {
+                                                    yield Ok(LlmStreamChunk {
+                                                        text: delta.content,
+                                                        ..Default::default()
                                                     });
+                                                }
+
+                                                if let Some(tool_calls_delta) = delta.tool_calls {
+                                                    for tool_call_delta in tool_calls_delta {
+                                                        if let Some(tc) = tool_calls.iter_mut().find(|tc| tc.index == tool_call_delta.index) {
+                                                            if let Some(function_arguments) = tool_call_delta.function.arguments {
+                                                                *tc.function.arguments.get_or_insert_default() += &function_arguments;
+                                                            }
+                                                        } else {
+                                                            tool_calls.push(tool_call_delta);
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
 
                                         // Yield usage information if available
                                         if let Some(usage) = response.usage {
-                                            yield Ok(ChatRsStreamChunk {
-                                                text: String::new(),
+                                            yield Ok(LlmStreamChunk {
                                                 usage: Some(usage.into()),
+                                                ..Default::default()
                                             });
                                         }
                                     }
@@ -112,9 +166,18 @@ impl<'a> OpenAIProvider<'a> {
                     }
                     Err(e) => {
                         rocket::warn!("Stream chunk error: {}", e);
-                        yield Err(ChatRsError::OpenAIError(format!("Stream error: {}", e)));
+                        yield Err(LlmError::OpenAIError(format!("Stream error: {}", e)));
                         break;
                     }
+                }
+            }
+
+            if let Some(rs_chat_tools) = tools {
+                if !tool_calls.is_empty() {
+                    yield Ok(LlmStreamChunk {
+                        tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.convert(&rs_chat_tools)).collect()),
+                        ..Default::default()
+                    });
                 }
             }
 
@@ -126,19 +189,26 @@ impl<'a> OpenAIProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> ChatRsProvider for OpenAIProvider<'a> {
-    async fn chat_stream(&self, messages: Vec<ChatRsMessage>) -> Result<ChatRsStream, ChatRsError> {
+impl<'a> LlmApiProvider for OpenAIProvider<'a> {
+    async fn chat_stream(
+        &self,
+        messages: Vec<ChatRsMessage>,
+        tools: Option<Vec<ChatRsTool>>,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<LlmApiStream, LlmError> {
         let openai_messages = self.build_messages(&messages);
+        let openai_tools = tools.as_ref().map(|t| self.build_tools(t));
 
         let request = OpenAIRequest {
-            model: self.model,
+            model: &options.model,
             messages: openai_messages,
-            max_tokens: self.max_tokens,
-            temperature: self.temperature,
+            max_tokens: options.max_tokens,
+            temperature: options.temperature,
             stream: Some(true),
             stream_options: Some(OpenAIStreamOptions {
                 include_usage: true,
             }),
+            tools: openai_tools,
         };
 
         let response = self
@@ -149,29 +219,34 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::OpenAIError(format!(
+            return Err(LlmError::OpenAIError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
         }
 
-        Ok(self.parse_sse_stream(response).await)
+        Ok(self.parse_sse_stream(response, tools).await)
     }
 
-    async fn prompt(&self, message: &str) -> Result<String, ChatRsError> {
+    async fn prompt(
+        &self,
+        message: &str,
+        options: &LlmApiProviderSharedOptions,
+    ) -> Result<String, LlmError> {
         let request = OpenAIRequest {
-            model: self.model,
+            model: &options.model,
             messages: vec![OpenAIMessage {
                 role: "user",
-                content: message,
+                content: Some(message),
+                ..Default::default()
             }],
-            max_tokens: self.max_tokens,
-            temperature: self.temperature,
+            max_tokens: options.max_tokens,
+            temperature: options.temperature,
             ..Default::default()
         };
 
@@ -183,12 +258,12 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
             .json(&request)
             .send()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Request failed: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Request failed: {}", e)))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(ChatRsError::OpenAIError(format!(
+            return Err(LlmError::OpenAIError(format!(
                 "API error {}: {}",
                 status, error_text
             )));
@@ -197,29 +272,36 @@ impl<'a> ChatRsProvider for OpenAIProvider<'a> {
         let openai_response: OpenAIResponse = response
             .json()
             .await
-            .map_err(|e| ChatRsError::OpenAIError(format!("Failed to parse response: {}", e)))?;
+            .map_err(|e| LlmError::OpenAIError(format!("Failed to parse response: {}", e)))?;
 
         let text = openai_response
             .choices
             .first()
             .and_then(|choice| choice.message.as_ref())
             .and_then(|message| message.content.as_ref())
-            .ok_or(ChatRsError::NoResponse)?;
+            .ok_or(LlmError::NoResponse)?;
 
         if let Some(usage) = openai_response.usage {
-            let usage: ChatRsUsage = usage.into();
+            let usage: LlmUsage = usage.into();
             println!("Prompt usage: {:?}", usage);
         }
 
         Ok(text.clone())
     }
-}
 
-/// OpenAI API request message
-#[derive(Debug, Serialize)]
-struct OpenAIMessage<'a> {
-    role: &'a str,
-    content: &'a str,
+    async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
+        let models_service = ModelsDevService::new(self.redis.clone(), self.client.clone());
+        let models = models_service
+            .list_models({
+                match self.base_url {
+                    OPENROUTER_API_BASE_URL => ModelsDevServiceProvider::OpenRouter,
+                    _ => ModelsDevServiceProvider::OpenAI,
+                }
+            })
+            .await?;
+
+        Ok(models)
+    }
 }
 
 /// OpenAI API request body
@@ -233,12 +315,73 @@ struct OpenAIRequest<'a> {
     stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stream_options: Option<OpenAIStreamOptions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OpenAITool<'a>>>,
+}
+
+/// OpenAI API request message
+#[derive(Debug, Default, Serialize)]
+struct OpenAIMessage<'a> {
+    role: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAIToolCall<'a>>>,
+}
+
+/// OpenAI tool definition
+#[derive(Debug, Serialize)]
+struct OpenAITool<'a> {
+    #[serde(rename = "type")]
+    tool_type: &'a str,
+    function: OpenAIToolFunction<'a>,
+}
+
+/// OpenAI tool function definition
+#[derive(Debug, Serialize)]
+struct OpenAIToolFunction<'a> {
+    name: &'a str,
+    description: &'a str,
+    parameters: serde_json::Value,
+    strict: bool,
+}
+
+/// OpenAI tool call in messages
+#[derive(Debug, Serialize)]
+struct OpenAIToolCall<'a> {
+    id: &'a str,
+    #[serde(rename = "type")]
+    tool_type: &'a str,
+    function: OpenAIToolCallFunction<'a>,
+}
+
+/// OpenAI tool call function in messages
+#[derive(Debug, Serialize)]
+struct OpenAIToolCallFunction<'a> {
+    name: &'a str,
+    arguments: String,
 }
 
 /// OpenAI API request stream options
 #[derive(Debug, Serialize)]
 struct OpenAIStreamOptions {
     include_usage: bool,
+}
+
+/// OpenAI API response
+#[derive(Debug, Deserialize)]
+struct OpenAIResponse {
+    choices: Vec<OpenAIChoice>,
+    usage: Option<OpenAIUsage>,
+}
+
+/// OpenAI API streaming response
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamResponse {
+    choices: Vec<OpenAIChoice>,
+    usage: Option<OpenAIUsage>,
 }
 
 /// OpenAI API response choice
@@ -261,6 +404,40 @@ struct OpenAIResponseMessage {
 struct OpenAIResponseDelta {
     // role: Option<String>,
     content: Option<String>,
+    tool_calls: Option<Vec<OpenAIStreamToolCall>>,
+}
+
+/// OpenAI streaming tool call
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamToolCall {
+    id: Option<String>,
+    index: u32,
+    function: OpenAIStreamToolCallFunction,
+}
+
+impl OpenAIStreamToolCall {
+    /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
+    fn convert(self, rs_chat_tools: &[ChatRsTool]) -> Option<ChatRsToolCall> {
+        let id = self.id?;
+        let tool_name = self.function.name?;
+        let parameters = serde_json::from_str(&self.function.arguments?).ok()?;
+        rs_chat_tools
+            .iter()
+            .find(|tool| tool.name == tool_name)
+            .map(|tool| ChatRsToolCall {
+                id,
+                tool_id: tool.id,
+                tool_name,
+                parameters,
+            })
+    }
+}
+
+/// OpenAI streaming tool call function
+#[derive(Debug, Deserialize)]
+struct OpenAIStreamToolCallFunction {
+    name: Option<String>,
+    arguments: Option<String>,
 }
 
 /// OpenAI API response usage
@@ -272,26 +449,12 @@ struct OpenAIUsage {
     // total_tokens: Option<u32>,
 }
 
-impl From<OpenAIUsage> for ChatRsUsage {
+impl From<OpenAIUsage> for LlmUsage {
     fn from(usage: OpenAIUsage) -> Self {
-        ChatRsUsage {
+        LlmUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
             cost: usage.cost,
         }
     }
-}
-
-/// OpenAI API response
-#[derive(Debug, Deserialize)]
-struct OpenAIResponse {
-    choices: Vec<OpenAIChoice>,
-    usage: Option<OpenAIUsage>,
-}
-
-/// OpenAI streaming response
-#[derive(Debug, Deserialize)]
-struct OpenAIStreamResponse {
-    choices: Vec<OpenAIChoice>,
-    usage: Option<OpenAIUsage>,
 }
