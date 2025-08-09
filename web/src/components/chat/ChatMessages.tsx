@@ -14,11 +14,11 @@ import {
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
 import {
+  ChatMessageToolCalls,
   CopyButton,
   DeleteButton,
   InfoButton,
-} from "./messages/ChatMessageActions";
-import ChatMessageToolCalls from "./messages/ChatMessageToolCalls";
+} from "./messages";
 
 const ChatFancyMarkdown = React.lazy(
   () => import("./messages/ChatFancyMarkdown"),

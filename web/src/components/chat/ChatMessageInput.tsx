@@ -1,10 +1,17 @@
 import { CornerDownLeft } from "lucide-react";
-import { type FormEventHandler, useCallback, useState } from "react";
+import { type FormEventHandler, useCallback, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import type { useChatInputState } from "@/hooks/useChatInputState";
-import ChatSettings from "./ChatSettings";
+import { useProviders } from "@/lib/api/provider";
+import { useTools } from "@/lib/api/tool";
+import {
+  ChatModelSelect,
+  ChatMoreSettings,
+  ChatProviderSelect,
+  ChatToolSelect,
+} from "./settings";
 
 /** Handles submitting the user message, along with the current provider/model selection and other settings */
 export default function ChatMessageInput({
@@ -12,6 +19,9 @@ export default function ChatMessageInput({
 }: {
   inputState: ReturnType<typeof useChatInputState>;
 }) {
+  const { data: providers } = useProviders();
+  const { data: tools } = useTools();
+
   const {
     providerId,
     modelId,
@@ -28,6 +38,15 @@ export default function ChatMessageInput({
     setTemperature,
     onSubmitUserMessage,
   } = inputState;
+
+  const currentProvider = useMemo(() => {
+    return providers?.find((p) => p.id === providerId);
+  }, [providers, providerId]);
+
+  const setCurrentModel = useCallback(
+    (model: string) => onSelectModel(providerId, model),
+    [providerId, onSelectModel],
+  );
 
   const [enterKeyShouldSubmit, setEnterKeyShouldSubmit] = useState(true);
   const onKeyDown = useCallback(
@@ -64,17 +83,31 @@ export default function ChatMessageInput({
         className="rounded-lg bg-background text-foreground border-0 shadow-none focus-visible:ring-0"
       />
       <div className="flex flex-wrap items-center gap-2 p-3 pt-0">
-        <ChatSettings
-          currentProviderId={providerId}
-          currentModel={modelId}
-          currentMaxTokens={maxTokens}
-          currentTemperature={temperature}
-          currentToolIds={toolIds}
+        <ChatProviderSelect
           onSelectModel={onSelectModel}
-          onSelectMaxTokens={setMaxTokens}
-          onSelectTemperature={setTemperature}
-          onToggleTool={onToggleTool}
+          currentProvider={currentProvider}
+          providers={providers}
         />
+        {currentProvider && currentProvider.provider_type !== "lorem" && (
+          <>
+            <ChatModelSelect
+              providerId={providerId}
+              currentModelId={modelId}
+              onSelect={setCurrentModel}
+            />
+            <ChatMoreSettings
+              currentMaxTokens={maxTokens}
+              currentTemperature={temperature}
+              onSelectMaxTokens={setMaxTokens}
+              onSelectTemperature={setTemperature}
+            />
+            <ChatToolSelect
+              tools={tools}
+              selectedToolIds={toolIds}
+              toggleTool={onToggleTool}
+            />
+          </>
+        )}
         <Button
           type="button"
           variant="outline"
