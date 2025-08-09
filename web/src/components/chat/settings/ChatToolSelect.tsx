@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { components } from "@/lib/api/types";
-import { getToolIcon } from "../ToolsManager";
+import { getToolIcon } from "../../ToolsManager";
 
 export default function ChatToolSelect({
   selectedToolIds,

@@ -14,8 +14,8 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
 
 /**
  * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.

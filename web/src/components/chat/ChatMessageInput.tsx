@@ -1,12 +1,12 @@
 import { CornerDownLeft } from "lucide-react";
 import { type FormEventHandler, useCallback, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { ChatInput } from "@/components/ui/chat/chat-input";
 import type { useChatInputState } from "@/hooks/useChatInputState";
-import { Button } from "../ui/button";
-import { ChatInput } from "../ui/chat/chat-input";
-import { ChatModelSelect } from "./ChatModelSelect";
+import ChatSettings from "./ChatSettings";
 
-/** Handles submitting the user message, and the current provider and model selection */
+/** Handles submitting the user message, along with the current provider/model selection and other settings */
 export default function ChatMessageInput({
   inputState,
 }: {
@@ -64,7 +64,7 @@ export default function ChatMessageInput({
         className="rounded-lg bg-background text-foreground border-0 shadow-none focus-visible:ring-0"
       />
       <div className="flex flex-wrap items-center gap-2 p-3 pt-0">
-        <ChatModelSelect
+        <ChatSettings
           currentProviderId={providerId}
           currentModel={modelId}
           currentMaxTokens={maxTokens}

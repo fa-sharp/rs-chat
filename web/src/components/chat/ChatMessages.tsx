@@ -13,10 +13,16 @@ import {
   ChatBubbleMessage,
 } from "../ui/chat/chat-bubble";
 import { ChatMessageList } from "../ui/chat/chat-message-list";
-import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
-import ChatMessageToolCalls from "./ChatMessageToolCalls";
+import {
+  CopyButton,
+  DeleteButton,
+  InfoButton,
+} from "./messages/ChatMessageActions";
+import ChatMessageToolCalls from "./messages/ChatMessageToolCalls";
 
-const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
+const ChatFancyMarkdown = React.lazy(
+  () => import("./messages/ChatFancyMarkdown"),
+);
 
 interface Props {
   isWaitingForAssistant: boolean;

@@ -1,10 +1,10 @@
 import { ChevronDown, ChevronUp, PlayCircle } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 
+import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
+import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { getToolIcon, getToolTypeLabel } from "../ToolsManager";
-import { Button } from "../ui/button";
 
 const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
 

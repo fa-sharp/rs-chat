@@ -20,10 +20,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import type { buttonVariants } from "@/components/ui/button";
+import { ChatBubbleAction } from "@/components/ui/chat/chat-bubble";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { components } from "@/lib/api/types";
-import type { buttonVariants } from "../ui/button";
-import { ChatBubbleAction } from "../ui/chat/chat-bubble";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export function CopyButton({
   message,
