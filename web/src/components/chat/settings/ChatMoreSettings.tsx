@@ -1,12 +1,8 @@
 import { Settings } from "lucide-react";
 
+import PopoverDrawer from "@/components/PopoverDrawer";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -31,13 +27,15 @@ export default function ChatMoreSettings({
   onSelectTemperature,
 }: Props) {
   return (
-    <Popover>
-      <PopoverTrigger asChild>
+    <PopoverDrawer
+      popoverProps={{ className: "p-0" }}
+      trigger={
         <Button aria-label="More settings" size="icon" variant="outline">
           <Settings />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="flex flex-col gap-2">
+      }
+    >
+      <div className="p-4 flex flex-col gap-2">
         <Label>
           Max tokens
           <Select
@@ -65,13 +63,13 @@ export default function ChatMoreSettings({
             value={currentTemperature.toFixed(1)}
             onValueChange={(temperature) => onSelectTemperature(+temperature)}
           >
-            <SelectTrigger className="w-[70px]">
+            <SelectTrigger className="w-[80px]">
               <SelectValue placeholder="Temperature" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Temperature</SelectLabel>
-                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map(
+                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map(
                   (temperature) => (
                     <SelectItem
                       key={temperature}
@@ -85,7 +83,7 @@ export default function ChatMoreSettings({
             </SelectContent>
           </Select>
         </Label>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </PopoverDrawer>
   );
 }

@@ -83,6 +83,31 @@ export default function ChatMessages({
   const executeToolCall = useExecuteTool();
   const executeAllToolCalls = useExecuteAllTools();
 
+  const onExecuteToolCall = useCallback(
+    (messageId: string, toolCallId: string) => {
+      executeToolCall.mutate(
+        { messageId, toolCallId },
+        {
+          onSuccess: () => {
+            const allToolCallsCompleted = messages
+              .find((m) => m.id === messageId)
+              ?.meta.assistant?.tool_calls?.every(
+                (tc) =>
+                  tc.id === toolCallId ||
+                  messages.find(
+                    (m) => m.role === "Tool" && m.meta.tool_call?.id === tc.id,
+                  ),
+              );
+            if (allToolCallsCompleted) {
+              onGetAgenticResponse();
+            }
+          },
+        },
+      );
+    },
+    [executeToolCall, onGetAgenticResponse, messages],
+  );
+
   const onExecuteAllToolCalls = useCallback(
     (messageId: string) => {
       executeAllToolCalls.mutate(
@@ -144,6 +169,7 @@ export default function ChatMessages({
                       messages={messages}
                       tools={tools}
                       toolCalls={message.meta.assistant.tool_calls}
+                      onExecute={(id) => onExecuteToolCall(message.id, id)}
                       onExecuteAll={() => onExecuteAllToolCalls(message.id)}
                       isExecuting={
                         executeToolCall.isPending ||

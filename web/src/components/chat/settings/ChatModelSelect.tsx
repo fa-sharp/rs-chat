@@ -1,6 +1,7 @@
 import { Check, ChevronsUpDown } from "lucide-react";
 import React from "react";
 
+import PopoverDrawer from "@/components/PopoverDrawer";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -10,11 +11,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useProviderModels } from "@/lib/api/provider";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +28,11 @@ export default function ChatModelSelect({
   const [open, setOpen] = React.useState(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <PopoverDrawer
+      open={open}
+      onOpenChange={setOpen}
+      popoverProps={{ className: "w-[250px] p-0" }}
+      trigger={
         <Button
           variant="outline"
           role="combobox"
@@ -48,35 +47,34 @@ export default function ChatModelSelect({
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[250px] p-0">
-        <Command>
-          <CommandInput placeholder="Search models..." className="h-9" />
-          <CommandList>
-            <CommandEmpty>No models found.</CommandEmpty>
-            <CommandGroup>
-              {models?.map((model) => (
-                <CommandItem
-                  key={model.id}
-                  value={model.id}
-                  onSelect={() => {
-                    onSelect(model.id);
-                    setOpen(false);
-                  }}
-                >
-                  {model.name}
-                  <Check
-                    className={cn(
-                      "ml-auto",
-                      currentModelId === model.id ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      }
+    >
+      <Command>
+        <CommandInput placeholder="Search models..." className="h-9" />
+        <CommandList>
+          <CommandEmpty>No models found.</CommandEmpty>
+          <CommandGroup>
+            {models?.map((model) => (
+              <CommandItem
+                key={model.id}
+                value={model.id}
+                onSelect={() => {
+                  onSelect(model.id);
+                  setOpen(false);
+                }}
+              >
+                {model.name}
+                <Check
+                  className={cn(
+                    "ml-auto",
+                    currentModelId === model.id ? "opacity-100" : "opacity-0",
+                  )}
+                />
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverDrawer>
   );
 }

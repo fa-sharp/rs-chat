@@ -12,11 +12,13 @@ export default function ChatMessageToolCalls({
   messages,
   tools,
   toolCalls,
+  onExecute,
   onExecuteAll,
   isExecuting,
 }: {
   messages: components["schemas"]["ChatRsMessage"][];
   isExecuting: boolean;
+  onExecute: (toolCallId: string) => void;
   onExecuteAll: () => void;
   tools?: components["schemas"]["ChatRsTool"][];
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
@@ -48,6 +50,7 @@ export default function ChatMessageToolCalls({
             messages={messages}
             tools={tools}
             expanded={expanded}
+            onExecute={() => onExecute(toolCall.id)}
             isExecuting={isExecuting}
           />
         ))}
@@ -75,11 +78,13 @@ function ChatMessageToolCall({
   messages,
   tools,
   expanded,
+  onExecute,
   isExecuting,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
   messages: components["schemas"]["ChatRsMessage"][];
   tools?: components["schemas"]["ChatRsTool"][];
+  onExecute: () => void;
   isExecuting: boolean;
   expanded: boolean;
 }) {
@@ -93,7 +98,12 @@ function ChatMessageToolCall({
           {toolCall.tool_name}
         </div>
         {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
-          <Button size="sm" loading={isExecuting} disabled={isExecuting}>
+          <Button
+            size="sm"
+            loading={isExecuting}
+            disabled={isExecuting}
+            onClick={onExecute}
+          >
             {!isExecuting && <PlayCircle />}
             Execute
           </Button>
@@ -110,7 +120,7 @@ function ChatMessageToolCall({
           {toolCall.tool_name}
         </div>
         {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
-          <Button size="sm" disabled={isExecuting}>
+          <Button size="sm" disabled={isExecuting} onClick={onExecute}>
             <PlayCircle />
             Execute
           </Button>
