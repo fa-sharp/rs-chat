@@ -103,7 +103,6 @@ async fn create_provider(
             .create(NewChatRsSecret {
                 user_id: &user_id,
                 name: &format!("{} API Key", input.name),
-                provider: &crate::db::models::ChatRsProviderKeyType::Openai,
                 ciphertext: &ciphertext,
                 nonce: &nonce,
             })
@@ -169,7 +168,6 @@ async fn update_provider(
                     .create(NewChatRsSecret {
                         user_id: &user_id,
                         name: &format!("{} API Key", provider.name),
-                        provider: &crate::db::models::ChatRsProviderKeyType::Openai,
                         ciphertext: &ciphertext,
                         nonce: &nonce,
                     })
