@@ -71,9 +71,11 @@ export function ChatModelSelect({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-[140px] justify-between"
+            className="w-[120px] md:w-[130px] justify-between"
           >
-            {currentProvider ? currentProvider.name : "Select provider"}
+            <span className="truncate">
+              {currentProvider ? currentProvider.name : "Select provider"}
+            </span>
             <ChevronsUpDown className="opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -208,9 +210,9 @@ function ProviderModelSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[280px] justify-between"
+          className="w-[180px] md:w-[240px] justify-between"
         >
-          <span className="overflow-hidden text-ellipsis">
+          <span className="truncate">
             {currentModelId
               ? models?.find((model) => model.id === currentModelId)?.name ||
                 currentModelId
