@@ -1,71 +1,30 @@
-import { Bot, Wrench } from "lucide-react";
-import React, { Suspense, useCallback, useEffect } from "react";
-import Markdown from "react-markdown";
+import { memo, useCallback } from "react";
 
-import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import { useDeleteChatMessage } from "@/lib/api/session";
 import { useExecuteAllTools, useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
-import { cn, escapeBackticks } from "@/lib/utils";
-import {
-  ChatBubble,
-  ChatBubbleAvatar,
-  ChatBubbleMessage,
-} from "../ui/chat/chat-bubble";
-import { ChatMessageList } from "../ui/chat/chat-message-list";
-import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
-import ChatMessageToolCalls from "./ChatMessageToolCalls";
-
-const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
+import ChatMessage from "./messages/ChatMessage";
 
 interface Props {
-  isWaitingForAssistant: boolean;
-  isCompleted: boolean;
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   providers?: Array<components["schemas"]["ChatRsProvider"]>;
   tools?: Array<components["schemas"]["ChatRsTool"]>;
   onGetAgenticResponse: () => void;
-  streamedResponse?: string;
-  error?: string;
+  isStreaming?: boolean;
   sessionId: string;
 }
 
-const proseClasses =
-  "prose prose-sm md:prose-base dark:prose-invert prose-pre:bg-primary-foreground prose-hr:my-3 prose-headings:not-[:first-child]:mt-4 prose-headings:mb-3 " +
-  "prose-h1:text-3xl prose-ul:my-3 prose-ol:my-3 prose-p:leading-5 md:prose-p:leading-6 prose-li:my-1 prose-li:leading-5 md:prose-li:leading-6";
-const proseUserClasses =
-  "prose-code:text-primary-foreground prose-pre:text-primary-foreground";
-const proseAssistantClasses =
-  "prose-code:text-secondary-foreground prose-pre:text-secondary-foreground";
-
-export default function ChatMessages({
+/** Displays all (non-streaming) messages in the session */
+export default memo(function ChatMessages({
   user,
   messages,
   providers,
   tools,
-  sessionId,
-  isWaitingForAssistant,
-  isCompleted,
   onGetAgenticResponse,
-  streamedResponse,
-  error,
+  isStreaming,
+  sessionId,
 }: Props) {
-  const {
-    displayedText: animatedText,
-    complete,
-    reset,
-  } = useSmoothStreaming(streamedResponse);
-  useEffect(() => {
-    if (isCompleted) complete();
-  }, [isCompleted, complete]);
-  useEffect(() => {
-    if (!streamedResponse) reset();
-  }, [streamedResponse, reset]);
-  useEffect(() => {
-    if (sessionId) reset();
-  }, [sessionId, reset]);
-
   const { mutate: deleteMessage } = useDeleteChatMessage();
   const onDeleteMessage = useCallback(
     (messageId: string) => {
@@ -76,6 +35,31 @@ export default function ChatMessages({
 
   const executeToolCall = useExecuteTool();
   const executeAllToolCalls = useExecuteAllTools();
+
+  const onExecuteToolCall = useCallback(
+    (messageId: string, toolCallId: string) => {
+      executeToolCall.mutate(
+        { messageId, toolCallId },
+        {
+          onSuccess: () => {
+            const allToolCallsCompleted = messages
+              .find((m) => m.id === messageId)
+              ?.meta.assistant?.tool_calls?.every(
+                (tc) =>
+                  tc.id === toolCallId ||
+                  messages.find(
+                    (m) => m.role === "Tool" && m.meta.tool_call?.id === tc.id,
+                  ),
+              );
+            if (allToolCallsCompleted) {
+              onGetAgenticResponse();
+            }
+          },
+        },
+      );
+    },
+    [executeToolCall, onGetAgenticResponse, messages],
+  );
 
   const onExecuteAllToolCalls = useCallback(
     (messageId: string) => {
@@ -89,162 +73,28 @@ export default function ChatMessages({
     [executeAllToolCalls, onGetAgenticResponse],
   );
 
-  return (
-    <ChatMessageList>
-      {messages
-        .filter(
-          (message, idx) =>
-            !streamedResponse ||
-            !(message.meta.assistant?.partial && idx === messages.length - 1), // don't show the partial assistant response if still streaming
-        )
-        .map((message) => (
-          <ChatBubble
-            key={message.id}
-            layout={message.role === "Assistant" ? "ai" : "default"}
-            variant={message.role === "User" ? "sent" : "received"}
-          >
-            <ChatBubbleAvatar
-              src={(message.role === "User" && user?.avatar_url) || undefined}
-              fallback={
-                message.role === "User" ? (
-                  "🧑🏽‍💻"
-                ) : message.role === "Tool" ? (
-                  <Wrench className="size-4" />
-                ) : (
-                  <Bot className="size-4" />
-                )
-              }
-            />
-            <ChatBubbleMessage
-              variant={message.role === "User" ? "sent" : "received"}
-              layout={message.role === "Assistant" ? "ai" : "default"}
-              className={cn(
-                proseClasses,
-                message.role === "User" && proseUserClasses,
-                message.role === "Assistant" && proseAssistantClasses,
-              )}
-            >
-              <Suspense fallback={<Markdown>{message.content}</Markdown>}>
-                <ChatFancyMarkdown>
-                  {message.role === "Tool"
-                    ? formatToolResponse(message)
-                    : message.content}
-                </ChatFancyMarkdown>
-              </Suspense>
-              {message.role === "Assistant" && (
-                <>
-                  {message.meta.assistant?.tool_calls && (
-                    <ChatMessageToolCalls
-                      messages={messages}
-                      tools={tools}
-                      toolCalls={message.meta.assistant.tool_calls}
-                      onExecuteAll={() => onExecuteAllToolCalls(message.id)}
-                      isExecuting={
-                        executeToolCall.isPending ||
-                        executeAllToolCalls.isPending
-                      }
-                    />
-                  )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                      <InfoButton meta={message.meta} providers={providers} />
-                      <CopyButton message={message.content} />
-                      <DeleteButton
-                        onDelete={() => onDeleteMessage(message.id)}
-                      />
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatDate(message.created_at)}
-                    </div>
-                  </div>
-                </>
-              )}
-              {message.role === "User" && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                    <CopyButton message={message.content} variant="default" />
-                    <DeleteButton
-                      onDelete={() => onDeleteMessage(message.id)}
-                      variant="default"
-                    />
-                  </div>
-                  <div className="text-xs text-muted">
-                    {formatDate(message.created_at)}
-                  </div>
-                </div>
-              )}
-              {message.role === "Tool" && (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-                    <InfoButton meta={message.meta} providers={providers} />
-                    <CopyButton message={message.content} />
-                    <DeleteButton
-                      onDelete={() => onDeleteMessage(message.id)}
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatDate(message.created_at)}
-                  </div>
-                </div>
-              )}
-            </ChatBubbleMessage>
-          </ChatBubble>
-        ))}
-
-      {isWaitingForAssistant && (
-        <ChatBubble variant="received">
-          <ChatBubbleAvatar
-            fallback={<Bot className="size-4" />}
-            className="animate-pulse"
-          />
-          <ChatBubbleMessage isLoading />
-        </ChatBubble>
-      )}
-
-      {animatedText && (
-        <ChatBubble variant="received">
-          <ChatBubbleAvatar
-            fallback={<Bot className="size-4" />}
-            className="animate-pulse"
-          />
-          <ChatBubbleMessage
-            className={cn(
-              proseClasses,
-              proseAssistantClasses,
-              "outline-2 outline-ring",
-            )}
-          >
-            <Markdown key="streaming">{animatedText}</Markdown>
-          </ChatBubbleMessage>
-        </ChatBubble>
-      )}
-
-      {error && (
-        <ChatBubble variant="received">
-          <ChatBubbleAvatar fallback={<Bot className="size-4" />} />
-          <ChatBubbleMessage className="text-destructive-foreground">
-            {error}
-          </ChatBubbleMessage>
-        </ChatBubble>
-      )}
-    </ChatMessageList>
-  );
-}
-
-function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `### Tool Response: ${message.meta.tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
-}
-
-const now = new Date();
-const formatDate = (date: string) => {
-  const parsedDate = new Date(date);
-  const isToday = parsedDate.toDateString() === now.toDateString();
-  return new Intl.DateTimeFormat(undefined, {
-    year:
-      parsedDate.getFullYear() === now.getFullYear() ? undefined : "numeric",
-    month: isToday ? undefined : "short",
-    day: isToday ? undefined : "numeric",
-    hour: "numeric",
-    minute: "numeric",
-  }).format(parsedDate);
-};
+  return messages
+    .filter(
+      (message, idx) =>
+        !isStreaming ||
+        !(message.meta.assistant?.partial && idx === messages.length - 1), // don't show the partial assistant response if still streaming
+    )
+    .map((message) => (
+      <ChatMessage
+        key={message.id}
+        message={message}
+        user={user}
+        providers={providers}
+        tools={tools}
+        executedToolCalls={message.meta.assistant?.tool_calls?.filter((tc) =>
+          messages.some((m) => m.meta.tool_call?.id === tc.id),
+        )}
+        onExecuteToolCall={onExecuteToolCall}
+        onExecuteAllToolCalls={onExecuteAllToolCalls}
+        isExecutingTool={
+          executeToolCall.isPending || executeAllToolCalls.isPending
+        }
+        onDeleteMessage={onDeleteMessage}
+      />
+    ));
+});

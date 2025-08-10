@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{ChatRsProviderKeyType, ChatRsSecretMeta, NewChatRsSecret},
+        models::{ChatRsSecretMeta, NewChatRsSecret},
         services::SecretDbService,
         DbConnection,
     },
@@ -36,7 +36,6 @@ async fn get_all_secrets(
 
 #[derive(JsonSchema, serde::Deserialize)]
 struct SecretInput {
-    provider: ChatRsProviderKeyType,
     key: String,
     name: String,
 }
@@ -55,7 +54,6 @@ async fn create_secret(
         .create(NewChatRsSecret {
             user_id: &user_id,
             name: &input.name,
-            provider: &input.provider,
             ciphertext: &ciphertext,
             nonce: &nonce,
         })

@@ -14,12 +14,12 @@ import rehypeHighlight from "rehype-highlight";
 import rehypeHighlightCodeLines from "rehype-highlight-code-lines";
 import remarkGfm from "remark-gfm";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Button } from "../ui/button";
 
 /**
  * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.
- * Should be asynchronously imported as it loads a bunch of languages.
+ * Should be asynchronously imported as it loads a bunch of plugins and languages.
  */
 export default function ChatFancyMarkdown({
   children,
@@ -96,7 +96,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
     <div className="not-prose relative">
       <Button
         aria-label="Copy code"
-        className="absolute top-1.5 right-1.5 z-[999] size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
+        className="absolute top-1.5 right-1.5 z-[10] size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
         onClick={handleCopy}
         variant="outline"
         size="icon"

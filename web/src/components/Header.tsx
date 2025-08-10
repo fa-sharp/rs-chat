@@ -68,13 +68,13 @@ export default function Header() {
   }, [data, deleteSession, navigate]);
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex h-14 md:h-16 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator
         orientation="vertical"
-        className="mr-2 data-[orientation=vertical]:h-4"
+        className="hidden md:block mr-2 data-[orientation=vertical]:h-4"
       />
-      <Breadcrumb>
+      <Breadcrumb className="min-w-0">
         <BreadcrumbList>
           <BreadcrumbItem className="hidden md:block">
             <RouterBreadcrumbLink to="/app">Chats</RouterBreadcrumbLink>
@@ -83,18 +83,20 @@ export default function Header() {
             (!isEditingTitle ? (
               <>
                 <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{data?.session.title}</BreadcrumbPage>
+                <BreadcrumbItem className="overflow-hidden">
+                  <BreadcrumbPage className="truncate">
+                    {data?.session.title}
+                  </BreadcrumbPage>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-6"
+                    onClick={() => setIsEditingTitle(true)}
+                  >
+                    <Edit2 className="size-4" />
+                  </Button>
+                  <DeleteSessionButton onDelete={onDeleteSession} />
                 </BreadcrumbItem>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-6"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  <Edit2 className="size-4" />
-                </Button>
-                <DeleteSessionButton onDelete={onDeleteSession} />
               </>
             ) : (
               <>
@@ -104,7 +106,7 @@ export default function Header() {
                     <Input
                       name="title"
                       autoFocus
-                      className="text-foreground"
+                      className="text-foreground w-[200px]"
                       defaultValue={data?.session.title}
                     />
                   </form>

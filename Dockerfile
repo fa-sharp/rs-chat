@@ -13,9 +13,9 @@ COPY ./server/Cargo.toml ./server/Cargo.lock ./
 ARG pkg=chat-rs-api
 
 RUN apt-get update -qq && apt-get install -y -qq pkg-config libpq-dev && apt-get clean
-RUN --mount=type=cache,target=/app/target \
-    --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
+RUN --mount=type=cache,id=s/6916a5c5-fde9-46e7-934c-cf425dd70d0e-rust_target,target=/app/target \
+    --mount=type=cache,id=s/6916a5c5-fde9-46e7-934c-cf425dd70d0e-cargo_registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=s/6916a5c5-fde9-46e7-934c-cf425dd70d0e-cargo_git,target=/usr/local/cargo/git \
     set -eux; \
     cargo build --release; \
     objcopy --compress-debug-sections target/release/$pkg ./run-server
@@ -29,7 +29,7 @@ ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 COPY ./web/package.json ./web/pnpm-lock.yaml ./
-RUN --mount=type=cache,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=s/6916a5c5-fde9-46e7-934c-cf425dd70d0e-pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 COPY ./web/src src
 COPY ./web/public public

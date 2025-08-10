@@ -10,7 +10,6 @@ import {
   recentSessionsQueryKey,
   useGetRecentChatSessions,
 } from "@/lib/api/session";
-import { useStreamingChats } from "@/lib/context/StreamingContext";
 
 export const Route = createFileRoute("/app/_appLayout")({
   beforeLoad: async ({ context }) => {
@@ -40,12 +39,11 @@ export const Route = createFileRoute("/app/_appLayout")({
 function RouteComponent() {
   const { user } = Route.useRouteContext();
   const { data } = useGetRecentChatSessions();
-  const { streamedChats } = useStreamingChats();
 
   return (
     <SidebarProvider>
       <SearchDialog />
-      <AppSidebar user={user} sessions={data} streamedChats={streamedChats} />
+      <AppSidebar user={user} sessions={data} />
       <SidebarInset className="overflow-hidden">
         <Header />
         <Outlet />

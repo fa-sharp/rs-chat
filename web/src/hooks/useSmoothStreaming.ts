@@ -26,7 +26,6 @@ interface SmoothStreamingState {
 
 /**
  * Smoothly output an incoming text stream.
- * This function was fully vibe-coded 😂
  */
 export function useSmoothStreaming(
   streamText?: string,

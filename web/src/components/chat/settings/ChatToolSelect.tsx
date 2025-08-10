@@ -1,6 +1,8 @@
 import { Check, Wrench } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import PopoverDrawer from "@/components/PopoverDrawer";
+import { getToolIcon } from "@/components/ToolsManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,13 +13,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import type { components } from "@/lib/api/types";
-import { getToolIcon } from "../ToolsManager";
 
 export default function ChatToolSelect({
   selectedToolIds,
@@ -35,8 +31,11 @@ export default function ChatToolSelect({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <PopoverDrawer
+      open={open}
+      onOpenChange={setOpen}
+      popoverProps={{ className: "w-[240px] p-0" }}
+      trigger={
         <Button aria-label="Tools" size="icon" variant="outline">
           {selectedTools && selectedTools.length > 0 && (
             <Badge className="absolute top-[-4px] right-[-4px] h-4 min-w-4 rounded-full px-1 font-mono tabular-nums">
@@ -45,31 +44,30 @@ export default function ChatToolSelect({
           )}
           <Wrench />
         </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
-        <Command>
-          <CommandInput placeholder="Search tools..." className="h-9" />
-          <CommandList>
-            <CommandEmpty>No tools found.</CommandEmpty>
-            <CommandGroup>
-              {tools?.map((tool) => (
-                <CommandItem
-                  key={tool.id}
-                  value={tool.name}
-                  aria-checked={selectedToolIds.includes(tool.id)}
-                  onSelect={() => toggleTool(tool.id)}
-                >
-                  {getToolIcon(tool)}
-                  {tool.name}
-                  {selectedToolIds.includes(tool.id) && (
-                    <Check className="ml-auto" />
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      }
+    >
+      <Command>
+        <CommandInput placeholder="Search tools..." className="h-9" />
+        <CommandList>
+          <CommandEmpty>No tools found.</CommandEmpty>
+          <CommandGroup>
+            {tools?.map((tool) => (
+              <CommandItem
+                key={tool.id}
+                value={tool.name}
+                aria-checked={selectedToolIds.includes(tool.id)}
+                onSelect={() => toggleTool(tool.id)}
+              >
+                {getToolIcon(tool)}
+                {tool.name}
+                {selectedToolIds.includes(tool.id) && (
+                  <Check className="ml-auto" />
+                )}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverDrawer>
   );
 }

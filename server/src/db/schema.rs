@@ -6,10 +6,6 @@ pub mod sql_types {
     pub struct ChatMessageRole;
 
     #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
-    #[diesel(postgres_type(name = "llm_provider"))]
-    pub struct LlmProvider;
-
-    #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "tsvector", schema = "pg_catalog"))]
     pub struct Tsvector;
 }
@@ -65,13 +61,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    use diesel::sql_types::*;
-    use super::sql_types::LlmProvider;
-
     secrets (id) {
         id -> Uuid,
         user_id -> Uuid,
-        provider -> LlmProvider,
         ciphertext -> Bytea,
         nonce -> Bytea,
         created_at -> Timestamptz,
