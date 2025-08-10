@@ -81,7 +81,7 @@ function RouteComponent() {
   });
 
   return (
-    <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 p-0 md:p-2 md:pt-0 overflow-hidden">
+    <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 px-2 pb-2 md:px-4 md:pb-4 overflow-hidden">
       <ChatMessageList>
         <ChatMessages
           user={user}
@@ -97,9 +97,7 @@ function RouteComponent() {
           currentStream={currentStream}
         />
       </ChatMessageList>
-      <div className="w-full px-4 pb-4">
-        <ChatMessageInput inputState={inputState} />
-      </div>
+      <ChatMessageInput inputState={inputState} />
     </div>
   );
 }
