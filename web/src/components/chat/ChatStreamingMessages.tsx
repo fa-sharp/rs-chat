@@ -9,8 +9,8 @@ import {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
-} from "../../ui/chat/chat-bubble";
-import { proseAssistantClasses, proseClasses } from "./proseStyles";
+} from "../ui/chat/chat-bubble";
+import { proseAssistantClasses, proseClasses } from "./messages/proseStyles";
 
 interface Props {
   sessionId: string;

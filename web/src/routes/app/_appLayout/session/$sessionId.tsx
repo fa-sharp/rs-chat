@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
-import ChatMessageInput from "@/components/chat/ChatMessageInput";
-import ChatMessages from "@/components/chat/ChatMessages";
-import { ChatStreamingMessages } from "@/components/chat/messages";
+import {
+  ChatMessageInput,
+  ChatMessages,
+  ChatStreamingMessages,
+} from "@/components/chat";
 import ErrorComponent from "@/components/Error";
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list";
 import { Skeleton } from "@/components/ui/skeleton";
