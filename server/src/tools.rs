@@ -76,7 +76,7 @@ impl ChatRsTool {
         match &self.config {
             ToolConfig::Http(config) => Box::new(HttpRequestTool::new(http_client, config)),
             ToolConfig::WebSearch(config) => Box::new(WebSearchTool::new(http_client, config)),
-            ToolConfig::CodeExecutor(config) => Box::new(CodeExecutorTool::new(&self.name, config)),
+            ToolConfig::CodeExecutor(config) => Box::new(CodeExecutorTool::new(config)),
         }
     }
 }

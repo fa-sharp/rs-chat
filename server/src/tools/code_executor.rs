@@ -13,12 +13,11 @@ use crate::tools::{
 
 #[derive(Debug)]
 pub struct CodeExecutorTool<'a> {
-    name: &'a str,
     config: &'a CodeExecutorToolConfig,
 }
 impl<'a> CodeExecutorTool<'a> {
-    pub fn new(name: &'a str, config: &'a CodeExecutorToolConfig) -> Self {
-        CodeExecutorTool { name, config }
+    pub fn new(config: &'a CodeExecutorToolConfig) -> Self {
+        CodeExecutorTool { config }
     }
 }
 
@@ -80,7 +79,7 @@ enum CodeLanguage {
 #[async_trait]
 impl Tool for CodeExecutorTool<'_> {
     fn name(&self) -> &str {
-        &self.name
+        "Code Executor"
     }
 
     fn input_schema(&self) -> serde_json::Value {
@@ -89,9 +88,10 @@ impl Tool for CodeExecutorTool<'_> {
     }
 
     async fn execute(&self, params: &ToolParameters) -> ToolResult<String> {
-        let input: CodeExecutorInput =
-            serde_json::from_value(serde_json::to_value(params).expect("Should be valid JSON"))
-                .map_err(|e| ToolError::InvalidParameters(e.to_string()))?;
+        let input = serde_json::from_value::<CodeExecutorInput>(
+            serde_json::to_value(params).expect("Should be valid JSON"),
+        )
+        .map_err(|e| ToolError::InvalidParameters(e.to_string()))?;
         let options = DockerExecutorOptions {
             timeout_seconds: self.config.timeout_seconds.unwrap_or_default(),
             memory_limit_mb: self.config.memory_limit_mb.unwrap_or_default(),
