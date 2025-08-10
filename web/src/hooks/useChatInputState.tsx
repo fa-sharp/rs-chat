@@ -131,21 +131,36 @@ export const useChatInputState = ({
     });
   }, [providerId, modelId, temperature, maxTokens, onSubmit, isGenerating]);
 
-  return {
-    providerId,
-    modelId,
-    toolIds,
-    maxTokens,
-    temperature,
-    error,
-    inputRef,
-    formRef,
-    setMaxTokens,
-    setTemperature,
-    isGenerating,
-    onSelectModel,
-    onToggleTool,
-    onSubmitUserMessage,
-    onSubmitWithoutUserMessage,
-  };
+  return useMemo(
+    () => ({
+      providerId,
+      modelId,
+      toolIds,
+      maxTokens,
+      temperature,
+      error,
+      inputRef,
+      formRef,
+      setMaxTokens,
+      setTemperature,
+      isGenerating,
+      onSelectModel,
+      onToggleTool,
+      onSubmitUserMessage,
+      onSubmitWithoutUserMessage,
+    }),
+    [
+      providerId,
+      modelId,
+      toolIds,
+      maxTokens,
+      temperature,
+      error,
+      isGenerating,
+      onSelectModel,
+      onToggleTool,
+      onSubmitUserMessage,
+      onSubmitWithoutUserMessage,
+    ],
+  );
 };

@@ -1,5 +1,11 @@
 import { CornerDownLeft } from "lucide-react";
-import { type FormEventHandler, useCallback, useMemo, useState } from "react";
+import {
+  type FormEventHandler,
+  memo,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
@@ -14,7 +20,7 @@ import {
 } from "./settings";
 
 /** Handles submitting the user message, along with the current provider/model selection and other settings */
-export default function ChatMessageInput({
+export default memo(function ChatMessageInput({
   inputState,
 }: {
   inputState: ReturnType<typeof useChatInputState>;
@@ -135,4 +141,4 @@ export default function ChatMessageInput({
       </div>
     </form>
   );
-}
+});

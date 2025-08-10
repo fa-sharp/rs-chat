@@ -1,4 +1,4 @@
-import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
-import ChatMessageToolCalls from "./ChatMessageToolCalls";
+import ChatMessage from "./ChatMessage";
+import ChatStreamingMessages from "./ChatStreamingMessages";
 
-export { ChatMessageToolCalls, InfoButton, CopyButton, DeleteButton };
+export { ChatMessage, ChatStreamingMessages };

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.
- * Should be asynchronously imported as it loads a bunch of languages.
+ * Should be asynchronously imported as it loads a bunch of plugins and languages.
  */
 export default function ChatFancyMarkdown({
   children,

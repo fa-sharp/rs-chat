@@ -8,21 +8,23 @@ import { cn } from "@/lib/utils";
 
 const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
 
+interface Props {
+  toolCalls?: components["schemas"]["ChatRsToolCall"][];
+  executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
+  tools?: components["schemas"]["ChatRsTool"][];
+  onExecute: (toolCallId: string) => void;
+  onExecuteAll: () => void;
+  isExecuting: boolean;
+}
+
 export default function ChatMessageToolCalls({
-  messages,
-  tools,
   toolCalls,
+  executedToolCalls,
+  tools,
   onExecute,
   onExecuteAll,
   isExecuting,
-}: {
-  messages: components["schemas"]["ChatRsMessage"][];
-  isExecuting: boolean;
-  onExecute: (toolCallId: string) => void;
-  onExecuteAll: () => void;
-  tools?: components["schemas"]["ChatRsTool"][];
-  toolCalls?: components["schemas"]["ChatRsToolCall"][];
-}) {
+}: Props) {
   const [expanded, setExpanded] = useState(false);
 
   if (!toolCalls || toolCalls.length === 0) {
@@ -47,16 +49,14 @@ export default function ChatMessageToolCalls({
           <ChatMessageToolCall
             key={toolCall.id}
             toolCall={toolCall}
-            messages={messages}
             tools={tools}
             expanded={expanded}
             onExecute={() => onExecute(toolCall.id)}
+            canExecute={!executedToolCalls?.some((tc) => tc.id === toolCall.id)}
             isExecuting={isExecuting}
           />
         ))}
-        {!toolCalls.some((toolCall) =>
-          messages.some((m) => m.meta.tool_call?.id === toolCall.id),
-        ) && (
+        {executedToolCalls?.length === 0 && (
           <p>
             <Button
               onClick={onExecuteAll}
@@ -75,17 +75,17 @@ export default function ChatMessageToolCalls({
 
 function ChatMessageToolCall({
   toolCall,
-  messages,
   tools,
   expanded,
   onExecute,
   isExecuting,
+  canExecute,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
-  messages: components["schemas"]["ChatRsMessage"][];
   tools?: components["schemas"]["ChatRsTool"][];
   onExecute: () => void;
   isExecuting: boolean;
+  canExecute: boolean;
   expanded: boolean;
 }) {
   const tool = tools?.find((tool) => tool.id === toolCall.tool_id);
@@ -97,7 +97,7 @@ function ChatMessageToolCall({
           {tool && getToolIcon(tool)}
           {toolCall.tool_name}
         </div>
-        {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
+        {canExecute && (
           <Button
             size="sm"
             loading={isExecuting}
@@ -119,7 +119,7 @@ function ChatMessageToolCall({
           {tool && `${getToolTypeLabel(tool)}: `}
           {toolCall.tool_name}
         </div>
-        {!messages.some((m) => m.meta.tool_call?.id === toolCall.id) && (
+        {canExecute && (
           <Button size="sm" disabled={isExecuting} onClick={onExecute}>
             <PlayCircle />
             Execute
