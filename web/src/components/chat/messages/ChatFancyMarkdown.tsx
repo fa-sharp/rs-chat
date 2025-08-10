@@ -96,7 +96,7 @@ function CodeWrapper({ children }: { children?: ReactNode }) {
     <div className="not-prose relative">
       <Button
         aria-label="Copy code"
-        className="absolute top-1.5 right-1.5 z-[999] size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
+        className="absolute top-1.5 right-1.5 z-[10] size-8 text-muted-foreground opacity-75 hover:opacity-100 focus-visible:opacity-100"
         onClick={handleCopy}
         variant="outline"
         size="icon"
