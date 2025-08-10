@@ -1,3 +1,4 @@
+mod code_executor;
 mod core;
 mod http_request;
 mod utils;
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::models::ChatRsTool,
     tools::{
+        code_executor::{CodeExecutorTool, CodeExecutorToolConfig},
         core::{validate_json_schema, Tool, ToolJsonSchema, ToolParameters, ToolResult},
         http_request::{HttpRequestConfig, HttpRequestTool},
         web_search::{WebSearchConfig, WebSearchTool},
@@ -26,6 +28,7 @@ use crate::{
 pub enum ToolConfig {
     Http(HttpRequestConfig),
     WebSearch(WebSearchConfig),
+    CodeExecutor(CodeExecutorToolConfig),
 }
 
 impl ToolConfig {
@@ -34,6 +37,7 @@ impl ToolConfig {
         match self {
             ToolConfig::Http(config) => config.validate(),
             ToolConfig::WebSearch(config) => config.validate(),
+            ToolConfig::CodeExecutor(config) => config.validate(),
         }
     }
 }
@@ -63,6 +67,7 @@ impl ChatRsTool {
         match &self.config {
             ToolConfig::Http(config) => config.get_input_schema(),
             ToolConfig::WebSearch(config) => config.get_input_schema(),
+            ToolConfig::CodeExecutor(config) => config.get_input_schema(),
         }
     }
 
@@ -71,6 +76,7 @@ impl ChatRsTool {
         match &self.config {
             ToolConfig::Http(config) => Box::new(HttpRequestTool::new(http_client, config)),
             ToolConfig::WebSearch(config) => Box::new(WebSearchTool::new(http_client, config)),
+            ToolConfig::CodeExecutor(config) => Box::new(CodeExecutorTool::new(&self.name, config)),
         }
     }
 }
