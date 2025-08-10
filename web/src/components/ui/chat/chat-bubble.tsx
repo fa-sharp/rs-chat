@@ -12,7 +12,7 @@ const chatBubbleVariant = cva(
     variants: {
       variant: {
         received: "self-start items-start md:items-end",
-        sent: "self-end flex-col-reverse md:flex-row-reverse items-end",
+        sent: "self-end md:flex-row-reverse items-end",
       },
       layout: {
         default: "",
@@ -33,10 +33,7 @@ interface ChatBubbleProps
 const ChatBubble = React.forwardRef<HTMLDivElement, ChatBubbleProps>(
   ({ className, variant, layout, children, ...props }, ref) => (
     <div
-      className={cn(
-        chatBubbleVariant({ variant, layout, className }),
-        "relative group",
-      )}
+      className={chatBubbleVariant({ variant, layout, className })}
       ref={ref}
       {...props}
     >
