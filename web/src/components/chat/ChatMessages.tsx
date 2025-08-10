@@ -155,7 +155,15 @@ export default function ChatMessages({
                 message.role === "Assistant" && proseAssistantClasses,
               )}
             >
-              <Suspense fallback={<Markdown>{message.content}</Markdown>}>
+              <Suspense
+                fallback={
+                  <Markdown>
+                    {message.role === "Tool"
+                      ? formatToolResponse(message)
+                      : message.content}
+                  </Markdown>
+                }
+              >
                 <ChatFancyMarkdown>
                   {message.role === "Tool"
                     ? formatToolResponse(message)
