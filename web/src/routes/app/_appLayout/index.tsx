@@ -31,12 +31,12 @@ function RouteComponent() {
         <Card className="flex flex-col gap-4 items-center">
           <CardTitle className="text-2xl">Welcome!</CardTitle>
           <CardContent>
-            Seems like you're new around here 👋. Add an API key below, and then
+            Seems like you're new around here 👋. Add a provider below, and then
             you can start chatting!
           </CardContent>
           <Button asChild>
-            <Link to="/app/api-keys">
-              <KeyRound /> API keys
+            <Link to="/app/providers">
+              <KeyRound /> Providers
             </Link>
           </Button>
         </Card>
