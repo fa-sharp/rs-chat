@@ -19,7 +19,7 @@ export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   errorComponent: ErrorComponent,
   pendingComponent: () => (
     <div className="flex-1">
-      <div className="flex flex-col space-y-10 p-48">
+      <div className="flex flex-col space-y-10 p-8 md:p-24">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
