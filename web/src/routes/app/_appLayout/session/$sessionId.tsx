@@ -84,7 +84,7 @@ function RouteComponent() {
 
   return (
     <div className="flex-1 grid grid-rows-[minmax(0,1fr)_auto] gap-4 px-2 pb-2 md:px-4 md:pb-4 overflow-hidden">
-      <ChatMessageList>
+      <ChatMessageList className="pb-2">
         <ChatMessages
           user={user}
           messages={session?.messages || []}
