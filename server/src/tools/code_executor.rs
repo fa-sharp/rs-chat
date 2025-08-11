@@ -65,7 +65,8 @@ struct CodeExecutorInput {
     code: String,
     /// The language of the code.
     language: CodeLanguage,
-    // files: HashMap<String, String>,
+    /// The packages/dependencies required for the code to execute. For example, for Python: `["numpy", "pandas"]`.
+    dependencies: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -103,6 +104,6 @@ impl Tool for CodeExecutorTool<'_> {
             },
         );
 
-        executor.execute(&input.code).await
+        executor.execute(&input.code, &input.dependencies).await
     }
 }
