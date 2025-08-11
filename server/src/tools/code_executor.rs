@@ -1,4 +1,5 @@
 mod docker;
+mod dockerfiles;
 
 use rocket::async_trait;
 use schemars::{schema_for, JsonSchema};

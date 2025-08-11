@@ -31,6 +31,8 @@ pub enum ToolError {
     SerializationError(#[from] serde_json::Error),
     #[error("Tool execution error: {0}")]
     ToolExecutionError(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Core trait that all tools must implement
