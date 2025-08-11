@@ -17,8 +17,8 @@ use crate::{
     tools::{
         code_executor::{CodeExecutorTool, CodeExecutorToolConfig},
         core::{validate_json_schema, Tool, ToolJsonSchema, ToolParameters, ToolResult},
-        http_request::{HttpRequestConfig, HttpRequestTool},
-        web_search::{WebSearchConfig, WebSearchTool},
+        http_request::{HttpRequestConfig, HttpRequestConfigPublic, HttpRequestTool},
+        web_search::{WebSearchConfig, WebSearchConfigPublic, WebSearchTool},
     },
 };
 
@@ -28,6 +28,15 @@ use crate::{
 pub enum ToolConfig {
     Http(HttpRequestConfig),
     WebSearch(WebSearchConfig),
+    CodeExecutor(CodeExecutorToolConfig),
+}
+
+/// The tool's configuration
+#[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
+#[serde(tag = "type")]
+pub enum ToolConfigPublic {
+    Http(HttpRequestConfigPublic),
+    WebSearch(WebSearchConfigPublic),
     CodeExecutor(CodeExecutorToolConfig),
 }
 

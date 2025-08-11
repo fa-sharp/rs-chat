@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::db::{
-    models::{ChatRsTool, NewChatRsTool},
+    models::{ChatRsTool, ChatRsToolPublic, NewChatRsTool},
     schema::tools,
     DbConnection,
 };
@@ -41,10 +41,22 @@ impl<'a> ToolDbService<'a> {
             .await
     }
 
-    pub async fn create(&mut self, tool: NewChatRsTool<'_>) -> Result<ChatRsTool, Error> {
+    pub async fn find_by_user_public(
+        &mut self,
+        user_id: &Uuid,
+    ) -> Result<Vec<ChatRsToolPublic>, Error> {
+        tools::table
+            .filter(tools::user_id.eq(user_id))
+            .select(ChatRsToolPublic::as_select())
+            .order_by(tools::name.asc())
+            .load(self.db)
+            .await
+    }
+
+    pub async fn create(&mut self, tool: NewChatRsTool<'_>) -> Result<ChatRsToolPublic, Error> {
         diesel::insert_into(tools::table)
             .values(tool)
-            .returning(ChatRsTool::as_select())
+            .returning(ChatRsToolPublic::as_select())
             .get_result(self.db)
             .await
     }

@@ -3,7 +3,6 @@ mod docker;
 use rocket::async_trait;
 use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::tools::{
     code_executor::docker::{DockerExecutor, DockerExecutorOptions},
@@ -32,21 +31,21 @@ impl CodeExecutorToolConfig {
         if let Some(timeout) = self.timeout_seconds {
             if timeout >= 60 {
                 return Err(ToolError::InvalidConfiguration(
-                    "timeout_seconds must be less than 60".to_string(),
+                    "Timeout must be less than 60 seconds".to_string(),
                 ));
             }
         }
         if let Some(memory) = self.memory_limit_mb {
             if memory >= 1024 {
                 return Err(ToolError::InvalidConfiguration(
-                    "memory_limit_mb must be less than 1024".to_string(),
+                    "Memory limit must be less than 1024 MB".to_string(),
                 ));
             }
         }
         if let Some(cpu) = self.cpu_limit {
-            if cpu <= 0.0 || cpu >= 1.0 {
+            if cpu <= 0.0 || cpu > 1.0 {
                 return Err(ToolError::InvalidConfiguration(
-                    "cpu_limit must be between 0 and 1".to_string(),
+                    "CPU limit must be between 0 and 1".to_string(),
                 ));
             }
         }
@@ -60,10 +59,11 @@ impl CodeExecutorToolConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 struct CodeExecutorInput {
     code: String,
     language: CodeLanguage,
-    files: Option<HashMap<String, String>>,
+    // files: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -92,12 +92,14 @@ impl Tool for CodeExecutorTool<'_> {
             serde_json::to_value(params).expect("Should be valid JSON"),
         )
         .map_err(|e| ToolError::InvalidParameters(e.to_string()))?;
-        let options = DockerExecutorOptions {
-            timeout_seconds: self.config.timeout_seconds.unwrap_or_default(),
-            memory_limit_mb: self.config.memory_limit_mb.unwrap_or_default(),
-            cpu_limit: self.config.cpu_limit.unwrap_or_default(),
-        };
-        let executor = DockerExecutor::new(input.language, options);
+        let executor = DockerExecutor::new(
+            input.language,
+            DockerExecutorOptions {
+                timeout_seconds: self.config.timeout_seconds,
+                memory_limit_mb: self.config.memory_limit_mb,
+                cpu_limit: self.config.cpu_limit,
+            },
+        );
 
         executor.execute(&input.code).await
     }

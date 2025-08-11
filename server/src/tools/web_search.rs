@@ -38,12 +38,29 @@ fn default_count() -> u8 {
 }
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
+pub struct WebSearchConfigPublic {
+    /// The chosen search provider.
+    provider: WebSearchProviderConfigPublic,
+    /// Max search results to return.
+    count: u8,
+}
+
+#[derive(Debug, JsonSchema, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum WebSearchProviderConfig {
     Brave(BraveConfig),
     SerpAPI(SerpApiConfig),
     GoogleCustomSearch(GoogleCustomSearchConfig),
     Exa(ExaConfig),
+}
+
+#[derive(Debug, JsonSchema, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum WebSearchProviderConfigPublic {
+    Brave,
+    SerpAPI,
+    GoogleCustomSearch,
+    Exa,
 }
 
 impl WebSearchConfig {

@@ -321,6 +321,7 @@ dependencies = [
  "serde",
  "serde_json",
  "subst",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",

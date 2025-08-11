@@ -9,18 +9,34 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{db::models::ChatRsUser, tools::ToolConfig};
+use crate::{
+    db::models::ChatRsUser,
+    tools::{ToolConfig, ToolConfigPublic},
+};
+
+#[derive(Identifiable, Queryable, Selectable, Associations)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::tools)]
+pub struct ChatRsTool {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub config: ToolConfig,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
 
 #[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, Serialize, Deserialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::tools)]
-pub struct ChatRsTool {
+pub struct ChatRsToolPublic {
     pub id: Uuid,
     #[serde(skip_serializing)]
     pub user_id: Uuid,
     pub name: String,
     pub description: String,
-    pub config: ToolConfig,
+    pub config: ToolConfigPublic,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

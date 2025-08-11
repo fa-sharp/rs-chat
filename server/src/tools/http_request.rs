@@ -45,6 +45,12 @@ pub struct HttpRequestConfig {
     headers: Option<HashMap<String, String>>,
 }
 
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct HttpRequestConfigPublic {
+    url: String,
+    method: String,
+}
+
 impl HttpRequestConfig {
     pub(super) fn validate(&mut self) -> ToolResult<()> {
         validate_json_schema(&mut self.input_schema)

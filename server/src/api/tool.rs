@@ -16,7 +16,7 @@ use crate::{
     db::{
         models::{
             ChatRsExecutedToolCall, ChatRsMessage, ChatRsMessageMeta, ChatRsMessageRole,
-            ChatRsTool, NewChatRsMessage, NewChatRsTool,
+            ChatRsToolPublic, NewChatRsMessage, NewChatRsTool,
         },
         services::{ChatDbService, ToolDbService},
         DbConnection,
@@ -41,8 +41,10 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 async fn get_all_tools(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-) -> Result<Json<Vec<ChatRsTool>>, ApiError> {
-    let tools = ToolDbService::new(&mut db).find_by_user(&user_id).await?;
+) -> Result<Json<Vec<ChatRsToolPublic>>, ApiError> {
+    let tools = ToolDbService::new(&mut db)
+        .find_by_user_public(&user_id)
+        .await?;
 
     Ok(Json(tools))
 }
@@ -64,7 +66,7 @@ async fn create_tool(
     user_id: ChatRsUserId,
     mut db: DbConnection,
     mut input: Json<ToolInput>,
-) -> Result<Json<ChatRsTool>, ApiError> {
+) -> Result<Json<ChatRsToolPublic>, ApiError> {
     input.config.validate()?;
 
     let tool = ToolDbService::new(&mut db)
