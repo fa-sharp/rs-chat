@@ -9,7 +9,7 @@ interface Props {
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   providers?: Array<components["schemas"]["ChatRsProvider"]>;
-  tools?: Array<components["schemas"]["ChatRsTool"]>;
+  tools?: Array<components["schemas"]["ChatRsToolPublic"]>;
   onGetAgenticResponse: () => void;
   isStreaming?: boolean;
   sessionId: string;

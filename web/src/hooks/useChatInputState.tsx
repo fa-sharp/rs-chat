@@ -128,8 +128,17 @@ export const useChatInputState = ({
         temperature,
         max_tokens: maxTokens,
       },
+      tools: toolIds,
     });
-  }, [providerId, modelId, temperature, maxTokens, onSubmit, isGenerating]);
+  }, [
+    providerId,
+    modelId,
+    toolIds,
+    temperature,
+    maxTokens,
+    onSubmit,
+    isGenerating,
+  ]);
 
   return useMemo(
     () => ({

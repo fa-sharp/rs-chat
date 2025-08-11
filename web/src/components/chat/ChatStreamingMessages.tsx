@@ -51,7 +51,7 @@ export default function ChatStreamingMessages({
         )}
 
       {streamingMessage && (
-        <ChatBubble variant="received">
+        <ChatBubble variant="received" layout="ai">
           <ChatBubbleAvatar
             fallback={<Bot className="size-4" />}
             className="animate-pulse"

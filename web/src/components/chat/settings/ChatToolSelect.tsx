@@ -22,7 +22,7 @@ export default function ChatToolSelect({
 }: {
   selectedToolIds: string[];
   toggleTool: (toolId: string) => void;
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["ChatRsToolPublic"][];
 }) {
   const [open, setOpen] = useState(false);
   const selectedTools = useMemo(

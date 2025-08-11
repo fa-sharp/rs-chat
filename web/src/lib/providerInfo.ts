@@ -1,18 +1,14 @@
-import type { components } from "@/lib/api/types";
-
 export type ProviderKey = "OpenAI" | "Anthropic" | "OpenRouter" | "Lorem";
 
 /** Provider and model information. TODO should fetch models rather than list them manually */
 export const providers: Array<{
   value: ProviderKey;
-  apiKeyType?: components["schemas"]["ChatRsProviderKeyType"];
   label: string;
   defaultModel: string;
   models: string[];
 }> = [
   {
     value: "Anthropic",
-    apiKeyType: "Anthropic",
     label: "Anthropic",
     defaultModel: "claude-3-7-sonnet-latest",
     models: [
@@ -41,7 +37,6 @@ export const providers: Array<{
   {
     value: "OpenRouter",
     label: "OpenRouter",
-    apiKeyType: "Openrouter",
     defaultModel: "openai/gpt-4.1",
     models: [
       "openrouter/auto",
