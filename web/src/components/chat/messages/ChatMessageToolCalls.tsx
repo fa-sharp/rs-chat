@@ -11,7 +11,7 @@ const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
 interface Props {
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["ChatRsToolPublic"][];
   onExecute: (toolCallId: string) => void;
   onExecuteAll: () => void;
   isExecuting: boolean;
@@ -82,7 +82,7 @@ function ChatMessageToolCall({
   canExecute,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["ChatRsToolPublic"][];
   onExecute: () => void;
   isExecuting: boolean;
   canExecute: boolean;
@@ -112,7 +112,7 @@ function ChatMessageToolCall({
       <pre className="text-nowrap">{JSON.stringify(toolCall.parameters)}</pre>
     </div>
   ) : (
-    <div key={toolCall.id} className="flex flex-col gap-1">
+    <div key={toolCall.id} className="flex flex-col gap-1 py-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 font-semibold">
           {tool && getToolIcon(tool)}
@@ -126,11 +126,24 @@ function ChatMessageToolCall({
           </Button>
         )}
       </div>
+      <div className="font-semibold">Input</div>
       <Suspense fallback={<div>Loading...</div>}>
         <ChatFancyMarkdown>
           {`\`\`\`json\n${JSON.stringify(toolCall.parameters, null, 2)}\n\`\`\``}
         </ChatFancyMarkdown>
       </Suspense>
+      {tool?.config.type === "CodeExecutor" &&
+        typeof toolCall.parameters.code === "string" &&
+        typeof toolCall.parameters.language === "string" && (
+          <>
+            <div className="font-semibold">Code</div>
+            <Suspense fallback={<div>Loading...</div>}>
+              <ChatFancyMarkdown>
+                {`\`\`\`${toolCall.parameters.language}\n${toolCall.parameters.code}\n\`\`\``}
+              </ChatFancyMarkdown>
+            </Suspense>
+          </>
+        )}
       <div className="text-sm text-muted-foreground">
         Tool call ID: {toolCall.id}
         <br />

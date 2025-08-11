@@ -635,18 +635,65 @@ export interface components {
             /** @description IDs of the tools available to the assistant */
             tools?: string[] | null;
         };
-        ChatRsTool: {
+        ChatRsToolPublic: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             user_id: string;
             name: string;
             description: string;
-            config: components["schemas"]["ToolConfig"];
+            config: components["schemas"]["ToolConfigPublic"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description The tool's configuration */
+        ToolConfigPublic: {
+            /** @enum {string} */
+            type: "Http";
+            url: string;
+            method: string;
+        } | {
+            /** @enum {string} */
+            type: "WebSearch";
+            /** @description The chosen search provider. */
+            provider: components["schemas"]["WebSearchProviderConfigPublic"];
+            /**
+             * Format: uint8
+             * @description Max search results to return.
+             */
+            count: number;
+        } | {
+            /** @enum {string} */
+            type: "CodeExecutor";
+            /** Format: uint32 */
+            timeout_seconds?: number | null;
+            /** Format: uint32 */
+            memory_limit_mb?: number | null;
+            /** Format: float */
+            cpu_limit?: number | null;
+        };
+        WebSearchProviderConfigPublic: {
+            /** @enum {string} */
+            type: "brave";
+        } | {
+            /** @enum {string} */
+            type: "serpapi";
+        } | {
+            /** @enum {string} */
+            type: "googlecustomsearch";
+        } | {
+            /** @enum {string} */
+            type: "exa";
+        };
+        ToolInput: {
+            /** @description Name of the tool */
+            name: string;
+            /** @description Description of the tool */
+            description: string;
+            /** @description Tool-specific configuration */
+            config: components["schemas"]["ToolConfig"];
         };
         /** @description Tool configuration stored in the daabase */
         ToolConfig: {
@@ -673,6 +720,15 @@ export interface components {
              * @default 10
              */
             count: number;
+        } | {
+            /** @enum {string} */
+            type: "CodeExecutor";
+            /** Format: uint32 */
+            timeout_seconds?: number | null;
+            /** Format: uint32 */
+            memory_limit_mb?: number | null;
+            /** Format: float */
+            cpu_limit?: number | null;
         };
         /** @description JSON schema for tool input parameters */
         ToolJsonSchema: {
@@ -733,14 +789,6 @@ export interface components {
             type: "exa";
             api_key: string;
         };
-        ToolInput: {
-            /** @description Name of the tool */
-            name: string;
-            /** @description Description of the tool */
-            description: string;
-            /** @description Tool-specific configuration */
-            config: components["schemas"]["ToolConfig"];
-        };
         ChatRsSecretMeta: {
             /** Format: uuid */
             id: string;
@@ -749,12 +797,9 @@ export interface components {
             created_at: string;
         };
         SecretInput: {
-            provider: components["schemas"]["ChatRsProviderKeyType"];
             key: string;
             name: string;
         };
-        /** @enum {string} */
-        ChatRsProviderKeyType: "Anthropic" | "Openai" | "Openrouter";
         ChatRsApiKey: {
             /** Format: uuid */
             id: string;
@@ -1892,7 +1937,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsTool"][];
+                    "application/json": components["schemas"]["ChatRsToolPublic"][];
                 };
             };
             /** @description Bad request */
@@ -1960,7 +2005,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsTool"];
+                    "application/json": components["schemas"]["ChatRsToolPublic"];
                 };
             };
             /** @description Bad request */

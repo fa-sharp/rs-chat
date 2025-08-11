@@ -1,4 +1,4 @@
-import { Globe, Plus, Settings, Trash2, Wrench } from "lucide-react";
+import { Code2, Globe, Plus, Settings, Trash2, Wrench } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -77,16 +77,26 @@ const WEB_SEARCH_PROVIDERS = [
   { value: "exa", label: "Exa" },
 ] as const;
 
-export const getToolIcon = (tool: components["schemas"]["ChatRsTool"]) => {
+export const getToolIcon = (
+  tool: components["schemas"]["ChatRsToolPublic"],
+) => {
   if (tool.config.type === "Http") {
     return <Wrench className="size-5" aria-hidden />;
+  }
+  if (tool.config.type === "CodeExecutor") {
+    return <Code2 className="size-5" aria-hidden />;
   }
   return <Globe className="size-5" aria-hidden />;
 };
 
-export const getToolTypeLabel = (tool: components["schemas"]["ChatRsTool"]) => {
+export const getToolTypeLabel = (
+  tool: components["schemas"]["ChatRsToolPublic"],
+) => {
   if (tool.config.type === "Http") {
     return "HTTP Request";
+  }
+  if (tool.config.type === "CodeExecutor") {
+    return "Code Executor";
   }
   return "Web Search";
 };
