@@ -22,6 +22,7 @@ pub struct DockerExecutor {
     pub timeout_seconds: u32,
     pub memory_limit_mb: u32,
     pub cpu_limit: f32,
+    pub network: bool,
 }
 
 #[derive(Debug, Default)]
@@ -29,6 +30,7 @@ pub struct DockerExecutorOptions {
     pub timeout_seconds: Option<u32>,
     pub memory_limit_mb: Option<u32>,
     pub cpu_limit: Option<f32>,
+    pub network: Option<bool>,
 }
 
 impl DockerExecutor {
@@ -38,6 +40,7 @@ impl DockerExecutor {
             timeout_seconds: options.timeout_seconds.unwrap_or(TIMEOUT_SECONDS),
             memory_limit_mb: options.memory_limit_mb.unwrap_or(MEMORY_LIMIT_MB),
             cpu_limit: options.cpu_limit.unwrap_or(CPU_LIMIT),
+            network: options.network.unwrap_or(false),
         }
     }
 
@@ -111,7 +114,7 @@ impl DockerExecutor {
         #[rustfmt::skip]
         let docker_args = vec![
             "run", "--rm", "--name", &container_id,
-            "--network", if true { "none" } else { "bridge" },
+            "--network", if self.network { "bridge" } else { "none" },
             "--memory", &memory_limit,
             "--cpus", &cpu_limit,
             "-e", "HOME=/tmp/home", // Set writable home directory

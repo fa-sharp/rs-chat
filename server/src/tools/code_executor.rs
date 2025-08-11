@@ -69,6 +69,9 @@ struct CodeExecutorInput {
     /// The packages/dependencies required for the code to execute. For example, for Python: `["numpy", "pandas"]`.
     /// For Rust, features can be added at the end of the list as supported by `cargo add`, e.g., `["package1", "package2", "--features", "package2/feature1"]`.
     dependencies: Vec<String>,
+    /// Whether to enable network access for the code execution. Set to `true` only if the program needs to access the internet.
+    #[serde(default)]
+    network: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -103,6 +106,7 @@ impl Tool for CodeExecutorTool<'_> {
                 timeout_seconds: self.config.timeout_seconds,
                 memory_limit_mb: self.config.memory_limit_mb,
                 cpu_limit: self.config.cpu_limit,
+                network: Some(input.network),
             },
         );
 

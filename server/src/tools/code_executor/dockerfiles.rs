@@ -84,6 +84,7 @@ CMD ["python", "main.py"]
 
 const RUST_DOCKERFILE: &str = r#"
 FROM rust:1.85-slim
+RUN apt-get update -qq && apt-get install -y -qq pkg-config libssl-dev ca-certificates && apt-get clean
 
 ARG DEPENDENCIES
 
@@ -95,7 +96,8 @@ RUN cargo init --name temp
 RUN if [ -n "$DEPENDENCIES" ]; then cargo add $DEPENDENCIES; fi
 RUN cargo build
 
-COPY main.rs src/
+COPY --chown=1000:1000 main.rs src/
+RUN touch src/main.rs
 RUN cargo build
 
 CMD ["./target/debug/temp"]
