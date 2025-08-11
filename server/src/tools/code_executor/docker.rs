@@ -103,6 +103,7 @@ impl DockerExecutor {
                 image_tag, stderr
             )));
         }
+        // println!("{}", String::from_utf8_lossy(&build_output.stderr));
         println!("Built image '{}' successfully", image_tag);
 
         // Create docker arguments
@@ -115,9 +116,15 @@ impl DockerExecutor {
         let docker_args = vec![
             "run", "--rm", "--name", &container_id,
             "--network", if self.network { "bridge" } else { "none" },
+            "--read-only",
+            "--tmpfs", "/tmp:rw,noexec,nosuid,size=100m",
             "--memory", &memory_limit,
             "--cpus", &cpu_limit,
-            "-e", "HOME=/tmp/home", // Set writable home directory
+            "--pids-limit", "50",       // Limit number of processes
+            "--ulimit", "nproc=50:50",  // Limit processes
+            "--cap-drop", "ALL",        // Drop all capabilities
+            "--security-opt", "no-new-privileges", // Prevent privilege escalation
+            "-e", "HOME=/tmp/home",     // Set writable home directory
             &image_tag,
             "timeout", &timeout_str,
             "sh", "-c", &cmd

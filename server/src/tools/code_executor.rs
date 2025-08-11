@@ -2,7 +2,7 @@ mod docker;
 mod dockerfiles;
 
 use rocket::async_trait;
-use schemars::{schema_for, JsonSchema};
+use schemars::{gen::SchemaSettings, schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 
 use crate::tools::{
@@ -54,7 +54,12 @@ impl CodeExecutorToolConfig {
     }
 
     pub fn get_input_schema(&self) -> serde_json::Value {
-        let schema = schema_for!(CodeExecutorInput);
+        let settings = SchemaSettings::draft07().with(|s| {
+            s.inline_subschemas = true; // Enable inline subschemas for compatibility with LLM providers
+        });
+        let schema = settings
+            .into_generator()
+            .into_root_schema_for::<CodeExecutorInput>();
         serde_json::to_value(schema).expect("Should be valid JSON Schema")
     }
 }
@@ -70,7 +75,6 @@ struct CodeExecutorInput {
     /// For Rust, features can be added at the end of the list as supported by `cargo add`, e.g., `["package1", "package2", "--features", "package2/feature1"]`.
     dependencies: Vec<String>,
     /// Whether to enable network access for the code execution. Set to `true` only if the program needs to access the internet.
-    #[serde(default)]
     network: bool,
 }
 

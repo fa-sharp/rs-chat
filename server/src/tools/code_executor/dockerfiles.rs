@@ -25,13 +25,14 @@ const JS_DOCKERFILE: &str = r#"
 FROM node:20-alpine
 
 ARG DEPENDENCIES
-ENV PNPM_HOME="/tmp/pnpm"
+ENV PNPM_HOME="/opt/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
+RUN mkdir -p /opt/pnpm && chown 1000:1000 /opt/pnpm
 RUN npm install -g pnpm@9
 
 USER 1000:1000
-RUN mkdir -p /tmp/home /tmp/pnpm
+RUN mkdir -p /tmp/home
 WORKDIR /app
 
 RUN pnpm init
@@ -46,13 +47,14 @@ const TS_DOCKERFILE: &str = r#"
 FROM node:20-alpine
 
 ARG DEPENDENCIES
-ENV PNPM_HOME="/tmp/pnpm"
+ENV PNPM_HOME="/opt/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
+RUN mkdir -p /opt/pnpm && chown 1000:1000 /opt/pnpm
 RUN npm install -g pnpm@9
 
 USER 1000:1000
-RUN mkdir -p /tmp/home /tmp/pnpm
+RUN mkdir -p /tmp/home
 WORKDIR /app
 
 RUN pnpm init
@@ -67,12 +69,13 @@ const PYTHON_DOCKERFILE: &str = r#"
 FROM python:3.13-alpine
 
 ARG DEPENDENCIES
-ENV PYTHONUSERBASE="/tmp/python"
-ENV PATH="/tmp/python/bin:$PATH"
-ENV PYTHONPATH="/tmp/python/lib/python3.13/site-packages:$PYTHONPATH"
+ENV PYTHONUSERBASE="/opt/python"
+ENV PATH="/opt/python/bin:$PATH"
+
+RUN mkdir -p /opt/python && chown 1000:1000 /opt/python
 
 USER 1000:1000
-RUN mkdir -p /tmp/home /tmp/python
+RUN mkdir -p /tmp/home
 WORKDIR /app
 
 RUN if [ -n "$DEPENDENCIES" ]; then pip install --user --no-cache-dir ${DEPENDENCIES}; fi
