@@ -44,7 +44,7 @@ impl DockerExecutor {
                 "main.rs",
                 "cd /workspace && rustc main.rs && ./main",
             ),
-            CodeLanguage::Bash => ("alpine:latest", "script.sh", "sh /workspace/script.sh"),
+            CodeLanguage::Bash => ("bash:latest", "script.sh", "sh /workspace/script.sh"),
         };
 
         // Write code to temporary file
@@ -127,7 +127,7 @@ impl DockerExecutor {
             ))
         } else {
             Ok(format!(
-                "❌ Code execution failed:\n\n**Error:**\n=\n{}\n=\n\n**Output:**\n\n{}\n",
+                "❌ Code execution failed:\n\n**Error:**\n\n{}\n\n\n**Output:**\n\n{}\n",
                 stderr, stdout
             ))
         }
