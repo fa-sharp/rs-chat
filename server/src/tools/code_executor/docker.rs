@@ -36,34 +36,29 @@ impl DockerExecutor {
 
     pub async fn execute(&self, code: &str, dependencies: &[String]) -> ToolResult<String> {
         let (image, file_name, cmd) = match self.lang {
-            CodeLanguage::Python => ("python:3.13-alpine", "main.py", "PYTHONPATH=/tmp/python/lib/python3.13/site-packages:$PYTHONPATH python /workspace/main.py"),
-            CodeLanguage::JavaScript => ("node:20-alpine", "main.js", "PATH=/tmp/npm/bin:$PATH node /workspace/main.js"),
-            CodeLanguage::TypeScript => ("node:20-alpine", "main.ts", "PATH=/tmp/npm/bin:$PATH /tmp/npm/bin/tsx /workspace/main.ts"),
-            CodeLanguage::Rust => ("rust:1.85-alpine", "main.rs", "cd /workspace && cargo run --quiet"),
-            CodeLanguage::Bash => ("alpine:latest", "script.sh", "sh /workspace/script.sh"),
+            CodeLanguage::Python => (
+                "python:3.13-alpine",
+                "main.py",
+                "PATH=/tmp/python/bin:$PATH PYTHONPATH=/tmp/python/lib/python3.13/site-packages:$PYTHONPATH python main.py",
+            ),
+            CodeLanguage::JavaScript => (
+                "node:20-alpine",
+                "main.js",
+                "PATH=/tmp/npm/bin:$PATH node main.js",
+            ),
+            CodeLanguage::TypeScript => ("node:20-alpine", "main.ts", "npx tsx main.ts"),
+            CodeLanguage::Rust => ("rust:1.85-alpine", "src/main.rs", "cargo run --quiet"),
+            CodeLanguage::Bash => ("alpine:latest", "script.sh", "sh script.sh"),
         };
 
         // Write code to temporary file
         let temp_dir = tempfile::tempdir().map_err(|e| {
             ToolError::ToolExecutionError(format!("Failed to create temporary directory: {}", e))
         })?;
-
-        // For Rust, create proper project structure
-        if matches!(self.lang, CodeLanguage::Rust) {
-            let src_dir = temp_dir.path().join("src");
-            tokio::fs::create_dir_all(&src_dir).await.map_err(|e| {
-                ToolError::ToolExecutionError(format!("Failed to create src directory: {}", e))
-            })?;
-            let code_file_path = src_dir.join("main.rs");
-            tokio::fs::write(&code_file_path, code).await.map_err(|e| {
-                ToolError::ToolExecutionError(format!("Failed to write code file: {}", e))
-            })?;
-        } else {
-            let code_file_path = temp_dir.path().join(file_name);
-            tokio::fs::write(&code_file_path, code).await.map_err(|e| {
-                ToolError::ToolExecutionError(format!("Failed to write code file: {}", e))
-            })?;
-        }
+        let code_file_path = temp_dir.path().join(file_name);
+        tokio::fs::write(&code_file_path, code).await.map_err(|e| {
+            ToolError::ToolExecutionError(format!("Failed to write code file: {}", e))
+        })?;
 
         // Check if image exists locally, pull if needed
         let image_check = Command::new("docker")
@@ -94,20 +89,21 @@ impl DockerExecutor {
         let memory_limit = format!("{}m", self.memory_limit_mb);
         let cpu_limit = self.cpu_limit.to_string();
         let timeout_str = format!("{}s", self.timeout_seconds);
-        let volume_mount = format!("{}:/workspace:ro", temp_dir.path().to_string_lossy());
+        let volume_mount = format!("{}:/workspace", temp_dir.path().to_string_lossy());
         let command = format!("{} && {}", self.build_install_command(dependencies), cmd);
 
         #[rustfmt::skip]
         let docker_args = vec![
             "run", "--rm", "--name", &container_id,
-            // "--network", "none", // No network access during dependency installation
+            "--network", if dependencies.is_empty() { "none" } else { "bridge" },
             "--memory", &memory_limit,
             "--cpus", &cpu_limit,
             "--user", "1000:1000", // Non-root user
+            "--workdir", "/workspace", // Set working directory
             "-e", "HOME=/tmp/home", // Set writable home directory
             "-e", "PYTHONUSERBASE=/tmp/python", // Python user install directory
             "-e", "npm_config_prefix=/tmp/npm", // NPM prefix for user installs
-            "-v", &volume_mount, // Mount temp directory as read-only
+            "-v", &volume_mount, // Mount temp directory
             image,
             "timeout", &timeout_str,
             "sh", "-c", &command
@@ -147,6 +143,7 @@ impl DockerExecutor {
     }
 
     fn build_install_command(&self, dependencies: &[String]) -> String {
+        let make_home_dir = format!("mkdir -p /tmp/home");
         let packages = dependencies
             .iter()
             .filter_map(|d| {
@@ -162,49 +159,53 @@ impl DockerExecutor {
         match self.lang {
             CodeLanguage::Python => {
                 if packages.is_empty() {
-                    return "mkdir -p /tmp/home /tmp/python".to_string();
+                    return format!("{} /tmp/python", make_home_dir);
                 }
-                format!("mkdir -p /tmp/home /tmp/python && pip install --user --no-cache-dir --quiet {}", packages)
+                format!(
+                    "{} /tmp/python && pip install --user --no-cache-dir --quiet {}",
+                    make_home_dir, packages
+                )
             }
             CodeLanguage::JavaScript => {
                 if packages.is_empty() {
-                    return "mkdir -p /tmp/home".to_string();
+                    return make_home_dir;
                 }
                 format!(
-                    "mkdir -p /tmp/home /tmp/npm && npm install --silent {}",
-                    packages
+                    "{} /tmp/npm && npm init --yes && npm install {}",
+                    make_home_dir, packages
                 )
             }
             CodeLanguage::TypeScript => {
                 if packages.is_empty() {
-                    "mkdir -p /tmp/home /tmp/npm && npm install --silent tsx".to_string()
+                    format!(
+                        "{} /tmp/npm && npm init --yes && npm install tsx",
+                        make_home_dir
+                    )
                 } else {
                     format!(
-                        "mkdir -p /tmp/home /tmp/npm && npm install --silent tsx {}",
-                        packages
+                        "{} /tmp/npm && npm init --yes && npm install tsx {}",
+                        make_home_dir, packages
                     )
                 }
             }
             CodeLanguage::Rust => {
                 if packages.is_empty() {
-                    "mkdir -p /tmp/home && cd /workspace && cargo init --name temp --quiet"
-                        .to_string()
+                    format!("{} && cargo init --name temp --quiet", make_home_dir)
                 } else {
                     format!(
-                        "mkdir -p /tmp/home && cd /workspace && cargo init --name temp --quiet && cargo add {} --quiet",
-                        packages
+                        "{} && cargo init --name temp --quiet && cargo add {} --quiet",
+                        make_home_dir, packages
                     )
                 }
             }
             CodeLanguage::Bash => {
                 if packages.is_empty() {
-                    "mkdir -p /tmp/home".to_string()
-                } else {
-                    format!(
-                        "mkdir -p /tmp/home && apk add --no-cache --quiet {}",
-                        packages
-                    )
+                    return make_home_dir;
                 }
+                format!(
+                    "{} && apk add --no-cache --quiet {}",
+                    make_home_dir, packages
+                )
             }
         }
     }
