@@ -61,7 +61,9 @@ impl CodeExecutorToolConfig {
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CodeExecutorInput {
+    /// The code to execute.
     code: String,
+    /// The language of the code.
     language: CodeLanguage,
     // files: HashMap<String, String>,
 }
