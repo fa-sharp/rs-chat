@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::tools::{code_executor::CodeLanguage, core::ToolResult, ToolError};
 
-const TIMEOUT_SECONDS: u32 = 10;
+const TIMEOUT_SECONDS: u32 = 30;
 const GRACE_PERIOD_SECONDS: u32 = 5;
 const MEMORY_LIMIT_MB: u32 = 512;
 const CPU_LIMIT: f32 = 0.5;
@@ -47,7 +47,7 @@ impl DockerExecutor {
                 "PATH=/tmp/npm/bin:$PATH node main.js",
             ),
             CodeLanguage::TypeScript => ("node:20-alpine", "main.ts", "npx tsx main.ts"),
-            CodeLanguage::Rust => ("rust:1.85-alpine", "src/main.rs", "cargo run --quiet"),
+            CodeLanguage::Rust => ("rust:1.85-slim", "src/main.rs", "cargo run"),
             CodeLanguage::Bash => ("alpine:latest", "script.sh", "sh script.sh"),
         };
 
@@ -56,6 +56,13 @@ impl DockerExecutor {
             ToolError::ToolExecutionError(format!("Failed to create temporary directory: {}", e))
         })?;
         let code_file_path = temp_dir.path().join(file_name);
+        if file_name.contains('/') {
+            tokio::fs::create_dir_all(code_file_path.parent().expect("Should have parent"))
+                .await
+                .map_err(|e| {
+                    ToolError::ToolExecutionError(format!("Failed to create directory: {}", e))
+                })?;
+        }
         tokio::fs::write(&code_file_path, code).await.map_err(|e| {
             ToolError::ToolExecutionError(format!("Failed to write code file: {}", e))
         })?;
@@ -88,7 +95,7 @@ impl DockerExecutor {
         let container_id = format!("code-exec-{}", Uuid::new_v4());
         let memory_limit = format!("{}m", self.memory_limit_mb);
         let cpu_limit = self.cpu_limit.to_string();
-        let timeout_str = format!("{}s", self.timeout_seconds);
+        let timeout_str = format!("{}s", self.timeout_seconds + GRACE_PERIOD_SECONDS);
         let volume_mount = format!("{}:/workspace", temp_dir.path().to_string_lossy());
         let command = format!("{} && {}", self.build_install_command(dependencies), cmd);
 
@@ -112,7 +119,7 @@ impl DockerExecutor {
         // Run code and clean up container if needed
         println!("Running command: docker {}", docker_args.join(" "));
         let result = tokio::time::timeout(
-            Duration::from_secs((self.timeout_seconds + GRACE_PERIOD_SECONDS).into()),
+            Duration::from_secs(self.timeout_seconds.into()),
             Command::new("docker").args(&docker_args).output(),
         )
         .await;
@@ -171,29 +178,32 @@ impl DockerExecutor {
                     return make_home_dir;
                 }
                 format!(
-                    "{} /tmp/npm && npm init --yes && npm install {}",
+                    "{} /tmp/npm && npm init --yes --quiet && npm install --quiet {}",
                     make_home_dir, packages
                 )
             }
             CodeLanguage::TypeScript => {
                 if packages.is_empty() {
                     format!(
-                        "{} /tmp/npm && npm init --yes && npm install tsx",
+                        "{} /tmp/npm && npm init --yes --quiet && npm install --quiet tsx",
                         make_home_dir
                     )
                 } else {
                     format!(
-                        "{} /tmp/npm && npm init --yes && npm install tsx {}",
+                        "{} /tmp/npm && npm init --yes --quiet && npm install --quiet tsx {}",
                         make_home_dir, packages
                     )
                 }
             }
             CodeLanguage::Rust => {
                 if packages.is_empty() {
-                    format!("{} && cargo init --name temp --quiet", make_home_dir)
+                    format!(
+                        "{} && cargo init --name temp --quiet && cargo build --quiet",
+                        make_home_dir
+                    )
                 } else {
                     format!(
-                        "{} && cargo init --name temp --quiet && cargo add {} --quiet",
+                        "{} && cargo init --name temp --quiet && cargo add {} --quiet && cargo build --quiet",
                         make_home_dir, packages
                     )
                 }
@@ -226,11 +236,6 @@ impl DockerExecutor {
                     || *c == '@' // For npm scoped packages like @types/node
             })
             .collect::<String>();
-
-        // Additional validation: ensure it doesn't start with dangerous characters
-        if sanitized.starts_with('-') || sanitized.starts_with('.') {
-            return String::new(); // Return empty string for invalid packages
-        }
 
         sanitized
     }

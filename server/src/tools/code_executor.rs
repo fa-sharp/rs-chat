@@ -66,6 +66,7 @@ struct CodeExecutorInput {
     /// The language of the code.
     language: CodeLanguage,
     /// The packages/dependencies required for the code to execute. For example, for Python: `["numpy", "pandas"]`.
+    /// For Rust, features can be added at the end of the list as supported by `cargo add`, e.g., `["package1", "package2", "--features", "package2/feature1"]`.
     dependencies: Vec<String>,
 }
 
