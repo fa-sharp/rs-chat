@@ -44,7 +44,7 @@ impl DockerExecutor {
                 "main.rs",
                 "cd /workspace && rustc main.rs && ./main",
             ),
-            CodeLanguage::Bash => ("bash:latest", "script.sh", "sh /workspace/script.sh"),
+            CodeLanguage::Bash => ("bash:latest", "script.sh", "bash /workspace/script.sh"),
         };
 
         // Write code to temporary file
