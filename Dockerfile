@@ -40,18 +40,29 @@ RUN pnpm run build
 FROM debian:${DEBIAN_VERSION}-slim
 
 # Install required dependencies
-RUN apt-get update -qq && apt-get install -y -qq ca-certificates && apt-get clean
+RUN apt-get update -qq && \
+    apt-get install -y -qq \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update -qq && \
+    apt-get install -y -qq docker-ce-cli && \
+    apt-get clean
 
 # Use non-root user
 ARG UID=10001
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    --home "/nonexistent" \
+    --home "/home/appuser" \
     --shell "/sbin/nologin" \
-    --no-create-home \
     --uid "${UID}" \
     appuser
+RUN groupadd -g 999 docker || true
+RUN usermod -aG docker appuser
 USER appuser
 
 # Copy app files
