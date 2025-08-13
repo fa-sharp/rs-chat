@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type ReadyStateEvent, SSE, type SSEvent } from "sse.js";
 
 import { client } from "./client";
 import { chatSessionQueryKey } from "./session";
@@ -91,3 +92,85 @@ export const useExecuteTool = () => {
     },
   });
 };
+
+/** Stream tool execution via SSE */
+export function streamToolExecution(
+  messageId: string,
+  toolCallId: string,
+  {
+    onResult,
+    onLog,
+    onDebug,
+    onError,
+  }: {
+    onResult: (data: string) => void;
+    onLog: (data: string) => void;
+    onDebug: (data: string) => void;
+    onError: (error: string) => void;
+  },
+) {
+  const source = new SSE(`/api/tool/execute/${messageId}/${toolCallId}`, {
+    method: "POST",
+  });
+
+  return {
+    get readyState() {
+      return source.readyState;
+    },
+    close() {
+      source.close();
+    },
+    start: new Promise<void>((resolve, reject) => {
+      const resultListener = (event: SSEvent) => {
+        onResult(event.data);
+      };
+
+      const logListener = (event: SSEvent) => {
+        onLog(event.data);
+      };
+
+      const debugListener = (event: SSEvent) => {
+        onDebug(event.data);
+      };
+
+      const errorListener = (event: SSEvent & { responseCode?: number }) => {
+        console.error("Error while streaming tool execution:", event);
+        if (event.responseCode) {
+          let data: string | undefined;
+          try {
+            data = JSON.parse(event.data).message;
+          } catch {
+            data = event.data;
+          }
+          if (typeof data === "string") {
+            onError(data);
+          } else {
+            onError(`Error code ${event.responseCode}`);
+          }
+          reject();
+        } else {
+          onError(
+            typeof event.data === "string" ? event.data : "Unknown error",
+          );
+        }
+      };
+
+      const endListener = (event: ReadyStateEvent) => {
+        if (event.readyState === SSE.CLOSED) {
+          source.removeEventListener("result", resultListener);
+          source.removeEventListener("log", logListener);
+          source.removeEventListener("debug", debugListener);
+          source.removeEventListener("error", errorListener);
+          source.removeEventListener("readystatechange", endListener);
+          resolve();
+        }
+      };
+
+      source.addEventListener("result", resultListener);
+      source.addEventListener("log", logListener);
+      source.addEventListener("debug", debugListener);
+      source.addEventListener("error", errorListener);
+      source.addEventListener("readystatechange", endListener);
+    }),
+  };
+}
