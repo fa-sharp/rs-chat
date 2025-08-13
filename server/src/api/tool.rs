@@ -1,7 +1,13 @@
+use std::pin::Pin;
+
 use rocket::{
     delete,
-    futures::future::{join_all, try_join},
+    futures::{
+        future::{join_all, try_join},
+        Stream,
+    },
     get, post,
+    response::stream::{Event, EventStream},
     serde::json::Json,
     Route, State,
 };
@@ -9,6 +15,7 @@ use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
 use schemars::JsonSchema;
+use tokio_stream::{wrappers::ReceiverStream, StreamExt};
 use uuid::Uuid;
 
 use crate::{
@@ -90,7 +97,7 @@ async fn execute_tool(
     http_client: &State<reqwest::Client>,
     message_id: Uuid,
     tool_call_id: &str,
-) -> Result<Json<ChatRsMessage>, ApiError> {
+) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     // Find message, tool call, and tool
     let message = ChatDbService::new(&mut db)
         .find_message(&user_id, &message_id)
@@ -111,26 +118,30 @@ async fn execute_tool(
         .ok_or(ToolError::ToolNotFound)?;
 
     // Execute tool and save message
-    let (content, is_error) = tool.execute(&tool_call.parameters, http_client).await;
-    let tool_message = ChatDbService::new(&mut db)
-        .save_message(NewChatRsMessage {
-            session_id: &message.session_id,
-            role: ChatRsMessageRole::Tool,
-            content: &content,
-            meta: ChatRsMessageMeta {
-                tool_call: Some(ChatRsExecutedToolCall {
-                    id: tool_call.id,
-                    tool_id: tool_call.tool_id,
-                    tool_name: tool_call.tool_name,
-                    parameters: tool_call.parameters,
-                    is_error,
-                }),
-                ..Default::default()
-            },
-        })
-        .await?;
+    let (tx, rx) = tokio::sync::mpsc::channel(100);
+    let http_client = http_client.inner().clone();
+    tokio::spawn(async move {
+        let (content, is_error) = tool.execute(&tool_call.parameters, &http_client, tx).await;
+        let _ = ChatDbService::new(&mut db)
+            .save_message(NewChatRsMessage {
+                session_id: &message.session_id,
+                role: ChatRsMessageRole::Tool,
+                content: &content,
+                meta: ChatRsMessageMeta {
+                    tool_call: Some(ChatRsExecutedToolCall {
+                        id: tool_call.id,
+                        tool_id: tool_call.tool_id,
+                        is_error,
+                    }),
+                    ..Default::default()
+                },
+            })
+            .await;
+    });
 
-    Ok(Json(tool_message))
+    let stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
+        Box::pin(ReceiverStream::new(rx).map(|chunk| chunk.into()));
+    Ok(EventStream::from(stream))
 }
 
 /// Execute all tool calls in a message
@@ -154,11 +165,12 @@ async fn execute_all_tools(
         .and_then(|meta| meta.tool_calls)
         .ok_or(ToolError::ToolCallNotFound)?;
 
+    let (tx, rx) = tokio::sync::mpsc::channel(100);
     let tool_response_futures = tool_calls
         .iter()
         .map(
             async |tc| match user_tools.iter().find(|tool| tool.id == tc.tool_id) {
-                Some(tool) => tool.execute(&tc.parameters, http_client).await,
+                Some(tool) => tool.execute(&tc.parameters, http_client, tx.clone()).await,
                 None => (ToolError::ToolNotFound.to_string(), Some(true)),
             },
         )
@@ -176,8 +188,6 @@ async fn execute_all_tools(
                 tool_call: Some(ChatRsExecutedToolCall {
                     id: tool_call.id,
                     tool_id: tool_call.tool_id,
-                    tool_name: tool_call.tool_name,
-                    parameters: tool_call.parameters,
                     is_error: response.1.clone(),
                 }),
                 ..Default::default()

@@ -5,10 +5,11 @@ use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
+use tokio::sync::mpsc::Sender;
 
 use crate::tools::{
-    utils::http_request_builder::HttpRequestBuilder, validate_json_schema, Tool, ToolError,
-    ToolJsonSchema, ToolParameters, ToolResult,
+    core::ToolMessageChunk, utils::http_request_builder::HttpRequestBuilder, validate_json_schema,
+    Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
 };
 
 /// Wrapper to make our parameters work with subst
@@ -71,7 +72,11 @@ impl Tool for HttpRequestTool<'_> {
         serde_json::to_value(&self.config.input_schema).expect("JSON schema should be valid")
     }
 
-    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        parameters: &ToolParameters,
+        _sender: Sender<ToolMessageChunk>,
+    ) -> Result<String, ToolError> {
         // Build the HTTP request components
         let url = self.build_url(parameters)?;
         let headers = self.build_headers(parameters)?;

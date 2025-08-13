@@ -70,10 +70,6 @@ pub struct ChatRsExecutedToolCall {
     pub id: String,
     /// ID of the tool used
     pub tool_id: Uuid,
-    /// Name of the tool used
-    pub tool_name: String,
-    /// Input parameters passed to the tool
-    pub parameters: HashMap<String, serde_json::Value>,
     /// Whether the tool call resulted in an error
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_error: Option<bool>,

@@ -1,6 +1,10 @@
-use std::time::Duration;
+use std::{process::Stdio, time::Duration};
 
-use tokio::process::Command;
+use tokio::{
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    process::Command,
+    sync::mpsc::Sender,
+};
 use uuid::Uuid;
 
 use crate::tools::{
@@ -8,7 +12,7 @@ use crate::tools::{
         dockerfiles::{get_dockerfile, get_dockerfile_info},
         CodeLanguage,
     },
-    core::ToolResult,
+    core::{ToolMessageChunk, ToolResult},
     ToolError,
 };
 
@@ -44,16 +48,32 @@ impl DockerExecutor {
         }
     }
 
-    pub async fn execute(&self, code: &str, dependencies: &[String]) -> ToolResult<String> {
+    pub async fn execute(
+        &self,
+        code: &str,
+        dependencies: &[String],
+        tx: Sender<ToolMessageChunk>,
+    ) -> ToolResult<String> {
         let (base_image, file_name, cmd) = get_dockerfile_info(&self.lang);
 
         // Check if base image exists locally, pull if needed
+        let _ = tx
+            .send(ToolMessageChunk::Log(format!(
+                "Checking if base image '{}' exists locally...",
+                base_image
+            )))
+            .await;
         let image_check = Command::new("docker")
             .args(&["image", "inspect", base_image, "--format='{{.Id}}'"])
             .output()
             .await;
         if !image_check.is_ok_and(|output| output.status.success()) {
-            println!("Image '{}' not found locally, pulling...", base_image);
+            let _ = tx
+                .send(ToolMessageChunk::Log(format!(
+                    "Image '{}' not found locally, pulling...",
+                    base_image
+                )))
+                .await;
             let pull_output = Command::new("docker")
                 .args(&["pull", base_image, "-q"])
                 .output()
@@ -65,7 +85,12 @@ impl DockerExecutor {
                     base_image, stderr
                 )));
             }
-            println!("Pulled image '{}' successfully", base_image);
+            let _ = tx
+                .send(ToolMessageChunk::Log(format!(
+                    "Pulled image '{}' successfully",
+                    base_image
+                )))
+                .await;
         }
 
         // Write code and Dockerfile to temporary folder
@@ -80,12 +105,17 @@ impl DockerExecutor {
 
         // Build Docker image
         let image_tag = format!("code-exec-{}", Uuid::new_v4());
-        println!("Building Docker image '{}'...", image_tag);
+        let _ = tx
+            .send(ToolMessageChunk::Log(format!(
+                "Building Docker image '{}'...",
+                image_tag
+            )))
+            .await;
         let deps_arg = format!(
             "DEPENDENCIES={}",
             self.build_dependency_string(dependencies)
         );
-        let build_output = Command::new("docker")
+        let mut build_process = Command::new("docker")
             .args(&[
                 "build",
                 "--build-arg",
@@ -94,17 +124,29 @@ impl DockerExecutor {
                 &image_tag,
                 &temp_dir_str,
             ])
-            .output()
-            .await?;
-        if !build_output.status.success() {
-            let stderr = String::from_utf8_lossy(&build_output.stderr);
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(stderr) = build_process.stderr.take() {
+            let mut reader = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                let _ = tx.send(ToolMessageChunk::Debug(line)).await;
+            }
+        }
+
+        let build_status = build_process.wait().await?;
+        if !build_status.success() {
             return Err(ToolError::ToolExecutionError(format!(
-                "Failed to build Docker image {}: {}",
-                image_tag, stderr
+                "Failed to build Docker image {}",
+                image_tag
             )));
         }
-        // println!("{}", String::from_utf8_lossy(&build_output.stderr));
-        println!("Built image '{}' successfully", image_tag);
+        let _ = tx
+            .send(ToolMessageChunk::Log(format!(
+                "Built image '{}' successfully",
+                image_tag
+            )))
+            .await;
 
         // Create docker arguments
         let container_id = format!("code-exec-{}", Uuid::new_v4());
@@ -131,14 +173,37 @@ impl DockerExecutor {
         ];
 
         // Run code
-        println!("Running command: docker {}", docker_args.join(" "));
-        let result = tokio::time::timeout(
+        let _ = tx
+            .send(ToolMessageChunk::Log(format!(
+                "Running command: docker {}",
+                docker_args.join(" ")
+            )))
+            .await;
+
+        let mut run_output = String::new();
+        let mut run_process = Command::new("docker")
+            .args(&docker_args)
+            .stdout(Stdio::piped())
+            .spawn()?;
+        if let Some(stdout) = run_process.stdout.take() {
+            let mut reader = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                run_output.push_str(&line);
+                run_output.push('\n');
+                let _ = tx.send(ToolMessageChunk::Result(line)).await;
+            }
+        }
+
+        let run_status = tokio::time::timeout(
             Duration::from_secs(self.timeout_seconds.into()),
-            Command::new("docker").args(&docker_args).output(),
+            run_process.wait(),
         )
         .await;
 
         // Cleanup container and image
+        let _ = tx
+            .send(ToolMessageChunk::Log("Cleaning up...".to_owned()))
+            .await;
         let _ = Command::new("docker")
             .args(&["rm", "-f", &container_id])
             .output()
@@ -149,23 +214,29 @@ impl DockerExecutor {
             .await;
 
         // Process output
-        let output = result
+        let run_exit_status = run_status
             .map_err(|_| ToolError::ToolExecutionError("Code execution timed out".to_string()))?
             .map_err(|e| {
                 ToolError::ToolExecutionError(format!("Docker execution failed: {}", e))
             })?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
 
-        if output.status.success() {
+        if run_exit_status.success() {
             Ok(format!(
                 "✅ Code executed successfully:\n\n**Output:**\n\n{}\n",
-                stdout
+                run_output
             ))
         } else {
+            let mut stderr_buf = Vec::new();
+            let _ = run_process
+                .stderr
+                .take()
+                .unwrap()
+                .read_to_end(&mut stderr_buf)
+                .await;
+            let stderr = String::from_utf8_lossy(&stderr_buf);
             Ok(format!(
                 "❌ Code execution failed:\n\n**Error:**\n\n{}\n\n\n**Output:**\n\n{}\n",
-                stderr, stdout
+                stderr, run_output
             ))
         }
     }

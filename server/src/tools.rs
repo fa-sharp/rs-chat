@@ -4,13 +4,14 @@ mod http_request;
 mod utils;
 mod web_search;
 
-pub use core::ToolError;
+pub use core::{ToolError, ToolMessageChunk};
 
 use std::collections::HashMap;
 
 use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 
 use crate::{
     db::models::ChatRsTool,
@@ -58,6 +59,7 @@ impl ChatRsTool {
         &self,
         parameters: &HashMap<String, serde_json::Value>,
         http_client: &reqwest::Client,
+        sender: Sender<ToolMessageChunk>,
     ) -> (String, Option<bool>) {
         let tool = self.create_tool_executor(http_client);
         if let Err(e) = tool.validate_input(parameters) {
@@ -65,7 +67,7 @@ impl ChatRsTool {
         }
 
         rocket::info!("Executing tool: {}", tool.name());
-        match tool.execute(parameters).await {
+        match tool.execute(parameters, sender).await {
             Ok(response) => (response, None),
             Err(e) => (e.to_string(), Some(true)),
         }

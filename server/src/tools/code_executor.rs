@@ -4,10 +4,11 @@ mod dockerfiles;
 use rocket::async_trait;
 use schemars::{gen::SchemaSettings, schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 
 use crate::tools::{
     code_executor::docker::{DockerExecutor, DockerExecutorOptions},
-    core::{Tool, ToolParameters, ToolResult},
+    core::{Tool, ToolMessageChunk, ToolParameters, ToolResult},
     ToolError,
 };
 
@@ -99,7 +100,11 @@ impl Tool for CodeExecutorTool<'_> {
         serde_json::to_value(schema).expect("Should be valid JSON Schema")
     }
 
-    async fn execute(&self, params: &ToolParameters) -> ToolResult<String> {
+    async fn execute(
+        &self,
+        params: &ToolParameters,
+        sender: Sender<ToolMessageChunk>,
+    ) -> ToolResult<String> {
         let input = serde_json::from_value::<CodeExecutorInput>(
             serde_json::to_value(params).expect("Should be valid JSON"),
         )
@@ -114,6 +119,8 @@ impl Tool for CodeExecutorTool<'_> {
             },
         );
 
-        executor.execute(&input.code, &input.dependencies).await
+        executor
+            .execute(&input.code, &input.dependencies, sender)
+            .await
     }
 }

@@ -5,9 +5,30 @@ use std::collections::HashMap;
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 
 /// Standard result type for all tool operations
 pub type ToolResult<T> = Result<T, ToolError>;
+
+/// Tool response stream chunk
+#[derive(Debug)]
+pub enum ToolMessageChunk {
+    Result(String),
+    Log(String),
+    Debug(String),
+    Error(String),
+}
+
+impl From<ToolMessageChunk> for rocket::response::stream::Event {
+    fn from(chunk: ToolMessageChunk) -> Self {
+        match chunk {
+            ToolMessageChunk::Result(data) => Self::data(data).event("result"),
+            ToolMessageChunk::Log(data) => Self::data(data).event("log"),
+            ToolMessageChunk::Debug(data) => Self::data(data).event("debug"),
+            ToolMessageChunk::Error(data) => Self::data(data).event("error"),
+        }
+    }
+}
 
 /// Tool input parameters
 pub type ToolParameters = HashMap<String, serde_json::Value>;
@@ -51,7 +72,11 @@ pub trait Tool: Send + Sync {
     }
 
     /// Execute the tool with given parameters
-    async fn execute(&self, parameters: &ToolParameters) -> ToolResult<String>;
+    async fn execute(
+        &self,
+        parameters: &ToolParameters,
+        sender: Sender<ToolMessageChunk>,
+    ) -> ToolResult<String>;
 }
 
 /// JSON schema for tool input parameters

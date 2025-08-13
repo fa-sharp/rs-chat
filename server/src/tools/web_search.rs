@@ -6,8 +6,10 @@ mod serpapi;
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 
 use crate::tools::{
+    core::ToolMessageChunk,
     web_search::{
         brave::{BraveConfig, BraveSearchTool},
         exa::{ExaConfig, ExaSearchTool},
@@ -83,7 +85,11 @@ impl Tool for WebSearchTool<'_> {
         get_input_schema()
     }
 
-    async fn execute(&self, parameters: &ToolParameters) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        parameters: &ToolParameters,
+        _sender: Sender<ToolMessageChunk>,
+    ) -> Result<String, ToolError> {
         let query = parameters
             .get("query")
             .and_then(|v| v.as_str())
