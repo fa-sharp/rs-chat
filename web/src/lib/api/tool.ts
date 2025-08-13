@@ -50,40 +50,6 @@ export const useDeleteTool = () => {
   });
 };
 
-export const useExecuteAllTools = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ messageId }: { messageId: string }) => {
-      const response = await client.POST("/tool/execute/{message_id}", {
-        params: { path: { message_id: messageId } },
-      });
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-      return response.data;
-    },
-    onSettled: (data) =>
-      data?.[0] &&
-      queryClient.invalidateQueries({
-        queryKey: chatSessionQueryKey(data[0].session_id),
-      }),
-    onSuccess: (data) => {
-      // Optimistic update of tool messages
-      if (!data[0]) return;
-      queryClient.setQueryData<{
-        messages: components["schemas"]["ChatRsMessage"][];
-      }>(chatSessionQueryKey(data[0].session_id), (oldData) =>
-        oldData
-          ? {
-              ...oldData,
-              messages: [...oldData.messages, ...data],
-            }
-          : undefined,
-      );
-    },
-  });
-};
-
 export const useExecuteTool = () => {
   const queryClient = useQueryClient();
   return useMutation({

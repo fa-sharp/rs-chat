@@ -13,7 +13,6 @@ interface Props {
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   tools?: components["schemas"]["ChatRsToolPublic"][];
   onExecute: (toolCallId: string) => void;
-  onExecuteAll: () => void;
   isExecuting: boolean;
 }
 
@@ -22,7 +21,6 @@ export default function ChatMessageToolCalls({
   executedToolCalls,
   tools,
   onExecute,
-  onExecuteAll,
   isExecuting,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -56,18 +54,6 @@ export default function ChatMessageToolCalls({
             isExecuting={isExecuting}
           />
         ))}
-        {executedToolCalls?.length === 0 && (
-          <p>
-            <Button
-              onClick={onExecuteAll}
-              loading={isExecuting}
-              disabled={isExecuting}
-            >
-              {!isExecuting && <PlayCircle />}
-              {isExecuting ? "Executing..." : "Execute All"}
-            </Button>
-          </p>
-        )}
       </div>
     </div>
   );

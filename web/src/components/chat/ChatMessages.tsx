@@ -1,7 +1,7 @@
 import { memo, useCallback } from "react";
 
 import { useDeleteChatMessage } from "@/lib/api/session";
-import { useExecuteAllTools, useExecuteTool } from "@/lib/api/tool";
+import { useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import ChatMessage from "./messages/ChatMessage";
 
@@ -34,7 +34,6 @@ export default memo(function ChatMessages({
   );
 
   const executeToolCall = useExecuteTool();
-  const executeAllToolCalls = useExecuteAllTools();
 
   const onExecuteToolCall = useCallback(
     (messageId: string, toolCallId: string) => {
@@ -61,18 +60,6 @@ export default memo(function ChatMessages({
     [executeToolCall, onGetAgenticResponse, messages],
   );
 
-  const onExecuteAllToolCalls = useCallback(
-    (messageId: string) => {
-      executeAllToolCalls.mutate(
-        { messageId },
-        {
-          onSuccess: () => onGetAgenticResponse(),
-        },
-      );
-    },
-    [executeAllToolCalls, onGetAgenticResponse],
-  );
-
   return messages
     .filter(
       (message, idx) =>
@@ -90,10 +77,7 @@ export default memo(function ChatMessages({
           messages.some((m) => m.meta.tool_call?.id === tc.id),
         )}
         onExecuteToolCall={onExecuteToolCall}
-        onExecuteAllToolCalls={onExecuteAllToolCalls}
-        isExecutingTool={
-          executeToolCall.isPending || executeAllToolCalls.isPending
-        }
+        isExecutingTool={executeToolCall.isPending}
         onDeleteMessage={onDeleteMessage}
       />
     ));

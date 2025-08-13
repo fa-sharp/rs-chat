@@ -25,7 +25,6 @@ interface Props {
   tools?: components["schemas"]["ChatRsToolPublic"][];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   onExecuteToolCall: (messageId: string, toolCallId: string) => void;
-  onExecuteAllToolCalls: (messageId: string) => void;
   isExecutingTool: boolean;
   providers?: components["schemas"]["ChatRsProvider"][];
   onDeleteMessage: (messageId: string) => void;
@@ -37,7 +36,6 @@ export default function ChatMessage({
   tools,
   executedToolCalls,
   onExecuteToolCall,
-  onExecuteAllToolCalls,
   isExecutingTool,
   providers,
   onDeleteMessage,
@@ -91,7 +89,6 @@ export default function ChatMessage({
                 toolCalls={message.meta.assistant.tool_calls}
                 executedToolCalls={executedToolCalls}
                 onExecute={(id) => onExecuteToolCall(message.id, id)}
-                onExecuteAll={() => onExecuteAllToolCalls(message.id)}
                 isExecuting={isExecutingTool}
               />
             )}
@@ -138,8 +135,12 @@ export default function ChatMessage({
   );
 }
 
-function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `### Tool Response: ${message.meta.tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
+function formatToolResponse(
+  message: components["schemas"]["ChatRsMessage"],
+  tools?: components["schemas"]["ChatRsToolPublic"][],
+) {
+  const tool = tools?.find((t) => t.id === message.meta.tool_call?.tool_id);
+  return `### Tool Response: ${tool?.name ?? ""}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
 }
 
 const now = new Date();
