@@ -89,7 +89,7 @@ pub async fn send_chat_stream(
                 .find_by_user(&user_id)
                 .await?
                 .into_iter()
-                .filter(|tool| available_tool_ids.iter().any(|tool_id| *tool_id == tool.id))
+                .filter(|tool| available_tool_ids.contains(&tool.id))
                 .collect::<Vec<_>>();
             if tools.is_empty() {
                 None
@@ -163,10 +163,11 @@ pub async fn send_chat_stream(
     );
 
     // Start streaming
-    let event_stream: Pin<Box<dyn Stream<Item = Event> + Send>> =
-        Box::pin(stream.map(|result| match result {
+    let event_stream = stream
+        .map(|result| match result {
             Ok(message) => Event::data(format!(" {message}")).event("chat"),
             Err(err) => Event::data(err.to_string()).event("error"),
-        }));
+        })
+        .boxed();
     Ok(EventStream::from(event_stream))
 }

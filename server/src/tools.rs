@@ -66,7 +66,7 @@ impl ChatRsTool {
             return (e.to_string(), Some(true));
         }
 
-        rocket::info!("Executing tool: {}", tool.name());
+        rocket::debug!("Executing tool: {}", tool.name());
         match tool.execute(parameters, sender).await {
             Ok(response) => (response, None),
             Err(e) => (e.to_string(), Some(true)),

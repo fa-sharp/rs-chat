@@ -52,6 +52,8 @@ pub enum ToolError {
     SerializationError(#[from] serde_json::Error),
     #[error("Tool execution error: {0}")]
     ToolExecutionError(String),
+    #[error("Tool execution cancelled: {0}")]
+    Cancelled(String),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -71,7 +73,7 @@ pub trait Tool: Send + Sync {
             .map_err(|err| ToolError::InvalidParameters(err.to_string()))
     }
 
-    /// Execute the tool with given parameters
+    /// Execute the tool with given parameters. Real-time logs/status updates can be sent via the sender.
     async fn execute(
         &self,
         parameters: &ToolParameters,
