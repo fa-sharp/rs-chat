@@ -33,23 +33,23 @@ pub struct CodeExecutorToolConfig {
 impl CodeExecutorToolConfig {
     pub fn validate(&self) -> ToolResult<()> {
         if let Some(timeout) = self.timeout_seconds {
-            if timeout >= 60 {
+            if timeout > 120 {
                 return Err(ToolError::InvalidConfiguration(
-                    "Timeout must be less than 60 seconds".to_string(),
+                    "Timeout cannot exceed 2 minutes".to_string(),
                 ));
             }
         }
         if let Some(memory) = self.memory_limit_mb {
-            if memory >= 1024 {
+            if memory > 1024 {
                 return Err(ToolError::InvalidConfiguration(
-                    "Memory limit must be less than 1024 MB".to_string(),
+                    "Memory limit cannot exceed 1024 MB".to_string(),
                 ));
             }
         }
         if let Some(cpu) = self.cpu_limit {
-            if cpu <= 0.0 || cpu > 1.0 {
+            if cpu <= 0.0 || cpu > 2.0 {
                 return Err(ToolError::InvalidConfiguration(
-                    "CPU limit must be between 0 and 1".to_string(),
+                    "CPU limit must be between 0 and 2".to_string(),
                 ));
             }
         }

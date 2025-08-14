@@ -141,7 +141,7 @@ export function AppSidebar({
                   <DropdownMenuItem asChild>
                     <Link to="/app/tools">
                       <Wrench />
-                      Tools
+                      Tools (Beta)
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

@@ -43,10 +43,16 @@ import { useCreateTool, useDeleteTool, useTools } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-type ToolType = "web_search" | "http_request";
+type ToolType = "web_search" | "http_request" | "code_executor";
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 type ParameterType = "string" | "number" | "boolean";
 type ExtendedParameterType = ParameterType | "array";
+
+const TOOL_LABELS: Record<ToolType, string> = {
+  web_search: "Web Search",
+  http_request: "HTTP Request",
+  code_executor: "Code Executor",
+};
 
 interface Parameter {
   id: string;
@@ -94,11 +100,11 @@ export const getToolTypeLabel = (
 ) => {
   switch (tool.config.type) {
     case "Http":
-      return "HTTP Request";
+      return TOOL_LABELS.http_request;
     case "CodeExecutor":
-      return "Code Executor";
+      return TOOL_LABELS.code_executor;
     case "WebSearch":
-      return "Web Search";
+      return TOOL_LABELS.web_search;
     default:
       return "Unknown";
   }
@@ -116,6 +122,7 @@ export function ToolsManager({
   const [selectedToolType, setSelectedToolType] = useState<ToolType | null>(
     null,
   );
+  const [toolCreationError, setToolCreationError] = useState<string>("");
 
   // Common fields
   const [toolName, setToolName] = useState("");
@@ -132,6 +139,11 @@ export function ToolsManager({
   const [bodyFields, setBodyFields] = useState<BodyField[]>([]);
   const [parameters, setParameters] = useState<Parameter[]>([]);
 
+  // Code executor fields
+  const [memoryLimit, setMemoryLimit] = useState<number>(512);
+  const [cpuLimit, setCpuLimit] = useState<number>(0.5);
+  const [timeLimit, setTimeLimit] = useState<number>(30);
+
   const resetForm = () => {
     setSelectedToolType(null);
     setToolName("");
@@ -143,17 +155,23 @@ export function ToolsManager({
     setHeaderFields([]);
     setBodyFields([]);
     setParameters([]);
+    setMemoryLimit(512);
+    setCpuLimit(0.5);
+    setTimeLimit(30);
+    setToolCreationError("");
   };
 
   const handleCreateTool = () => {
+    setToolCreationError("");
     if (!selectedToolType || !toolName.trim() || !toolDescription.trim()) {
       return;
     }
 
+    let toolInput: components["schemas"]["ToolInput"];
     if (selectedToolType === "web_search") {
       if (!searchProvider || !searchApiKey.trim()) return;
 
-      const toolInput: components["schemas"]["ToolInput"] = {
+      toolInput = {
         name: toolName,
         description: toolDescription,
         config: {
@@ -169,14 +187,18 @@ export function ToolsManager({
           count: 10,
         },
       };
-
-      createTool.mutate(toolInput, {
-        onSuccess: () => {
-          setIsCreateDialogOpen(false);
-          resetForm();
+    } else if (selectedToolType === "code_executor") {
+      toolInput = {
+        name: toolName,
+        description: toolDescription,
+        config: {
+          type: "CodeExecutor",
+          memory_limit_mb: memoryLimit,
+          cpu_limit: cpuLimit,
+          timeout_seconds: timeLimit,
         },
-      });
-    } else if (selectedToolType === "http_request") {
+      };
+    } else {
       if (!httpUrl.trim()) return;
 
       // Build the JSON schema from parameters
@@ -228,7 +250,7 @@ export function ToolsManager({
         });
       }
 
-      const toolInput: components["schemas"]["ToolInput"] = {
+      toolInput = {
         name: toolName,
         description: toolDescription,
         config: {
@@ -246,14 +268,17 @@ export function ToolsManager({
           query: null,
         },
       };
-
-      createTool.mutate(toolInput, {
-        onSuccess: () => {
-          setIsCreateDialogOpen(false);
-          resetForm();
-        },
-      });
     }
+
+    createTool.mutate(toolInput, {
+      onSuccess: () => {
+        setIsCreateDialogOpen(false);
+        resetForm();
+      },
+      onError: (error) => {
+        setToolCreationError(error.message);
+      },
+    });
   };
 
   const handleDeleteTool = (toolId: string) => {
@@ -369,11 +394,13 @@ export function ToolsManager({
     >
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold">Tools</h1>
+          <h1 className="text-3xl font-bold">Tools (Beta)</h1>
         </div>
         <p className="text-muted-foreground">
           Configure tools that can be used during conversations to enhance AI
-          capabilities.
+          capabilities. This feature is currently in beta. Please note that some
+          tools may not work as expected and/or may change functionality over
+          time.
         </p>
       </div>
 
@@ -391,7 +418,10 @@ export function ToolsManager({
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Tool</DialogTitle>
+              <DialogTitle>
+                Add{" "}
+                {selectedToolType ? TOOL_LABELS[selectedToolType] : "New Tool"}
+              </DialogTitle>
               <DialogDescription>
                 Configure a new tool to extend AI capabilities.
               </DialogDescription>
@@ -405,7 +435,13 @@ export function ToolsManager({
                     <button
                       type="button"
                       className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
-                      onClick={() => setSelectedToolType("web_search")}
+                      onClick={() => {
+                        setToolName("web_search");
+                        setToolDescription(
+                          "Search the web for real-time information and return formatted results.",
+                        );
+                        setSelectedToolType("web_search");
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <Globe className="size-8 text-blue-500" />
@@ -413,6 +449,27 @@ export function ToolsManager({
                           <div className="font-medium">Web Search</div>
                           <div className="text-sm text-muted-foreground">
                             Search the web for real-time information
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => {
+                        setToolName("code_runner");
+                        setToolDescription(
+                          "Run code snippets and scripts in an isolated environment.",
+                        );
+                        setSelectedToolType("code_executor");
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Code2 className="size-8 text-gray-500" />
+                        <div>
+                          <div className="font-medium">Code Runner</div>
+                          <div className="text-sm text-muted-foreground">
+                            Run code snippets and scripts
                           </div>
                         </div>
                       </div>
@@ -761,16 +818,62 @@ export function ToolsManager({
                   )}
                 </>
               )}
+
+              {selectedToolType === "code_executor" && (
+                <>
+                  <div className="grid gap-2">
+                    <Label>Timeout (seconds)</Label>
+                    <Input
+                      type="number"
+                      value={timeLimit}
+                      onChange={(e) => setTimeLimit(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Memory Limit</Label>
+                    <Select
+                      value={String(memoryLimit)}
+                      onValueChange={(val) => setMemoryLimit(Number(val))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="256">256 MB</SelectItem>
+                        <SelectItem value="512">512 MB</SelectItem>
+                        <SelectItem value="1024">1 GB</SelectItem>
+                        <SelectItem value="2048">2 GB</SelectItem>
+                        <SelectItem value="4096">4 GB</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>CPU Limit</Label>
+                    <Input
+                      type="number"
+                      value={cpuLimit}
+                      onChange={(e) => setCpuLimit(Number(e.target.value))}
+                    />
+                  </div>
+                </>
+              )}
+              {toolCreationError && (
+                <p className="text-red-500">{toolCreationError}</p>
+              )}
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
                 onClick={() => {
-                  setIsCreateDialogOpen(false);
+                  if (selectedToolType) {
+                    setSelectedToolType(null);
+                  } else {
+                    setIsCreateDialogOpen(false);
+                  }
                   resetForm();
                 }}
               >
-                Cancel
+                {selectedToolType ? "Back" : "Cancel"}
               </Button>
               <Button
                 onClick={handleCreateTool}
@@ -811,7 +914,7 @@ export function ToolsManager({
           tools?.map((tool) => (
             <Card
               key={tool.id}
-              className="border-2 bg-purple-50 dark:bg-purple-950 border-purple-300 dark:border-purple-700"
+              className="border-2 bg-purple-50 dark:bg-purple-900 border-purple-300 dark:border-purple-700"
             >
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -871,6 +974,15 @@ export function ToolsManager({
                             p.value === tool.config.provider.type,
                         )?.label
                       }
+                    </div>
+                  )}
+                  {tool.config.type === "CodeExecutor" && (
+                    <div className="font-mono text-sm bg-muted px-2 py-1 rounded">
+                      Time Limit: {tool.config.timeout_seconds} seconds
+                      <br />
+                      CPU Limit: {tool.config.cpu_limit}
+                      <br />
+                      Memory Limit: {tool.config.memory_limit_mb} MB
                     </div>
                   )}
                 </div>
