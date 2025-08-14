@@ -1,7 +1,6 @@
 import { memo, useCallback } from "react";
 
 import { useDeleteChatMessage } from "@/lib/api/session";
-import { useExecuteTool } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import ChatMessage from "./messages/ChatMessage";
 
@@ -10,7 +9,11 @@ interface Props {
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   providers?: Array<components["schemas"]["ChatRsProvider"]>;
   tools?: Array<components["schemas"]["ChatRsToolPublic"]>;
-  onGetAgenticResponse: () => void;
+  onToolExecute: (
+    messageId: string,
+    sessionId: string,
+    toolCallId: string,
+  ) => void;
   isStreaming?: boolean;
   sessionId: string;
 }
@@ -21,7 +24,7 @@ export default memo(function ChatMessages({
   messages,
   providers,
   tools,
-  onGetAgenticResponse,
+  onToolExecute,
   isStreaming,
   sessionId,
 }: Props) {
@@ -33,31 +36,11 @@ export default memo(function ChatMessages({
     [deleteMessage, sessionId],
   );
 
-  const executeToolCall = useExecuteTool();
-
   const onExecuteToolCall = useCallback(
     (messageId: string, toolCallId: string) => {
-      executeToolCall.mutate(
-        { messageId, toolCallId },
-        {
-          onSuccess: () => {
-            const allToolCallsCompleted = messages
-              .find((m) => m.id === messageId)
-              ?.meta.assistant?.tool_calls?.every(
-                (tc) =>
-                  tc.id === toolCallId ||
-                  messages.find(
-                    (m) => m.role === "Tool" && m.meta.tool_call?.id === tc.id,
-                  ),
-              );
-            if (allToolCallsCompleted) {
-              onGetAgenticResponse();
-            }
-          },
-        },
-      );
+      onToolExecute(messageId, sessionId, toolCallId);
     },
-    [executeToolCall, onGetAgenticResponse, messages],
+    [onToolExecute, sessionId],
   );
 
   return messages
@@ -77,7 +60,6 @@ export default memo(function ChatMessages({
           messages.some((m) => m.meta.tool_call?.id === tc.id),
         )}
         onExecuteToolCall={onExecuteToolCall}
-        isExecutingTool={executeToolCall.isPending}
         onDeleteMessage={onDeleteMessage}
       />
     ));

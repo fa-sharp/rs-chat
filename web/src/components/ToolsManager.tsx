@@ -92,13 +92,16 @@ export const getToolIcon = (
 export const getToolTypeLabel = (
   tool: components["schemas"]["ChatRsToolPublic"],
 ) => {
-  if (tool.config.type === "Http") {
-    return "HTTP Request";
+  switch (tool.config.type) {
+    case "Http":
+      return "HTTP Request";
+    case "CodeExecutor":
+      return "Code Executor";
+    case "WebSearch":
+      return "Web Search";
+    default:
+      return "Unknown";
   }
-  if (tool.config.type === "CodeExecutor") {
-    return "Code Executor";
-  }
-  return "Web Search";
 };
 
 export function ToolsManager({

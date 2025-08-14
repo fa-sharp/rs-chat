@@ -339,24 +339,16 @@ const useChatStreamManager = () => {
   );
 
   /** Clear active tool execution */
-  const clearActiveTool = useCallback((toolCallId: string) => {
+  const clearTool = useCallback((toolCallId: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: undefined,
+    }));
     setActiveToolStreams((prev) => ({
       ...prev,
       [toolCallId]: undefined,
     }));
   }, []);
-
-  /** Reset tool call state */
-  const resetTool = useCallback(
-    (toolCallId: string) => {
-      setStreamedTools((prev) => ({
-        ...prev,
-        [toolCallId]: undefined,
-      }));
-      clearActiveTool(toolCallId);
-    },
-    [clearActiveTool],
-  );
 
   /** Start tool execution stream */
   const startToolExecution = useCallback(
@@ -368,7 +360,7 @@ const useChatStreamManager = () => {
         onError: (error) => addToolError(toolCallId, error),
       });
 
-      resetTool(toolCallId);
+      clearTool(toolCallId);
       setToolStatus(toolCallId, "streaming");
       setActiveToolStreams((prev) => ({
         ...prev,
@@ -379,19 +371,18 @@ const useChatStreamManager = () => {
         .then(() => setToolStatus(toolCallId, "completed"))
         .catch(() => setToolStatus(toolCallId, "error"))
         .finally(() => {
-          clearActiveTool(toolCallId);
+          clearTool(toolCallId);
           refetchSessionForNewToolMessage(sessionId, toolCallId);
         });
     },
     [
-      clearActiveTool,
       setToolStatus,
       addToolResult,
       addToolLog,
       addToolDebug,
       addToolError,
+      clearTool,
       refetchSessionForNewToolMessage,
-      resetTool,
     ],
   );
 
@@ -401,10 +392,10 @@ const useChatStreamManager = () => {
       const activeStream = activeToolStreams[toolCallId];
       if (activeStream) {
         activeStream.close();
-        clearActiveTool(toolCallId);
+        clearTool(toolCallId);
       }
     },
-    [activeToolStreams, clearActiveTool],
+    [activeToolStreams, clearTool],
   );
 
   return {

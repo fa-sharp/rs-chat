@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronUp, PlayCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, PlayCircle } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/types";
+import { useStreamingTools } from "@/lib/context/StreamingContext";
 import { cn } from "@/lib/utils";
 
 const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
@@ -13,7 +14,6 @@ interface Props {
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   tools?: components["schemas"]["ChatRsToolPublic"][];
   onExecute: (toolCallId: string) => void;
-  isExecuting: boolean;
 }
 
 export default function ChatMessageToolCalls({
@@ -21,8 +21,9 @@ export default function ChatMessageToolCalls({
   executedToolCalls,
   tools,
   onExecute,
-  isExecuting,
 }: Props) {
+  const { streamedTools } = useStreamingTools();
+
   const [expanded, setExpanded] = useState(false);
 
   if (!toolCalls || toolCalls.length === 0) {
@@ -30,7 +31,7 @@ export default function ChatMessageToolCalls({
   }
 
   return (
-    <div className="prose-h3:mt-0 prose-h3:mb-1 prose-pre:my-1">
+    <div className="prose-h3:mt-0 prose-h3:mb-0.5 prose-h3:text-lg prose-pre:my-1">
       <h3 className="flex gap-2">
         Tool Calls ({toolCalls.length})
         <Button
@@ -51,7 +52,7 @@ export default function ChatMessageToolCalls({
             expanded={expanded}
             onExecute={() => onExecute(toolCall.id)}
             canExecute={!executedToolCalls?.some((tc) => tc.id === toolCall.id)}
-            isExecuting={isExecuting}
+            isExecuting={streamedTools[toolCall.id]?.status === "streaming"}
           />
         ))}
       </div>
@@ -80,7 +81,11 @@ function ChatMessageToolCall({
     <div className="flex gap-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 font-semibold">
-          {tool && getToolIcon(tool)}
+          {isExecuting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            tool && getToolIcon(tool)
+          )}
           {toolCall.tool_name}
         </div>
         {canExecute && (
@@ -101,9 +106,18 @@ function ChatMessageToolCall({
     <div key={toolCall.id} className="flex flex-col gap-1 py-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 font-semibold">
-          {tool && getToolIcon(tool)}
+          {isExecuting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            tool && getToolIcon(tool)
+          )}
           {tool && `${getToolTypeLabel(tool)}: `}
           {toolCall.tool_name}
+          {isExecuting && (
+            <span className="text-xs font-normal text-muted-foreground">
+              (executing...)
+            </span>
+          )}
         </div>
         {canExecute && (
           <Button size="sm" disabled={isExecuting} onClick={onExecute}>

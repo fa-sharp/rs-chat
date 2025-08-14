@@ -5,6 +5,7 @@ import {
   ChatMessageInput,
   ChatMessages,
   ChatStreamingMessages,
+  ChatStreamingToolCalls,
 } from "@/components/chat";
 import ErrorComponent from "@/components/Error";
 import { ChatMessageList } from "@/components/ui/chat/chat-message-list";
@@ -18,7 +19,10 @@ import {
 } from "@/lib/api/session";
 import { useTools } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
-import { useStreamingChats } from "@/lib/context/StreamingContext";
+import {
+  useStreamingChats,
+  useStreamingTools,
+} from "@/lib/context/StreamingContext";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,
@@ -48,6 +52,7 @@ function RouteComponent() {
   const { data: providers } = useProviders();
   const { data: tools } = useTools();
   const { streamedChats, onUserSubmit } = useStreamingChats();
+  const { streamedTools, onToolExecute, onToolCancel } = useStreamingTools();
 
   const onSubmit = useCallback(
     (input: components["schemas"]["SendChatInput"]) => {
@@ -91,12 +96,20 @@ function RouteComponent() {
           providers={providers}
           tools={tools}
           sessionId={sessionId}
-          onGetAgenticResponse={inputState.onSubmitWithoutUserMessage}
+          onToolExecute={onToolExecute}
           isStreaming={currentStream?.status === "streaming"}
         />
         <ChatStreamingMessages
           sessionId={sessionId}
           currentStream={currentStream}
+        />
+        <ChatStreamingToolCalls
+          streamedTools={streamedTools}
+          toolCalls={session?.messages
+            .filter((m) => m.role === "Assistant")
+            .flatMap((m) => m.meta.assistant?.tool_calls || [])}
+          tools={tools}
+          onCancel={onToolCancel}
         />
       </ChatMessageList>
       <ChatMessageInput inputState={inputState} />
