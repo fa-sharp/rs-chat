@@ -17,6 +17,7 @@ import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import type { components } from "@/lib/api/types";
 import type { StreamedToolExecution } from "@/lib/context/StreamingContext";
 import { cn, escapeBackticks } from "@/lib/utils";
+import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
 
 const ChatFancyMarkdown = lazy(() => import("./messages/ChatFancyMarkdown"));
 
@@ -73,7 +74,6 @@ function StreamingToolCall({
   tools?: components["schemas"]["ChatRsToolPublic"][];
   onCancel: () => void;
 }) {
-  const [showLogs, setShowLogs] = useState(true);
   const [showDebug, setShowDebug] = useState(false);
 
   const tool = tools?.find((t) => t.id === toolCall.tool_id);
@@ -162,28 +162,7 @@ function StreamingToolCall({
 
         {/* Logs section */}
         {hasLogs && (
-          <Collapsible open={showLogs} onOpenChange={setShowLogs}>
-            <CollapsibleTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-between"
-              >
-                <span>Logs ({streamedTool.logs.length})</span>
-                <span className="text-xs">{showLogs ? "Hide" : "Show"}</span>
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pt-2">
-              {streamedTool.logs.map((log, index) => (
-                <div
-                  key={`log-${index}-${log.slice(0, 20)}`}
-                  className="rounded bg-muted/30 px-2 py-1 text-xs font-mono"
-                >
-                  {log}
-                </div>
-              ))}
-            </CollapsibleContent>
-          </Collapsible>
+          <ChatMessageToolLogs logs={streamedTool.logs} initialOpen />
         )}
 
         {/* Debug logs section */}

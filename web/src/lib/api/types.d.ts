@@ -281,7 +281,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Execute a specific tool call in a message */
+        /** @description Execute a tool call and stream its output */
         post: operations["execute_tool"];
         delete?: never;
         options?: never;
@@ -582,6 +582,10 @@ export interface components {
             tool_id: string;
             /** @description Whether the tool call resulted in an error */
             is_error?: boolean | null;
+            /** @description Collected logs from the tool execution */
+            logs?: string[] | null;
+            /** @description Collected errors from the tool execution */
+            errors?: string[] | null;
         };
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {

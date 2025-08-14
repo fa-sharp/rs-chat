@@ -39,8 +39,8 @@ export default function ChatMessageToolCalls({
           variant="outline"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? <ChevronUp /> : <ChevronDown />}
           {expanded ? "Collapse" : "Expand"}
+          {expanded ? <ChevronUp /> : <ChevronDown />}
         </Button>
       </h3>
       <div className={cn("flex flex-col", expanded && "gap-2")}>
@@ -113,14 +113,14 @@ function ChatMessageToolCall({
           )}
           {tool && `${getToolTypeLabel(tool)}: `}
           {toolCall.tool_name}
-          {isExecuting && (
-            <span className="text-xs font-normal text-muted-foreground">
-              (executing...)
-            </span>
-          )}
         </div>
         {canExecute && (
-          <Button size="sm" disabled={isExecuting} onClick={onExecute}>
+          <Button
+            size="sm"
+            disabled={isExecuting}
+            loading={isExecuting}
+            onClick={onExecute}
+          >
             <PlayCircle />
             Execute
           </Button>

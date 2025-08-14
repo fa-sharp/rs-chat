@@ -2,16 +2,16 @@ import { Bot, Wrench } from "lucide-react";
 import React, { Suspense } from "react";
 import Markdown from "react-markdown";
 
-import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "@/components/ui/chat/chat-bubble";
 import type { components } from "@/lib/api/types";
-import { cn, escapeBackticks } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
 import ChatMessageToolCalls from "./ChatMessageToolCalls";
+import ChatMessageToolResult from "./ChatMessageToolResult";
 import {
   proseAssistantClasses,
   proseClasses,
@@ -66,7 +66,7 @@ export default function ChatMessage({
         )}
       >
         {message.role === "Tool" ? (
-          <ToolMessage message={message} tools={tools} />
+          <ChatMessageToolResult message={message} tools={tools} />
         ) : (
           <Suspense fallback={<Markdown>{message.content}</Markdown>}>
             <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
@@ -123,44 +123,6 @@ export default function ChatMessage({
       </ChatBubbleMessage>
     </ChatBubble>
   );
-}
-
-function ToolMessage({
-  message,
-  tools,
-}: {
-  message: components["schemas"]["ChatRsMessage"];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
-}) {
-  const tool = tools?.find(
-    (tool) => tool.id === message.meta.tool_call?.tool_id,
-  );
-  return (
-    <div className="flex flex-col gap-1">
-      {/* Tool header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 font-semibold">
-          {tool && getToolIcon(tool)}
-          <span
-            className={cn(
-              message.meta.tool_call?.is_error && "text-destructive-foreground",
-            )}
-          >
-            {tool ? getToolTypeLabel(tool) : "Tool"}: {tool?.name || "Unknown"}
-          </span>
-        </div>
-      </div>
-      {/* Output header*/}
-      <div className="text-sm font-semibold">Output</div>
-      <Suspense fallback={<Markdown>{formatToolResponse(message)}</Markdown>}>
-        <ChatFancyMarkdown>{formatToolResponse(message)}</ChatFancyMarkdown>
-      </Suspense>
-    </div>
-  );
-}
-
-function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
 }
 
 const now = new Date();
