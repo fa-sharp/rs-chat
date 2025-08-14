@@ -19,7 +19,7 @@ pub fn get_dockerfile_info(language: &CodeLanguage) -> (&str, &str, &str) {
         CodeLanguage::TypeScript => (JS_IMAGE, "main.ts", "pnpm tsx main.ts"),
         CodeLanguage::Python => (PYTHON_IMAGE, "main.py", "python main.py"),
         CodeLanguage::Rust => (RUST_IMAGE, "main.rs", "./target/debug/temp"),
-        CodeLanguage::Go => (GO_IMAGE, "main.go", "go run main.go"),
+        CodeLanguage::Go => (GO_IMAGE, "main.go", "./temp"),
         CodeLanguage::Bash => (BASH_IMAGE, "script.sh", "bash script.sh"),
     };
     (base_image, file_name, cmd)
@@ -128,14 +128,19 @@ FROM {GO_IMAGE}
 
 ARG DEPENDENCIES
 
+ENV GOTMPDIR=/opt/gotmpdir GOCACHE=/opt/gocache
+RUN mkdir -p /opt/gotmpdir && chown 1000:1000 /opt/gotmpdir
+RUN mkdir -p /opt/gocache && chown 1000:1000 /opt/gocache
+
 {SET_USER_AND_HOME_DIR}
 
 RUN go mod init temp
 RUN if [ -n "$DEPENDENCIES" ]; then go get $DEPENDENCIES; fi
 
 COPY main.go .
+RUN go build
 
-CMD ["go", "run", "main.go"]
+CMD ["./temp"]
 "#
 );
 
@@ -144,10 +149,9 @@ const BASH_DOCKERFILE: &str = formatcp!(
 FROM {BASH_IMAGE}
 
 ARG DEPENDENCIES
+RUN if [ -n "$DEPENDENCIES" ]; then apk add --no-cache $DEPENDENCIES; fi
 
 {SET_USER_AND_HOME_DIR}
-
-RUN if [ -n "$DEPENDENCIES" ]; then apk add --no-cache $DEPENDENCIES; fi
 
 COPY script.sh .
 

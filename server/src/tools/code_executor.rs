@@ -77,7 +77,8 @@ struct CodeExecutorInput {
     /// The packages/dependencies required for the code to execute. For example, for Python: `["numpy", "pandas"]`.
     /// For Rust, features can be added at the end of the list as supported by `cargo add`, e.g., `["package1", "package2", "--features", "package2/feature1"]`.
     dependencies: Vec<String>,
-    /// Whether to enable network access for the code execution. Set to `true` only if the program needs to access the internet.
+    /// Whether to enable network access. Set to `true` only if the program needs to access the internet at runtime.
+    /// Network access is not needed for downloading dependencies.
     network: bool,
 }
 
