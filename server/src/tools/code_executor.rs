@@ -88,6 +88,7 @@ enum CodeLanguage {
     JavaScript,
     TypeScript,
     Rust,
+    Go,
     Bash,
 }
 

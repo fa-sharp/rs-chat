@@ -20,6 +20,7 @@ strip = true
 aes-gcm = "0.10.3"
 async-stream = "0.3.6"
 chrono = { version = "0.4.41", features = ["serde"] }
+const_format = "0.2.34"
 diesel = { version = "2.2.10", features = [
     "postgres",
     "chrono",
