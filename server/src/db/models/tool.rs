@@ -73,4 +73,10 @@ pub struct ChatRsExecutedToolCall {
     /// Whether the tool call resulted in an error
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_error: Option<bool>,
+    /// Collected logs from the tool execution
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logs: Option<Vec<String>>,
+    /// Collected errors from the tool execution
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<String>>,
 }

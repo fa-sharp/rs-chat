@@ -6,17 +6,19 @@ mod serpapi;
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::Sender;
 
-use crate::tools::{
-    core::ToolMessageChunk,
-    web_search::{
-        brave::{BraveConfig, BraveSearchTool},
-        exa::{ExaConfig, ExaSearchTool},
-        google::{GoogleCustomSearchConfig, GoogleCustomSearchTool},
-        serpapi::{SerpApiConfig, SerpApiSearchTool},
+use crate::{
+    tools::{
+        core::ToolMessageChunk,
+        web_search::{
+            brave::{BraveConfig, BraveSearchTool},
+            exa::{ExaConfig, ExaSearchTool},
+            google::{GoogleCustomSearchConfig, GoogleCustomSearchTool},
+            serpapi::{SerpApiConfig, SerpApiSearchTool},
+        },
+        Tool, ToolError, ToolParameters, ToolResult,
     },
-    Tool, ToolError, ToolParameters, ToolResult,
+    utils::sender_with_logging::SenderWithLogging,
 };
 
 /// A web search tool that supports multiple providers.
@@ -88,7 +90,7 @@ impl Tool for WebSearchTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: Sender<ToolMessageChunk>,
+        _sender: &SenderWithLogging<ToolMessageChunk>,
     ) -> Result<String, ToolError> {
         let query = parameters
             .get("query")

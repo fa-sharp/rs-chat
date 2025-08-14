@@ -5,13 +5,14 @@ use std::collections::HashMap;
 use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::Sender;
+
+use crate::utils::sender_with_logging::SenderWithLogging;
 
 /// Standard result type for all tool operations
 pub type ToolResult<T> = Result<T, ToolError>;
 
 /// Tool response stream chunk
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ToolMessageChunk {
     Result(String),
     Log(String),
@@ -77,7 +78,7 @@ pub trait Tool: Send + Sync {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        sender: Sender<ToolMessageChunk>,
+        sender: &SenderWithLogging<ToolMessageChunk>,
     ) -> ToolResult<String>;
 }
 

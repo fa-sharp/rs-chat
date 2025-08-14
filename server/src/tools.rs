@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::Sender;
 
 use crate::{
     db::models::ChatRsTool,
@@ -21,6 +20,7 @@ use crate::{
         http_request::{HttpRequestConfig, HttpRequestConfigPublic, HttpRequestTool},
         web_search::{WebSearchConfig, WebSearchConfigPublic, WebSearchTool},
     },
+    utils::sender_with_logging::SenderWithLogging,
 };
 
 /// Tool configuration stored in the daabase
@@ -59,7 +59,7 @@ impl ChatRsTool {
         &self,
         parameters: &HashMap<String, serde_json::Value>,
         http_client: &reqwest::Client,
-        sender: Sender<ToolMessageChunk>,
+        sender: &SenderWithLogging<ToolMessageChunk>,
     ) -> (String, Option<bool>) {
         let tool = self.create_tool_executor(http_client);
         if let Err(e) = tool.validate_input(parameters) {

@@ -3,17 +3,19 @@ use std::{process::Stdio, time::Duration};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    sync::mpsc::Sender,
 };
 use uuid::Uuid;
 
-use crate::tools::{
-    code_executor::{
-        dockerfiles::{get_dockerfile, get_dockerfile_info},
-        CodeLanguage,
+use crate::{
+    tools::{
+        code_executor::{
+            dockerfiles::{get_dockerfile, get_dockerfile_info},
+            CodeLanguage,
+        },
+        core::{ToolMessageChunk, ToolResult},
+        ToolError,
     },
-    core::{ToolMessageChunk, ToolResult},
-    ToolError,
+    utils::sender_with_logging::SenderWithLogging,
 };
 
 const TIMEOUT_SECONDS: u32 = 30;
@@ -52,7 +54,7 @@ impl DockerExecutor {
         &self,
         code: &str,
         dependencies: &[String],
-        tx: Sender<ToolMessageChunk>,
+        tx: &SenderWithLogging<ToolMessageChunk>,
     ) -> ToolResult<String> {
         let image_tag = format!("code-exec-{}", Uuid::new_v4());
         let container_id = format!("code-exec-{}", Uuid::new_v4());
@@ -92,7 +94,7 @@ impl DockerExecutor {
         container_id: &str,
         code: &str,
         dependencies: &[String],
-        tx: &Sender<ToolMessageChunk>,
+        tx: &SenderWithLogging<ToolMessageChunk>,
     ) -> ToolResult<String> {
         let (base_image, file_name, cmd) = get_dockerfile_info(&self.lang);
 

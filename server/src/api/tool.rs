@@ -26,7 +26,8 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    tools::{ToolConfig, ToolError},
+    tools::{ToolConfig, ToolError, ToolMessageChunk},
+    utils::sender_with_logging::SenderWithLogging,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -84,7 +85,7 @@ async fn create_tool(
     Ok(Json(tool))
 }
 
-/// Execute a specific tool call in a message
+/// Execute a tool call and stream its output
 #[openapi(tag = "Tools")]
 #[post("/execute/<message_id>/<tool_call_id>")]
 async fn execute_tool(
@@ -113,11 +114,39 @@ async fn execute_tool(
         .await?
         .ok_or(ToolError::ToolNotFound)?;
 
-    // Execute tool, stream output, and save message
-    let (tx, rx) = tokio::sync::mpsc::channel(20);
+    let (streaming_tx, streaming_rx) = tokio::sync::mpsc::channel(20);
     let http_client = http_client.inner().clone();
+
+    // Spawn async tasks to collect logs, execute tool, and save final result to database
     tokio::spawn(async move {
-        let (content, is_error) = tool.execute(&tool_call.parameters, &http_client, tx).await;
+        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(20);
+        let sender_with_logging = SenderWithLogging::new(streaming_tx, log_tx);
+
+        let log_collector = tokio::spawn(async move {
+            let mut logs = None;
+            let mut errors = None;
+            while let Some(chunk) = log_rx.recv().await {
+                match chunk {
+                    ToolMessageChunk::Log(data) => logs
+                        .get_or_insert_with(|| Vec::with_capacity(20))
+                        .push(data),
+                    ToolMessageChunk::Error(data) => errors
+                        .get_or_insert_with(|| Vec::with_capacity(5))
+                        .push(data),
+                    _ => {}
+                }
+            }
+            (logs, errors)
+        });
+
+        // Execute tool and collect logs
+        let (content, is_error) = tool
+            .execute(&tool_call.parameters, &http_client, &sender_with_logging)
+            .await;
+        drop(sender_with_logging); // Drop sender to close logging channel
+        let (logs, errors) = log_collector.await.unwrap_or_default();
+
+        // Save final result to database
         let _ = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 session_id: &message.session_id,
@@ -128,6 +157,8 @@ async fn execute_tool(
                         id: tool_call.id,
                         tool_id: tool_call.tool_id,
                         is_error,
+                        logs,
+                        errors,
                     }),
                     ..Default::default()
                 },
@@ -135,7 +166,10 @@ async fn execute_tool(
             .await;
     });
 
-    let stream = ReceiverStream::new(rx).map(|chunk| chunk.into()).boxed();
+    // Stream output
+    let stream = ReceiverStream::new(streaming_rx)
+        .map(|chunk| chunk.into())
+        .boxed();
     Ok(EventStream::from(stream))
 }
 

@@ -5,11 +5,13 @@ use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use subst::VariableMap;
-use tokio::sync::mpsc::Sender;
 
-use crate::tools::{
-    core::ToolMessageChunk, utils::http_request_builder::HttpRequestBuilder, validate_json_schema,
-    Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
+use crate::{
+    tools::{
+        core::ToolMessageChunk, utils::http_request_builder::HttpRequestBuilder,
+        validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
+    },
+    utils::sender_with_logging::SenderWithLogging,
 };
 
 /// Wrapper to make our parameters work with subst
@@ -75,7 +77,7 @@ impl Tool for HttpRequestTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: Sender<ToolMessageChunk>,
+        _sender: &SenderWithLogging<ToolMessageChunk>,
     ) -> Result<String, ToolError> {
         // Build the HTTP request components
         let url = self.build_url(parameters)?;
