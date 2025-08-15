@@ -6,12 +6,10 @@ publish = false
 
 [profile.ci]
 inherits = "dev"
-lto = false
 codegen-units = 256
 
 [profile.release]
 opt-level = 2
-lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
@@ -20,7 +18,7 @@ strip = true
 aes-gcm = "0.10.3"
 astral-tokio-tar = "0.5.2"
 async-stream = "0.3.6"
-bollard = { version = "0.19.2", features = ["buildkit"] }
+bollard = { version = "0.19.1", features = ["ssl"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 const_format = "0.2.34"
 diesel = { version = "2.2.10", features = [
@@ -57,7 +55,7 @@ serde_json = "1.0.140"
 subst = { version = "0.3.8", features = ["json"] }
 tempfile = "3.20.0"
 thiserror = "2.0.12"
-tokio = { version = "1.45.1", features = ["process"] }
+tokio = { version = "1.45.1" }
 tokio-stream = "0.1.17"
 tokio-util = { version = "0.7.16", features = ["io"] }
 tracing = "0.1.41"

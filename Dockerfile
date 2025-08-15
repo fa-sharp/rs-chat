@@ -1,5 +1,5 @@
 ARG NODE_VERSION=22
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1.87
 ARG DEBIAN_VERSION=bookworm
 
 ### Build Rust backend ###
@@ -41,15 +41,7 @@ FROM debian:${DEBIAN_VERSION}-slim
 
 # Install required dependencies
 RUN apt-get update -qq && \
-    apt-get install -y -qq \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update -qq && \
-    apt-get install -y -qq docker-ce-cli && \
+    apt-get install -y -qq ca-certificates libpq5 && \
     apt-get clean
 
 # Use non-root user
@@ -61,8 +53,6 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --uid "${UID}" \
     appuser
-RUN groupadd -g 999 docker || true
-RUN usermod -aG docker appuser
 USER appuser
 
 # Copy app files

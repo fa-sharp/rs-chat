@@ -3,12 +3,11 @@ use std::{sync::LazyLock, time::Duration};
 use bollard::{
     body_try_stream,
     container::{AttachContainerResults, LogOutput},
-    models::{BuildInfoAux, ContainerCreateBody, HostConfig, ResourcesUlimits},
+    models::{ContainerCreateBody, HostConfig, ResourcesUlimits},
     query_parameters::{
-        AttachContainerOptionsBuilder, BuildImageOptionsBuilder, BuilderVersion,
-        CreateContainerOptionsBuilder, CreateImageOptionsBuilder, RemoveContainerOptionsBuilder,
-        RemoveImageOptionsBuilder, StartContainerOptions, StopContainerOptions,
-        WaitContainerOptions,
+        AttachContainerOptionsBuilder, BuildImageOptionsBuilder, CreateContainerOptionsBuilder,
+        CreateImageOptionsBuilder, RemoveContainerOptionsBuilder, RemoveImageOptionsBuilder,
+        StartContainerOptions, StopContainerOptions, WaitContainerOptions,
     },
     Docker,
 };
@@ -170,8 +169,6 @@ impl DockerExecutor {
         let build_options = BuildImageOptionsBuilder::new()
             .buildargs(&[("DEPENDENCIES", self.build_dependency_string(dependencies))].into())
             .t(&self.image_tag)
-            .version(BuilderVersion::BuilderBuildKit)
-            .session(&Uuid::new_v4().to_string())
             .build();
         let mut build_stream = docker.build_image(
             build_options,
@@ -180,23 +177,12 @@ impl DockerExecutor {
         );
 
         let mut build_logs = String::new();
+        let mut image_id = None;
         while let Some(build_info_result) = build_stream.next().await {
             match build_info_result {
                 Ok(info) => {
-                    if let Some(aux) = info.aux {
-                        if let BuildInfoAux::BuildKit(status) = aux {
-                            for vertex in status.vertexes {
-                                let cached = if vertex.cached { "CACHED " } else { "" };
-                                let message = format!("{}{}\n", cached, vertex.name);
-                                build_logs.push_str(&message);
-                                send_debug(tx, message.to_string()).await;
-                            }
-                            for log in status.logs {
-                                let message = String::from_utf8_lossy(&log.msg);
-                                build_logs.push_str(&format!("{}\n", message));
-                                send_debug(tx, message.to_string()).await;
-                            }
-                        }
+                    if let Some(id) = info.aux.and_then(|aux| aux.id) {
+                        image_id = Some(id);
                     }
                     if let Some(stream) = info.stream {
                         build_logs.push_str(&format!("{stream}\n"));
@@ -204,27 +190,29 @@ impl DockerExecutor {
                     }
                     if let Some(err) = info.error_detail.and_then(|e| e.message) {
                         build_logs.push_str(&format!("{err}\n"));
-                        send_error(tx, format!("Failed to build image: {err}")).await;
-                        return Err(ToolError::ToolExecutionError(format!(
-                            "Failed to build image '{}': {err}. Build logs:\n\n{build_logs}",
-                            self.image_tag
-                        )));
+                        send_error(tx, format!("Error during build: {err}")).await;
                     }
                 }
                 Err(err) => {
                     build_logs.push_str(&format!("{err}\n"));
-                    send_error(tx, format!("Failed to build image: {err}")).await;
-                    return Err(ToolError::ToolExecutionError(format!(
-                        "Failed to build image '{}': {err}. Build logs:\n\n{build_logs}",
-                        self.image_tag
-                    )));
+                    send_error(tx, format!("Error during build: {err}")).await;
                 }
             }
         }
         if let Ok(Err(err)) = tar_creation_task.await {
-            let message = format!("Error creating build context: {err}");
-            build_logs.push_str(&format!("{message}\n"));
+            let message = format!("Error while creating build context: {err}");
             send_error(tx, message).await;
+        }
+        if let Some(image_id) = image_id {
+            let message = format!("Built image '{}' with ID {}", self.image_tag, image_id);
+            send_log(tx, message).await;
+        } else {
+            let message = format!("Failed to build image '{}'", self.image_tag);
+            send_error(tx, message).await;
+            return Err(ToolError::ToolExecutionError(format!(
+                "Failed to build image '{}'. Build logs:\n\n{build_logs}",
+                self.image_tag
+            )));
         }
 
         // Create container with run command
@@ -268,11 +256,6 @@ impl DockerExecutor {
                     );
                     send_log(tx, message).await;
                 }
-                let message = format!(
-                    "Created container '{}' with ID {}",
-                    self.container_name, res.id
-                );
-                send_log(tx, message).await;
             }
             Err(err) => {
                 let message = format!(
