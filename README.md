@@ -81,7 +81,7 @@ Your API keys are encrypted and stored in the database.
 
 ### Prerequisites
 
-- **Rust** >= 1.87 ([Install Rust](https://rustup.rs/))
+- **Rust** >= 1.85 ([Install Rust](https://rustup.rs/))
 - **Node.js** >= 20 with **pnpm** ([Install pnpm](https://pnpm.io/installation))
 - **Docker** and **Docker Compose** (for databases)
 ### Setup
