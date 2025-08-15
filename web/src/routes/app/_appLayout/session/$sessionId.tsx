@@ -104,6 +104,7 @@ function RouteComponent() {
           currentStream={currentStream}
         />
         <ChatStreamingToolCalls
+          sessionId={sessionId}
           streamedTools={streamedTools}
           toolCalls={session?.messages
             .filter((m) => m.role === "Assistant")

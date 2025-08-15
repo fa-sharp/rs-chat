@@ -81,8 +81,8 @@ export const useStreamingTools = () => {
 
   /** Cancel a tool execution */
   const onToolCancel = useCallback(
-    (toolCallId: string) => {
-      cancelToolExecution(toolCallId);
+    (sessionId: string, toolCallId: string) => {
+      cancelToolExecution(sessionId, toolCallId);
     },
     [cancelToolExecution],
   );
@@ -371,8 +371,9 @@ const useChatStreamManager = () => {
         .then(() => setToolStatus(toolCallId, "completed"))
         .catch(() => setToolStatus(toolCallId, "error"))
         .finally(() => {
-          clearTool(toolCallId);
-          refetchSessionForNewToolMessage(sessionId, toolCallId);
+          refetchSessionForNewToolMessage(sessionId, toolCallId).then(() => {
+            clearTool(toolCallId);
+          });
         });
     },
     [
@@ -388,14 +389,16 @@ const useChatStreamManager = () => {
 
   /** Cancel tool execution */
   const cancelToolExecution = useCallback(
-    (toolCallId: string) => {
+    (sessionId: string, toolCallId: string) => {
       const activeStream = activeToolStreams[toolCallId];
       if (activeStream) {
         activeStream.close();
-        clearTool(toolCallId);
+        refetchSessionForNewToolMessage(sessionId, toolCallId).then(() => {
+          clearTool(toolCallId);
+        });
       }
     },
-    [activeToolStreams, clearTool],
+    [activeToolStreams, clearTool, refetchSessionForNewToolMessage],
   );
 
   return {

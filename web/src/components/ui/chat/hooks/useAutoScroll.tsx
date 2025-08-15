@@ -73,7 +73,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     }));
   }, [checkIsAtBottom]);
 
-  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 150);
+  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 50);
 
   useEffect(() => {
     const element = scrollRef.current;

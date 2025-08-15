@@ -1,5 +1,6 @@
-import { Loader2, Wrench, X } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, Wrench, X } from "lucide-react";
+import { useState } from "react";
+import Markdown from "react-markdown";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import { Button } from "@/components/ui/button";
@@ -19,13 +20,12 @@ import type { StreamedToolExecution } from "@/lib/context/StreamingContext";
 import { cn, escapeBackticks } from "@/lib/utils";
 import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
 
-const ChatFancyMarkdown = lazy(() => import("./messages/ChatFancyMarkdown"));
-
 interface Props {
   streamedTools: Record<string, StreamedToolExecution | undefined>;
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
   tools?: components["schemas"]["ChatRsToolPublic"][];
-  onCancel: (toolCallId: string) => void;
+  sessionId: string;
+  onCancel: (sessionId: string, toolCallId: string) => void;
 }
 
 /** Displays currently streaming tool executions */
@@ -33,6 +33,7 @@ export default function ChatStreamingToolCalls({
   streamedTools,
   toolCalls,
   tools,
+  sessionId,
   onCancel,
 }: Props) {
   const streamingToolCalls = toolCalls?.filter(
@@ -55,7 +56,7 @@ export default function ChatStreamingToolCalls({
             toolCall={toolCall}
             streamedTool={streamedTool}
             tools={tools}
-            onCancel={() => onCancel(toolCall.id)}
+            onCancel={() => onCancel(sessionId, toolCall.id)}
           />
         );
       })}
@@ -85,10 +86,7 @@ function StreamingToolCall({
   // Use smooth streaming for the result output
   const { displayedText: displayedResult } = useSmoothStreaming(
     streamedTool.result,
-    {
-      baseCharsPerSecond: 80, // Faster than chat since tool output can be more verbose
-      bufferSpeedUpThreshold: 50,
-    },
+    { baseCharsPerSecond: 100 },
   );
 
   // Get appropriate icon based on status
@@ -112,7 +110,7 @@ function StreamingToolCall({
         )}
       />
       <ChatBubbleMessage
-        className={cn("space-y-3", hasError && "border-destructive/20 ")}
+        className={cn("space-y-2", hasError && "border-destructive/20 ")}
       >
         {/* Tool header */}
         <div className="flex items-center justify-between">
@@ -128,13 +126,8 @@ function StreamingToolCall({
             )}
           </div>
           {isStreaming && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onCancel}
-              className="h-6 px-2 text-xs"
-            >
-              <X className="size-3" />
+            <Button size="sm" variant="destructive" onClick={onCancel}>
+              <X />
               Cancel
             </Button>
           )}
@@ -152,18 +145,14 @@ function StreamingToolCall({
         {displayedResult && (
           <div className="space-y-2">
             <div className="text-sm font-semibold">Output</div>
-            <div className="rounded-md bg-muted/50 p-3">
-              <Suspense fallback={<div className="text-sm">Loading...</div>}>
-                <ChatFancyMarkdown>{`\`\`\`text\n${escapeBackticks(displayedResult)}\n\`\`\``}</ChatFancyMarkdown>
-              </Suspense>
+            <div className="rounded-md bg-muted/50 p-3 text-sm">
+              <Markdown>{`\`\`\`text\n${escapeBackticks(displayedResult)}\n\`\`\``}</Markdown>
             </div>
           </div>
         )}
 
         {/* Logs section */}
-        {hasLogs && (
-          <ChatMessageToolLogs logs={streamedTool.logs} initialOpen />
-        )}
+        {hasLogs && <ChatMessageToolLogs logs={streamedTool.logs} />}
 
         {/* Debug logs section */}
         {hasDebugLogs && (
@@ -174,11 +163,13 @@ function StreamingToolCall({
                 size="sm"
                 className="w-full justify-between"
               >
-                <span>Debug ({streamedTool.debugLogs.length})</span>
-                <span className="text-xs">{showDebug ? "Hide" : "Show"}</span>
+                <span className="flex items-center gap-1">
+                  {showDebug ? <ChevronUp /> : <ChevronDown />}Debug (
+                  {streamedTool.debugLogs.length})
+                </span>
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pt-2">
+            <CollapsibleContent className="space-y-0.5 pt-1">
               {streamedTool.debugLogs.map((debug, index) => (
                 <div
                   key={`debug-${index}-${debug.slice(0, 20)}`}

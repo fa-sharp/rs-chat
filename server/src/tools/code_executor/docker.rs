@@ -92,25 +92,14 @@ impl DockerExecutor {
         // Cleanup container and image
         if !tx.is_closed() {
             send_log(tx, "Cleaning up...".into()).await;
+            docker_cleanup(docker, &self.container_name, &self.image_tag).await;
+        } else {
+            let container_name = self.container_name.clone();
+            let image_tag = self.image_tag.clone();
+            tokio::spawn(async move {
+                docker_cleanup(docker, &container_name, &image_tag).await;
+            });
         }
-        let container_name = self.container_name.clone();
-        let image_tag = self.image_tag.clone();
-        tokio::spawn(async move {
-            let _ = docker
-                .stop_container(&container_name, None::<StopContainerOptions>)
-                .await;
-            let _ = tokio::join!(
-                docker.remove_container(
-                    &container_name,
-                    Some(RemoveContainerOptionsBuilder::new().force(true).build()),
-                ),
-                docker.remove_image(
-                    &image_tag,
-                    Some(RemoveImageOptionsBuilder::new().force(true).build()),
-                    None,
-                )
-            );
-        });
 
         result
     }
@@ -352,7 +341,7 @@ impl DockerExecutor {
         // Process output and exit status
         let (stdout, stderr) = container_output_task.await.unwrap_or_default();
         let formatted_output =
-            format!("**Output (stdout):**\n\n{stdout}\n\n\n**Logs (stderr):**\n\n{stderr}\n");
+            format!("**Output (stdout):**\n\n{stdout}\n\n**Logs (stderr):**\n\n{stderr}\n");
         match container_exit_result {
             Err(_) => {
                 send_error(tx, "Code execution timed out".into()).await;
@@ -447,6 +436,23 @@ async fn capture_container_output(
             }
         }
     }
+}
+
+async fn docker_cleanup(docker: &Docker, container_name: &str, image_tag: &str) {
+    let _ = docker
+        .stop_container(container_name, None::<StopContainerOptions>)
+        .await;
+    let _ = tokio::join!(
+        docker.remove_container(
+            container_name,
+            Some(RemoveContainerOptionsBuilder::new().force(true).build()),
+        ),
+        docker.remove_image(
+            image_tag,
+            Some(RemoveImageOptionsBuilder::new().force(true).build()),
+            None,
+        )
+    );
 }
 
 async fn send_log(tx: &SenderWithLogging<ToolLog>, message: String) {

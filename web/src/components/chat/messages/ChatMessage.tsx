@@ -82,7 +82,7 @@ export default function ChatMessage({
                 onExecute={(id) => onExecuteToolCall(message.id, id)}
               />
             )}
-            <div className="flex items-center justify-between">
+            <div className="flex items-end justify-between">
               <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                 <InfoButton meta={message.meta} providers={providers} />
                 <CopyButton message={message.content} />
@@ -95,7 +95,7 @@ export default function ChatMessage({
           </>
         )}
         {message.role === "User" && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
               <CopyButton message={message.content} variant="default" />
               <DeleteButton
@@ -109,7 +109,7 @@ export default function ChatMessage({
           </div>
         )}
         {message.role === "Tool" && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
               <InfoButton meta={message.meta} providers={providers} />
               <CopyButton message={message.content} />

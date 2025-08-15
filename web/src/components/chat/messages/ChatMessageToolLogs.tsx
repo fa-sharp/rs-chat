@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,12 @@ export default function ChatMessageToolLogs({
     <Collapsible open={showLogs} onOpenChange={setShowLogs}>
       <CollapsibleTrigger asChild>
         <Button variant="outline" size="sm" className="w-full justify-between">
-          <span>Logs ({logs.length})</span>
-          <span className="text-xs">{showLogs ? "Hide" : "Show"}</span>
+          <span className="flex items-center gap-1">
+            {showLogs ? <ChevronUp /> : <ChevronDown />}Logs ({logs.length})
+          </span>
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-1 pt-2">
+      <CollapsibleContent className="space-y-0.5 pt-2">
         {logs.map((log, index) => (
           <div
             key={`log-${index}-${log.slice(0, 20)}`}

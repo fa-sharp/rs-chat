@@ -60,10 +60,8 @@ export default function ChatMessageToolResult({
             size="sm"
             className="w-full justify-between"
           >
-            <span>Output</span>
-            <span className="text-xs flex gap-1">
-              {!showOutput ? "Show more" : "Hide"}
-              {!showOutput ? <ChevronDown /> : <ChevronUp />}
+            <span className="flex items-center gap-1">
+              {showOutput ? <ChevronUp /> : <ChevronDown />}Output
             </span>
           </Button>
         </CollapsibleTrigger>
@@ -78,7 +76,9 @@ export default function ChatMessageToolResult({
       {!showOutput && (
         <div className="prose-pre:m-0">
           <pre className="text-nowrap">
-            {`${message.content.slice(0, message.content.indexOf("\n"))}...`}
+            {message.content.includes("\n")
+              ? `${message.content.slice(0, message.content.indexOf("\n"))}...`
+              : message.content}
           </pre>
         </div>
       )}
