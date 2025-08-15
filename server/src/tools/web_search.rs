@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     tools::{
-        core::ToolMessageChunk,
+        core::ToolLog,
         web_search::{
             brave::{BraveConfig, BraveSearchTool},
             exa::{ExaConfig, ExaSearchTool},
@@ -90,7 +90,7 @@ impl Tool for WebSearchTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: &SenderWithLogging<ToolMessageChunk>,
+        _sender: &SenderWithLogging<ToolLog>,
     ) -> Result<String, ToolError> {
         let query = parameters
             .get("query")

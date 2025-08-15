@@ -13,7 +13,7 @@ pub fn get_dockerfile(language: &CodeLanguage) -> &'static str {
     }
 }
 
-pub fn get_dockerfile_info(language: &CodeLanguage) -> (&str, &str, &str) {
+pub fn get_dockerfile_info(language: &CodeLanguage) -> (&'static str, &'static str, &'static str) {
     let (base_image, file_name, cmd) = match language {
         CodeLanguage::JavaScript => (JS_IMAGE, "main.js", "node main.js"),
         CodeLanguage::TypeScript => (JS_IMAGE, "main.ts", "pnpm tsx main.ts"),

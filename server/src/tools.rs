@@ -4,7 +4,7 @@ mod http_request;
 mod utils;
 mod web_search;
 
-pub use core::{ToolError, ToolMessageChunk};
+pub use core::{ToolError, ToolLog};
 
 use std::collections::HashMap;
 
@@ -59,7 +59,7 @@ impl ChatRsTool {
         &self,
         parameters: &HashMap<String, serde_json::Value>,
         http_client: &reqwest::Client,
-        sender: &SenderWithLogging<ToolMessageChunk>,
+        sender: &SenderWithLogging<ToolLog>,
     ) -> (String, Option<bool>) {
         let tool = self.create_tool_executor(http_client);
         if let Err(e) = tool.validate_input(parameters) {

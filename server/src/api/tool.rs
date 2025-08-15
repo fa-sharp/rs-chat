@@ -26,7 +26,7 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    tools::{ToolConfig, ToolError, ToolMessageChunk},
+    tools::{ToolConfig, ToolError, ToolLog},
     utils::sender_with_logging::SenderWithLogging,
 };
 
@@ -127,10 +127,10 @@ async fn execute_tool(
             let mut errors = None;
             while let Some(chunk) = log_rx.recv().await {
                 match chunk {
-                    ToolMessageChunk::Log(data) => logs
+                    ToolLog::Log(data) => logs
                         .get_or_insert_with(|| Vec::with_capacity(20))
                         .push(data),
-                    ToolMessageChunk::Error(data) => errors
+                    ToolLog::Error(data) => errors
                         .get_or_insert_with(|| Vec::with_capacity(5))
                         .push(data),
                     _ => {}

@@ -8,7 +8,7 @@ use subst::VariableMap;
 
 use crate::{
     tools::{
-        core::ToolMessageChunk, utils::http_request_builder::HttpRequestBuilder,
+        core::ToolLog, utils::http_request_builder::HttpRequestBuilder,
         validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
     },
     utils::sender_with_logging::SenderWithLogging,
@@ -77,7 +77,7 @@ impl Tool for HttpRequestTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: &SenderWithLogging<ToolMessageChunk>,
+        _sender: &SenderWithLogging<ToolLog>,
     ) -> Result<String, ToolError> {
         // Build the HTTP request components
         let url = self.build_url(parameters)?;

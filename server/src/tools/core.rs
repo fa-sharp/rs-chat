@@ -11,22 +11,22 @@ use crate::utils::sender_with_logging::SenderWithLogging;
 /// Standard result type for all tool operations
 pub type ToolResult<T> = Result<T, ToolError>;
 
-/// Tool response stream chunk
+/// Tool logging stream chunk
 #[derive(Debug, Clone)]
-pub enum ToolMessageChunk {
+pub enum ToolLog {
     Result(String),
     Log(String),
     Debug(String),
     Error(String),
 }
 
-impl From<ToolMessageChunk> for rocket::response::stream::Event {
-    fn from(chunk: ToolMessageChunk) -> Self {
+impl From<ToolLog> for rocket::response::stream::Event {
+    fn from(chunk: ToolLog) -> Self {
         match chunk {
-            ToolMessageChunk::Result(data) => Self::data(data).event("result"),
-            ToolMessageChunk::Log(data) => Self::data(data).event("log"),
-            ToolMessageChunk::Debug(data) => Self::data(data).event("debug"),
-            ToolMessageChunk::Error(data) => Self::data(data).event("error"),
+            ToolLog::Result(data) => Self::data(data).event("result"),
+            ToolLog::Log(data) => Self::data(data).event("log"),
+            ToolLog::Debug(data) => Self::data(data).event("debug"),
+            ToolLog::Error(data) => Self::data(data).event("error"),
         }
     }
 }
@@ -78,7 +78,7 @@ pub trait Tool: Send + Sync {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        sender: &SenderWithLogging<ToolMessageChunk>,
+        sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String>;
 }
 

@@ -2,6 +2,7 @@ use tokio::sync::mpsc::{error::SendError, Sender};
 
 /// A sender wrapper that sends messages to a primary and a log collector
 /// channel, while preserving the primary channel's closure semantics.
+#[derive(Debug, Clone)]
 pub struct SenderWithLogging<T> {
     primary_tx: Sender<T>,
     log_tx: Sender<T>,

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     tools::{
         code_executor::docker::{DockerExecutor, DockerExecutorOptions},
-        core::{Tool, ToolMessageChunk, ToolParameters, ToolResult},
+        core::{Tool, ToolLog, ToolParameters, ToolResult},
         ToolError,
     },
     utils::sender_with_logging::SenderWithLogging,
@@ -107,7 +107,7 @@ impl Tool for CodeExecutorTool<'_> {
     async fn execute(
         &self,
         params: &ToolParameters,
-        sender: &SenderWithLogging<ToolMessageChunk>,
+        sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String> {
         let input = serde_json::from_value::<CodeExecutorInput>(
             serde_json::to_value(params).expect("Should be valid JSON"),
