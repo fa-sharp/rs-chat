@@ -32,6 +32,7 @@ const GO_IMAGE: &str = "golang:1.24";
 const BASH_IMAGE: &str = "bash:5.3";
 
 const SET_USER_AND_HOME_DIR: &str = r#"
+RUN mkdir -p /app && chown 1000:1000 /app
 USER 1000:1000
 RUN mkdir -p /tmp/home
 WORKDIR /app
