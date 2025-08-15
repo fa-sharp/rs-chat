@@ -18,6 +18,7 @@ import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import type { components } from "@/lib/api/types";
 import type { StreamedToolExecution } from "@/lib/context/StreamingContext";
 import { cn, escapeBackticks } from "@/lib/utils";
+import { useAutoScroll } from "../ui/chat/hooks/useAutoScroll";
 import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
 
 interface Props {
@@ -152,7 +153,9 @@ function StreamingToolCall({
         )}
 
         {/* Logs section */}
-        {hasLogs && <ChatMessageToolLogs logs={streamedTool.logs} />}
+        {hasLogs && (
+          <ChatMessageToolLogs logs={streamedTool.logs} initialOpen />
+        )}
 
         {/* Debug logs section */}
         {hasDebugLogs && (
@@ -169,15 +172,17 @@ function StreamingToolCall({
                 </span>
               </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-0.5 pt-1">
-              {streamedTool.debugLogs.map((debug, index) => (
-                <div
-                  key={`debug-${index}-${debug.slice(0, 20)}`}
-                  className="rounded bg-muted/20 px-2 py-1 text-xs font-mono text-muted-foreground"
-                >
-                  {debug}
-                </div>
-              ))}
+            <CollapsibleContent>
+              <DebugLogsContent>
+                {streamedTool.debugLogs.map((debug, index) => (
+                  <div
+                    key={`debug-${index}-${debug.slice(0, 20)}`}
+                    className="rounded bg-muted/20 px-2 py-1 text-xs font-mono text-muted-foreground"
+                  >
+                    {debug}
+                  </div>
+                ))}
+              </DebugLogsContent>
             </CollapsibleContent>
           </Collapsible>
         )}
@@ -188,5 +193,15 @@ function StreamingToolCall({
         </div>
       </ChatBubbleMessage>
     </ChatBubble>
+  );
+}
+
+function DebugLogsContent({ children }: { children: React.ReactNode }) {
+  const { scrollRef } = useAutoScroll({ content: children });
+
+  return (
+    <div ref={scrollRef} className="space-y-0.5 pt-1 max-h-32 overflow-auto">
+      {children}
+    </div>
   );
 }

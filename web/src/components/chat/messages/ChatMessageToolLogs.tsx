@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useAutoScroll } from "@/components/ui/chat/hooks/useAutoScroll";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,16 +27,28 @@ export default function ChatMessageToolLogs({
           </span>
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-0.5 pt-2">
-        {logs.map((log, index) => (
-          <div
-            key={`log-${index}-${log.slice(0, 20)}`}
-            className="rounded bg-muted/30 px-2 py-1 text-xs font-mono"
-          >
-            {log}
-          </div>
-        ))}
+      <CollapsibleContent>
+        <LogsContent>
+          {logs.map((log, index) => (
+            <div
+              key={`log-${index}-${log.slice(0, 20)}`}
+              className="rounded bg-muted/30 px-2 py-1 text-xs font-mono"
+            >
+              {log}
+            </div>
+          ))}
+        </LogsContent>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function LogsContent({ children }: { children: React.ReactNode }) {
+  const { scrollRef } = useAutoScroll({ content: children });
+
+  return (
+    <div ref={scrollRef} className="space-y-0.5 pt-2 max-h-32 overflow-auto">
+      {children}
+    </div>
   );
 }

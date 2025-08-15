@@ -62,7 +62,8 @@ export default function ChatMessage({
         className={cn(
           proseClasses,
           message.role === "User" && proseUserClasses,
-          message.role === "Assistant" && proseAssistantClasses,
+          (message.role === "Assistant" || message.role === "Tool") &&
+            proseAssistantClasses,
         )}
       >
         {message.role === "Tool" ? (
