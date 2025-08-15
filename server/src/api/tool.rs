@@ -114,12 +114,12 @@ async fn execute_tool(
         .await?
         .ok_or(ToolError::ToolNotFound)?;
 
-    let (streaming_tx, streaming_rx) = tokio::sync::mpsc::channel(20);
+    let (streaming_tx, streaming_rx) = tokio::sync::mpsc::channel(50);
     let http_client = http_client.inner().clone();
 
     // Spawn async tasks to collect logs, execute tool, and save final result to database
     tokio::spawn(async move {
-        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(20);
+        let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(50);
         let sender_with_logging = SenderWithLogging::new(streaming_tx, log_tx);
 
         let log_collector = tokio::spawn(async move {
