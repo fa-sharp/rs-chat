@@ -122,7 +122,7 @@ async fn execute_tool(
         let (log_tx, mut log_rx) = tokio::sync::mpsc::channel(50);
         let sender_with_logging = SenderWithLogging::new(streaming_tx, log_tx);
 
-        let log_collector = tokio::spawn(async move {
+        let log_collector_task = tokio::spawn(async move {
             let mut logs = None;
             let mut errors = None;
             while let Some(chunk) = log_rx.recv().await {
@@ -144,7 +144,7 @@ async fn execute_tool(
             .execute(&tool_call.parameters, &http_client, &sender_with_logging)
             .await;
         drop(sender_with_logging); // Drop sender to close logging channel
-        let (logs, errors) = log_collector.await.unwrap_or_default();
+        let (logs, errors) = log_collector_task.await.unwrap_or_default();
 
         // Save final result to database
         let _ = ChatDbService::new(&mut db)

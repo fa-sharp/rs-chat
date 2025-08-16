@@ -8,8 +8,8 @@ use subst::VariableMap;
 
 use crate::{
     tools::{
-        core::ToolLog, utils::http_request_builder::HttpRequestBuilder,
-        validate_json_schema, Tool, ToolError, ToolJsonSchema, ToolParameters, ToolResult,
+        core::ToolLog, utils::http_request_builder::HttpRequestBuilder, validate_json_schema, Tool,
+        ToolError, ToolJsonSchema, ToolParameters, ToolResult,
     },
     utils::sender_with_logging::SenderWithLogging,
 };
@@ -77,19 +77,29 @@ impl Tool for HttpRequestTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: &SenderWithLogging<ToolLog>,
+        tx: &SenderWithLogging<ToolLog>,
     ) -> Result<String, ToolError> {
         // Build the HTTP request components
+        let _ = tx.send(ToolLog::Log("Building request...".into())).await;
         let url = self.build_url(parameters)?;
         let headers = self.build_headers(parameters)?;
         let body = self.build_body(parameters, &self.config.body)?;
 
         // Execute the HTTP request
-        let response = self
+        let _ = tx.send(ToolLog::Log("Sending request...".into())).await;
+        match self
             .execute_request(&self.config.method, &url, headers, body)
-            .await?;
-
-        Ok(response)
+            .await
+        {
+            Ok(response) => {
+                let _ = tx.send(ToolLog::Log("Success!".into())).await;
+                Ok(response)
+            }
+            Err(err) => {
+                let _ = tx.send(ToolLog::Error(err.to_string())).await;
+                Err(err)
+            }
+        }
     }
 }
 

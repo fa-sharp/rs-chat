@@ -90,7 +90,7 @@ impl Tool for WebSearchTool<'_> {
     async fn execute(
         &self,
         parameters: &ToolParameters,
-        _sender: &SenderWithLogging<ToolLog>,
+        tx: &SenderWithLogging<ToolLog>,
     ) -> Result<String, ToolError> {
         let query = parameters
             .get("query")
@@ -102,10 +102,20 @@ impl Tool for WebSearchTool<'_> {
             ));
         }
 
-        let search_results = self.provider.search(&self.http_client, query).await?;
-        let formatted_results = self.format_results(&search_results);
-
-        Ok(formatted_results)
+        let _ = tx.send(ToolLog::Log("Searching...".into())).await;
+        match self.provider.search(&self.http_client, query).await {
+            Ok(search_results) => {
+                let message = format!("Found {} results", search_results.len());
+                let _ = tx.send(ToolLog::Log(message)).await;
+                let formatted_results = self.format_results(&search_results);
+                Ok(formatted_results)
+            }
+            Err(err) => {
+                let error_message = format!("Search error: {}", err);
+                let _ = tx.send(ToolLog::Error(error_message)).await;
+                Err(err)
+            }
+        }
     }
 }
 
