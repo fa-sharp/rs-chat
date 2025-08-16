@@ -77,12 +77,33 @@ function RouteComponent() {
     [session?.messages],
   );
 
+  /** Whether we just finished executing tool call(s) and are ready to get an agentic response */
+  const canGetAgenticResponse = useMemo(() => {
+    const lastMessage = session?.messages.at(-1);
+    if (lastMessage?.role !== "Tool" || !lastMessage.meta.tool_call)
+      return false;
+    const toolCall = lastMessage.meta.tool_call;
+    const toolCallMessage = session?.messages.findLast(
+      (m) =>
+        m.role === "Assistant" &&
+        m.meta.assistant?.tool_calls?.some((tc) => tc.id === toolCall.id),
+    );
+    const allToolCallsExecuted =
+      toolCallMessage?.meta.assistant?.tool_calls?.every((tc) =>
+        session?.messages.some(
+          (m) => m.role === "Tool" && m.meta.tool_call?.id === tc.id,
+        ),
+      );
+    return !!toolCallMessage && !!allToolCallsExecuted;
+  }, [session?.messages]);
+
   const inputState = useChatInputState({
     providers,
     initialProviderId: lastAssistantMessage?.meta.assistant?.provider_id,
     initialOptions: lastAssistantMessage?.meta.assistant?.provider_options,
     initialToolIds: session?.session.meta.tools,
     isGenerating: currentStream?.status === "streaming",
+    canGetAgenticResponse,
     onSubmit,
     sessionId,
   });

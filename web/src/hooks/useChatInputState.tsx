@@ -12,6 +12,7 @@ export const useChatInputState = ({
   initialOptions,
   initialToolIds,
   isGenerating,
+  canGetAgenticResponse,
   onSubmit,
 }: {
   sessionId?: string;
@@ -20,6 +21,7 @@ export const useChatInputState = ({
   initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
   initialToolIds?: string[] | null;
   isGenerating: boolean;
+  canGetAgenticResponse: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
 }) => {
   const [providerId, setProviderId] = useState<number | null>(
@@ -153,6 +155,7 @@ export const useChatInputState = ({
       setMaxTokens,
       setTemperature,
       isGenerating,
+      canGetAgenticResponse,
       onSelectModel,
       onToggleTool,
       onSubmitUserMessage,
@@ -166,6 +169,7 @@ export const useChatInputState = ({
       temperature,
       error,
       isGenerating,
+      canGetAgenticResponse,
       onSelectModel,
       onToggleTool,
       onSubmitUserMessage,
