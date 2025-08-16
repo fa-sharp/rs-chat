@@ -14,7 +14,7 @@ interface UseAutoScrollOptions {
 }
 
 export function useAutoScroll(options: UseAutoScrollOptions = {}) {
-  const { offset = 20, smooth = false, content } = options;
+  const { offset = 4, smooth = false, content } = options;
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastContentHeight = useRef(0);
   const initialContentHeight = useRef(0);
@@ -73,7 +73,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     }));
   }, [checkIsAtBottom]);
 
-  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 50);
+  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 20);
 
   useEffect(() => {
     const element = scrollRef.current;
