@@ -113,7 +113,7 @@ async fn execute_tool(
         .ok_or(ToolError::ToolCallNotFound)?;
     let mut tool_db_service = ToolDbService::new(&mut db);
     let (system_tool, external_api_tool, secret_1) = match tool_call.tool_type {
-        LlmToolType::Internal => {
+        LlmToolType::System => {
             let tool = tool_db_service
                 .find_system_tool_by_id(&user_id, &tool_call.tool_id)
                 .await?

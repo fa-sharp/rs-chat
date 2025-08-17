@@ -110,7 +110,7 @@ impl SystemToolConfig for CodeRunnerConfig {
             description: CODE_RUNNER_DESCRIPTION.into(),
             input_schema,
             tool_id,
-            tool_type: LlmToolType::Internal,
+            tool_type: LlmToolType::System,
         }]
     }
 }

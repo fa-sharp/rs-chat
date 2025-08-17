@@ -88,7 +88,7 @@ pub struct LlmTool {
 #[serde(rename_all = "snake_case")]
 pub enum LlmToolType {
     #[default]
-    Internal,
+    System,
     ExternalApi,
 }
 
