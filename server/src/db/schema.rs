@@ -48,6 +48,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    external_api_tools (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        config -> Jsonb,
+        secret_1 -> Nullable<Uuid>,
+        secret_2 -> Nullable<Uuid>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     providers (id) {
         id -> Int4,
         name -> Text,
@@ -68,6 +80,16 @@ diesel::table! {
         nonce -> Bytea,
         created_at -> Timestamptz,
         name -> Text,
+    }
+}
+
+diesel::table! {
+    system_tools (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        config -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
@@ -101,17 +123,21 @@ diesel::table! {
 diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
+diesel::joinable!(external_api_tools -> users (user_id));
 diesel::joinable!(providers -> secrets (api_key_id));
 diesel::joinable!(providers -> users (user_id));
 diesel::joinable!(secrets -> users (user_id));
+diesel::joinable!(system_tools -> users (user_id));
 diesel::joinable!(tools -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     app_api_keys,
     chat_messages,
     chat_sessions,
+    external_api_tools,
     providers,
     secrets,
+    system_tools,
     tools,
     users,
 );

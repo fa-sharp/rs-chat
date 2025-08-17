@@ -25,8 +25,9 @@ use crate::{
         DbConnection, DbPool,
     },
     errors::ApiError,
-    provider::{build_llm_provider_api, LlmApiProviderSharedOptions},
+    provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmTool},
     redis::RedisClient,
+    tools::SendChatToolInput,
     utils::{
         encryption::Encryptor, generate_title::generate_title, stored_stream::StoredChatRsStream,
     },
@@ -38,14 +39,14 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 
 #[derive(JsonSchema, serde::Deserialize)]
 pub struct SendChatInput<'a> {
-    /// The new chat message
+    /// The new chat message from the user
     message: Option<Cow<'a, str>>,
     /// The ID of the provider to chat with
     provider_id: i32,
     /// Provider options
     provider_options: LlmApiProviderSharedOptions,
-    /// IDs of the tools available to the assistant
-    tools: Option<Vec<Uuid>>,
+    /// Configuration of tools available to the assistant
+    tools: Option<SendChatToolInput>,
 }
 
 /// Send a chat message and stream the response
@@ -59,7 +60,7 @@ pub async fn send_chat_stream(
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
-    input: Json<SendChatInput<'_>>,
+    mut input: Json<SendChatInput<'_>>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     // Check session exists and user is owner, get message history
     let (session, mut current_messages) = ChatDbService::new(&mut db)
@@ -83,22 +84,22 @@ pub async fn send_chat_stream(
     )?;
 
     // Get the user's chosen tools
-    let available_tools = match &input.tools {
-        Some(available_tool_ids) => {
-            let tools = ToolDbService::new(&mut db)
-                .find_by_user(&user_id)
-                .await?
-                .into_iter()
-                .filter(|tool| available_tool_ids.contains(&tool.id))
-                .collect::<Vec<_>>();
-            if tools.is_empty() {
-                None
-            } else {
-                Some(tools)
-            }
+    let mut llm_tools: Option<Vec<LlmTool>> = None;
+    let mut tool_db_service = ToolDbService::new(&mut db);
+    if let Some(system_tool_input) = input.tools.as_ref().and_then(|t| t.system.as_ref()) {
+        let system_tools = tool_db_service.find_system_tools_by_user(&user_id).await?;
+        let system_llm_tools = system_tool_input.get_llm_tools(&system_tools)?;
+        llm_tools.get_or_insert_default().extend(system_llm_tools);
+    }
+    if let Some(external_apis_input) = input.tools.as_ref().and_then(|t| t.external_apis.as_ref()) {
+        let external_api_tools = tool_db_service
+            .find_external_api_tools_by_user(&user_id)
+            .await?;
+        for tool_input in external_apis_input {
+            let api_llm_tools = tool_input.into_llm_tools(&external_api_tools)?;
+            llm_tools.get_or_insert_default().extend(api_llm_tools);
         }
-        None => None,
-    };
+    }
 
     // Save user message and generate session title if needed
     if let Some(user_message) = &input.message {
@@ -129,19 +130,19 @@ pub async fn send_chat_stream(
     }
 
     // Update session metadata
-    if let Some(tool_ids) = input
-        .tools
-        .as_ref()
-        .map(|t| t.iter().map(Uuid::to_string).collect())
-    {
-        if session.meta.tools.is_none_or(|ids| ids != tool_ids) {
+    if let Some(tool_input) = input.tools.take() {
+        if session
+            .meta
+            .tool_config
+            .is_none_or(|config| config != tool_input)
+        {
             ChatDbService::new(&mut db)
                 .update_session(
                     &user_id,
                     &session_id,
                     UpdateChatRsSession {
                         meta: Some(&ChatRsSessionMeta {
-                            tools: Some(tool_ids),
+                            tool_config: Some(tool_input),
                         }),
                         ..Default::default()
                     },
@@ -153,7 +154,7 @@ pub async fn send_chat_stream(
     // Get the provider's stream response and wrap it in our StoredChatRsStream
     let stream = StoredChatRsStream::new(
         provider_api
-            .chat_stream(current_messages, available_tools, &input.provider_options)
+            .chat_stream(current_messages, llm_tools, &input.provider_options)
             .await?,
         input.provider_id,
         input.provider_options.clone(),

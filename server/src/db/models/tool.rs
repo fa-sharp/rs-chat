@@ -11,7 +11,8 @@ use uuid::Uuid;
 
 use crate::{
     db::models::ChatRsUser,
-    tools::{ToolConfig, ToolConfigPublic},
+    provider::LlmToolType,
+    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolConfig, ToolConfigPublic},
 };
 
 #[derive(Identifiable, Queryable, Selectable, Associations)]
@@ -59,6 +60,9 @@ pub struct ChatRsToolCall {
     pub tool_id: Uuid,
     /// Name of the tool used
     pub tool_name: String,
+    /// Type of the tool used
+    #[serde(default)]
+    pub tool_type: LlmToolType,
     /// Input parameters passed to the tool
     pub parameters: HashMap<String, serde_json::Value>,
 }
@@ -79,4 +83,28 @@ pub struct ChatRsExecutedToolCall {
     /// Collected errors from the tool execution
     #[serde(skip_serializing_if = "Option::is_none")]
     pub errors: Option<Vec<String>>,
+}
+
+#[derive(Debug, Identifiable, Queryable, Selectable, Associations, JsonSchema)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::system_tools)]
+pub struct ChatRsSystemTool {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub config: ChatRsSystemToolConfig,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Identifiable, Queryable, Selectable, Associations, JsonSchema)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::external_api_tools)]
+pub struct ChatRsExternalApiTool {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub config: ChatRsExternalApiToolConfig,
+    pub secret_1: Option<Uuid>,
+    pub secret_2: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

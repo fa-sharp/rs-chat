@@ -26,8 +26,9 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
+    provider::LlmToolType,
     tools::{ToolConfig, ToolError, ToolLog},
-    utils::sender_with_logging::SenderWithLogging,
+    utils::{encryption::Encryptor, sender_with_logging::SenderWithLogging},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -92,6 +93,7 @@ async fn execute_tool(
     user_id: ChatRsUserId,
     mut db: DbConnection,
     http_client: &State<reqwest::Client>,
+    encryptor: &State<Encryptor>,
     message_id: Uuid,
     tool_call_id: &str,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
@@ -109,13 +111,31 @@ async fn execute_tool(
                 .find(|tool_call| tool_call.id == tool_call_id)
         })
         .ok_or(ToolError::ToolCallNotFound)?;
-    let tool = ToolDbService::new(&mut db)
-        .find_by_id(&user_id, &tool_call.tool_id)
-        .await?
-        .ok_or(ToolError::ToolNotFound)?;
+    let mut tool_db_service = ToolDbService::new(&mut db);
+    let (system_tool, external_api_tool, secret_1) = match tool_call.tool_type {
+        LlmToolType::Internal => {
+            let tool = tool_db_service
+                .find_system_tool_by_id(&user_id, &tool_call.tool_id)
+                .await?
+                .ok_or(ToolError::ToolNotFound)?;
+            (Some(tool), None, None)
+        }
+        LlmToolType::ExternalApi => {
+            let (tool, secret) = tool_db_service
+                .find_external_api_tool_by_id(&user_id, &tool_call.tool_id)
+                .await?
+                .map(|(tool, secret)| {
+                    let secret = secret.map(|s| encryptor.decrypt_string(&s.ciphertext, &s.nonce));
+                    (tool, secret)
+                })
+                .ok_or(ToolError::ToolNotFound)?;
+            (None, Some(tool), secret.transpose()?)
+        }
+    };
 
     let (streaming_tx, streaming_rx) = tokio::sync::mpsc::channel(50);
     let http_client = http_client.inner().clone();
+    let secrets = secret_1.into_iter().collect::<Vec<_>>();
 
     // Spawn async tasks to collect logs, execute tool, and save final result to database
     tokio::spawn(async move {
@@ -140,9 +160,37 @@ async fn execute_tool(
         });
 
         // Execute tool and collect logs
-        let (content, is_error) = tool
-            .execute(&tool_call.parameters, &http_client, &sender_with_logging)
-            .await;
+        let (content, is_error) = if let Some(system_tool) = system_tool {
+            match system_tool
+                .build_system_tool_executor()
+                .execute(
+                    &tool_call.tool_name,
+                    &tool_call.parameters,
+                    &sender_with_logging,
+                )
+                .await
+            {
+                Ok(response) => (response, None),
+                Err(e) => (e.to_string(), Some(true)),
+            }
+        } else if let Some(api_tool) = external_api_tool {
+            match api_tool
+                .build_external_api_tool_executor()
+                .execute(
+                    &tool_call.tool_name,
+                    &tool_call.parameters,
+                    &secrets,
+                    &http_client,
+                    &sender_with_logging,
+                )
+                .await
+            {
+                Ok(response) => (response, None),
+                Err(e) => (e.to_string(), Some(true)),
+            }
+        } else {
+            (String::new(), None)
+        };
         drop(sender_with_logging); // Drop sender to close logging channel
         let (logs, errors) = log_collector_task.await.unwrap_or_default();
 

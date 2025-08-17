@@ -1,10 +1,16 @@
 mod code_executor;
 mod core;
+mod external_api;
 mod http_request;
+mod system;
 mod utils;
 mod web_search;
 
-pub use core::{ToolError, ToolLog};
+pub use {
+    core::{ToolError, ToolLog},
+    external_api::{ChatRsExternalApiToolConfig, ExternalApiTool, ExternalApiToolInput},
+    system::{ChatRsSystemToolConfig, SystemTool, SystemToolInput},
+};
 
 use std::collections::HashMap;
 
@@ -22,6 +28,13 @@ use crate::{
     },
     utils::sender_with_logging::SenderWithLogging,
 };
+
+/// User configuration of tools when sending a chat message
+#[derive(Debug, Default, PartialEq, JsonSchema, serde::Serialize, serde::Deserialize)]
+pub struct SendChatToolInput {
+    pub system: Option<SystemToolInput>,
+    pub external_apis: Option<Vec<ExternalApiToolInput>>,
+}
 
 /// Tool configuration stored in the daabase
 #[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]

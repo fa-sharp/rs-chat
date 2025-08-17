@@ -8,9 +8,10 @@ use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsTool},
+    db::models::ChatRsMessage,
     provider::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
+        LlmTool,
     },
     provider_models::LlmModel,
 };
@@ -73,7 +74,7 @@ impl LlmApiProvider for LoremProvider {
     async fn chat_stream(
         &self,
         _messages: Vec<ChatRsMessage>,
-        _tools: Option<Vec<ChatRsTool>>,
+        _tools: Option<Vec<LlmTool>>,
         _options: &LlmApiProviderSharedOptions,
     ) -> Result<LlmApiStream, LlmError> {
         let lorem_words = vec![

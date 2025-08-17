@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     db::models::{ChatRsExecutedToolCall, ChatRsToolCall, ChatRsUser},
     provider::{LlmApiProviderSharedOptions, LlmUsage},
+    tools::SendChatToolInput,
 };
 
 #[derive(Identifiable, Associations, Queryable, Selectable, JsonSchema, serde::Serialize)]
@@ -28,9 +29,9 @@ pub struct ChatRsSession {
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize, AsJsonb)]
 pub struct ChatRsSessionMeta {
-    /// IDs of the tools available to the assistant
+    /// User configuration of tools for this session
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<String>>,
+    pub tool_config: Option<SendChatToolInput>,
 }
 
 #[derive(Insertable)]

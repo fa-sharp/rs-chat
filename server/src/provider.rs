@@ -8,9 +8,10 @@ use std::pin::Pin;
 
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
+use uuid::Uuid;
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsProviderType, ChatRsTool, ChatRsToolCall},
+    db::models::{ChatRsMessage, ChatRsProviderType, ChatRsToolCall},
     provider::{anthropic::AnthropicProvider, lorem::LoremProvider, openai::OpenAIProvider},
     provider_models::LlmModel,
 };
@@ -72,6 +73,25 @@ pub struct LlmApiProviderSharedOptions {
     pub max_tokens: Option<u32>,
 }
 
+/// Generic tool that can be passed to LLM providers
+pub struct LlmTool {
+    pub name: String,
+    pub description: String,
+    pub input_schema: serde_json::Value,
+    /// ID of the RsChat tool that this is derived from
+    pub tool_id: Uuid,
+    /// The type of tool this is derived from (internal, external API, etc.)
+    pub tool_type: LlmToolType,
+}
+
+#[derive(Default, Debug, Clone, Copy, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LlmToolType {
+    #[default]
+    Internal,
+    ExternalApi,
+}
+
 /// Unified API for LLM providers
 #[async_trait]
 pub trait LlmApiProvider {
@@ -79,7 +99,7 @@ pub trait LlmApiProvider {
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
-        tools: Option<Vec<ChatRsTool>>,
+        tools: Option<Vec<LlmTool>>,
         options: &LlmApiProviderSharedOptions,
     ) -> Result<LlmApiStream, LlmError>;
 
@@ -94,7 +114,7 @@ pub trait LlmApiProvider {
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError>;
 }
 
-/// Build the LLM API provider to make calls to the provider
+/// Build the LLM API to make calls to the provider
 pub fn build_llm_provider_api<'a>(
     provider_type: &ChatRsProviderType,
     base_url: Option<&'a str>,
