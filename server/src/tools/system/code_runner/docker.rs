@@ -24,16 +24,13 @@ use crate::{
         },
         ToolError,
     },
-    utils::sender_with_logging::SenderWithLogging,
+    utils::SenderWithLogging,
 };
 
 static DOCKER: LazyLock<Result<Docker, bollard::errors::Error>> =
     LazyLock::new(|| Docker::connect_with_defaults());
 
-const TIMEOUT_SECONDS: u32 = 30;
 const GRACE_PERIOD_SECONDS: u32 = 5;
-const MEMORY_LIMIT_MB: u32 = 512;
-const CPU_LIMIT: f32 = 0.5;
 
 pub struct DockerExecutor {
     lang: CodeLanguage,
@@ -47,20 +44,20 @@ pub struct DockerExecutor {
 
 #[derive(Debug, Default)]
 pub struct DockerExecutorOptions {
-    pub timeout_seconds: Option<u32>,
-    pub memory_limit_mb: Option<u32>,
-    pub cpu_limit: Option<f32>,
-    pub network: Option<bool>,
+    pub timeout_seconds: u32,
+    pub memory_limit_mb: u32,
+    pub cpu_limit: f32,
+    pub network: bool,
 }
 
 impl DockerExecutor {
     pub fn new(lang: CodeLanguage, options: DockerExecutorOptions) -> Self {
         DockerExecutor {
             lang,
-            timeout_seconds: options.timeout_seconds.unwrap_or(TIMEOUT_SECONDS),
-            memory_limit_mb: options.memory_limit_mb.unwrap_or(MEMORY_LIMIT_MB),
-            cpu_limit: options.cpu_limit.unwrap_or(CPU_LIMIT),
-            network: options.network.unwrap_or(false),
+            timeout_seconds: options.timeout_seconds,
+            memory_limit_mb: options.memory_limit_mb,
+            cpu_limit: options.cpu_limit,
+            network: options.network,
             image_tag: format!("code-runner-{}", Uuid::new_v4()),
             container_name: format!("code-runner-{}", Uuid::new_v4()),
         }

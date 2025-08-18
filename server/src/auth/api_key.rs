@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{services::ApiKeyDbService, DbConnection},
-    utils::encryption::Encryptor,
+    utils::Encryptor,
 };
 
 const API_KEY_PREFIX: &str = "rs-chat-key";

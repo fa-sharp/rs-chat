@@ -20,7 +20,7 @@ use crate::{
         ChatRsAuthSession, SSOHeaderMergedConfig,
     },
     db::{models::ChatRsUser, services::UserDbService, DbConnection},
-    utils::encryption::Encryptor,
+    utils::Encryptor,
 };
 
 /// User ID request guard to ensure a logged-in user.

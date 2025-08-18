@@ -1,4 +1,4 @@
-use chat_rs_api::{build_rocket, utils::json_logging::setup_json_logging};
+use chat_rs_api::{build_rocket, utils::setup_json_logging};
 use rocket::launch;
 
 #[launch]

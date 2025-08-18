@@ -1,19 +1,46 @@
 mod exa;
 
-use exa::ExaSearchTool;
+use std::sync::LazyLock;
 
 use rocket::async_trait;
-use schemars::JsonSchema;
+use schemars::{schema_for, JsonSchema};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     provider::{LlmTool, LlmToolType},
-    utils::sender_with_logging::SenderWithLogging,
+    utils::SenderWithLogging,
 };
 
 use super::{
     ExternalApiTool, ExternalApiToolConfig, ToolError, ToolLog, ToolParameters, ToolResult,
 };
+
+use exa::ExaSearchTool;
+
+const QUERY_DESCRIPTION: &str = "Search the web for a given query.";
+const CONTENT_DESCRIPTION: &str = "Extract content from a given URL.";
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct QueryInputSchema {
+    /// The search query
+    query: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ContentInputSchema {
+    /// The URL to extract
+    #[validate(url)]
+    url: String,
+}
+
+static QUERY_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
+    serde_json::to_value(schema_for!(QueryInputSchema)).expect("Should be valid JSON")
+});
+static CONTENT_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
+    serde_json::to_value(schema_for!(ContentInputSchema)).expect("Should be valid JSON")
+});
 
 /// A web search tool that can support multiple providers.
 pub struct WebSearchTool {
@@ -27,6 +54,7 @@ pub struct WebSearchConfig {
     provider: WebSearchProviderConfig,
     /// Max search results to return.
     #[serde(default = "default_count")]
+    #[validate(range(min = 1, max = 10))]
     count: u8,
 }
 fn default_count() -> u8 {
@@ -38,7 +66,6 @@ fn default_count() -> u8 {
 pub enum WebSearchProviderConfig {
     Exa,
 }
-
 impl WebSearchProviderConfig {
     fn provider_str(&self) -> &'static str {
         match self {
@@ -64,12 +91,12 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
         tool_id: uuid::Uuid,
         input_config: Option<&WebSearchDynamicConfig>,
     ) -> Vec<LlmTool> {
-        let mut llm_tools = Vec::with_capacity(2);
+        let mut llm_tools: Vec<LlmTool> = Vec::with_capacity(2);
         if input_config.as_ref().map_or(true, |config| config.search) {
             llm_tools.push(LlmTool {
                 name: format!("{}:search", self.provider.provider_str()),
-                description: "Search the web for a given query.".into(),
-                input_schema: get_query_input_schema(),
+                description: QUERY_DESCRIPTION.into(),
+                input_schema: QUERY_INPUT_SCHEMA.clone(),
                 tool_id,
                 tool_type: LlmToolType::ExternalApi,
             });
@@ -77,22 +104,28 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
         if input_config.as_ref().map_or(true, |config| config.extract) {
             llm_tools.push(LlmTool {
                 name: format!("{}:content", self.provider.provider_str()),
-                description: "Extract content from a given URL.".into(),
-                input_schema: get_content_input_schema(),
+                description: CONTENT_DESCRIPTION.into(),
+                input_schema: CONTENT_INPUT_SCHEMA.clone(),
                 tool_id,
                 tool_type: LlmToolType::ExternalApi,
             });
         }
         llm_tools
     }
+
+    fn validate(&mut self) -> ToolResult<()> {
+        let config_schema = serde_json::to_value(schema_for!(Self))?;
+        jsonschema::validate(&config_schema, &serde_json::to_value(self)?)
+            .map_err(|e| ToolError::InvalidConfiguration(e.to_string()))
+    }
 }
 
 #[async_trait]
 impl ExternalApiTool for WebSearchTool {
     fn input_schema(&self, tool_name: &str) -> ToolResult<serde_json::Value> {
-        match tool_name {
-            "web_search" => Ok(get_query_input_schema()),
-            "web_content" => Ok(get_content_input_schema()),
+        match tool_name.split_once(':').ok_or(ToolError::ToolNotFound)?.1 {
+            "web_search" => Ok(QUERY_INPUT_SCHEMA.clone()),
+            "web_content" => Ok(CONTENT_INPUT_SCHEMA.clone()),
             _ => Err(ToolError::ToolNotFound),
         }
     }
@@ -190,34 +223,4 @@ struct WebSearchResult {
     title: String,
     url: String,
     description: String,
-}
-
-/// Input schema for query search
-fn get_query_input_schema() -> serde_json::Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "The search query"
-            }
-        },
-        "required": ["query"],
-        "additionalProperties": false
-    })
-}
-
-/// Input schema for web content/scraping
-fn get_content_input_schema() -> serde_json::Value {
-    serde_json::json!({
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "The URL to scrape"
-            }
-        },
-        "required": ["url"],
-        "additionalProperties": false
-    })
 }

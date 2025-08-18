@@ -41,8 +41,9 @@ pub struct StoredChatRsStream<
     last_cache_time: Instant,
 }
 
-pub const CACHE_KEY_PREFIX: &str = "chat_session:";
-const CACHE_INTERVAL: Duration = Duration::from_secs(1); // cache the response every second
+/// The prefix for the cache key used for streaming chat responses.
+pub const CHAT_CACHE_KEY_PREFIX: &str = "chat_session:";
+const CHAT_CACHE_INTERVAL: Duration = Duration::from_secs(1); // cache the response every second
 
 impl<S> StoredChatRsStream<S>
 where
@@ -119,13 +120,13 @@ where
                 rocket::info!("Saved chat response, session {}", session_id);
             }
 
-            let key = format!("{}{}", CACHE_KEY_PREFIX, session_id);
+            let key = format!("{}{}", CHAT_CACHE_KEY_PREFIX, session_id);
             let _ = redis_client.del::<(), _>(&key).await;
         });
     }
 
     fn should_cache(&self) -> bool {
-        self.last_cache_time.elapsed() >= CACHE_INTERVAL
+        self.last_cache_time.elapsed() >= CHAT_CACHE_INTERVAL
     }
 }
 
@@ -169,7 +170,7 @@ where
 
                     // Spawn async task to cache
                     tokio::spawn(async move {
-                        let key = format!("{}{}", CACHE_KEY_PREFIX, session_id);
+                        let key = format!("{}{}", CHAT_CACHE_KEY_PREFIX, session_id);
                         rocket::debug!("Caching chat session {}", session_id);
                         if let Err(e) = redis_client
                             .set::<(), _, _>(

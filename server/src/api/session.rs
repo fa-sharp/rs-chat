@@ -19,7 +19,7 @@ use crate::{
     },
     errors::ApiError,
     redis::RedisClient,
-    utils::{full_text_search::SessionSearchResult, stored_stream::CACHE_KEY_PREFIX},
+    utils::{SessionSearchResult, CHAT_CACHE_KEY_PREFIX},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -93,7 +93,7 @@ async fn get_session(
 
     // Check for a cached response if the session is interrupted
     let cached_response: Option<String> = redis
-        .get(format!("{}{}", CACHE_KEY_PREFIX, &session_id))
+        .get(format!("{}{}", CHAT_CACHE_KEY_PREFIX, &session_id))
         .await?;
     if let Some(interrupted_response) = cached_response {
         messages.push(ChatRsMessage {

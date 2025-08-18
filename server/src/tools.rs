@@ -1,106 +1,19 @@
-mod code_executor;
 mod core;
 mod external_api;
-mod http_request;
 mod system;
 mod utils;
-mod web_search;
 
 pub use {
-    core::{ToolError, ToolLog},
-    external_api::{ChatRsExternalApiToolConfig, ExternalApiTool, ExternalApiToolInput},
-    system::{ChatRsSystemToolConfig, SystemTool, SystemToolInput},
+    core::{ToolError, ToolJsonSchema, ToolLog, ToolParameters, ToolResult},
+    external_api::{ChatRsExternalApiToolConfig, ExternalApiToolInput},
+    system::{ChatRsSystemToolConfig, SystemToolInput},
 };
 
-use std::collections::HashMap;
-
-use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    db::models::ChatRsTool,
-    tools::{
-        code_executor::{CodeExecutorTool, CodeExecutorToolConfig},
-        core::{validate_json_schema, Tool, ToolJsonSchema, ToolParameters, ToolResult},
-        http_request::{HttpRequestConfig, HttpRequestConfigPublic, HttpRequestTool},
-        web_search::{WebSearchConfig, WebSearchConfigPublic, WebSearchTool},
-    },
-    utils::sender_with_logging::SenderWithLogging,
-};
 
 /// User configuration of tools when sending a chat message
 #[derive(Debug, Default, PartialEq, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct SendChatToolInput {
     pub system: Option<SystemToolInput>,
     pub external_apis: Option<Vec<ExternalApiToolInput>>,
-}
-
-/// Tool configuration stored in the daabase
-#[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
-#[serde(tag = "type")]
-pub enum ToolConfig {
-    Http(HttpRequestConfig),
-    WebSearch(WebSearchConfig),
-    CodeExecutor(CodeExecutorToolConfig),
-}
-
-/// The tool's configuration
-#[derive(Debug, JsonSchema, Serialize, Deserialize, AsJsonb)]
-#[serde(tag = "type")]
-pub enum ToolConfigPublic {
-    Http(HttpRequestConfigPublic),
-    WebSearch(WebSearchConfigPublic),
-    CodeExecutor(CodeExecutorToolConfig),
-}
-
-impl ToolConfig {
-    /// Validate the tool's configuration
-    pub fn validate(&mut self) -> Result<(), ToolError> {
-        match self {
-            ToolConfig::Http(config) => config.validate(),
-            ToolConfig::WebSearch(config) => config.validate(),
-            ToolConfig::CodeExecutor(config) => config.validate(),
-        }
-    }
-}
-
-impl ChatRsTool {
-    /// Validate input parameters and execute the tool. Returns the response
-    /// and a boolean indicating whether there was an error.
-    pub async fn execute(
-        &self,
-        parameters: &HashMap<String, serde_json::Value>,
-        http_client: &reqwest::Client,
-        sender: &SenderWithLogging<ToolLog>,
-    ) -> (String, Option<bool>) {
-        let tool = self.create_tool_executor(http_client);
-        if let Err(e) = tool.validate_input(parameters) {
-            return (e.to_string(), Some(true));
-        }
-
-        rocket::debug!("Executing tool: {}", tool.name());
-        match tool.execute(parameters, sender).await {
-            Ok(response) => (response, None),
-            Err(e) => (e.to_string(), Some(true)),
-        }
-    }
-
-    /// Get the JSON schema for this tool's input parameters
-    pub fn get_input_schema(&self) -> serde_json::Value {
-        match &self.config {
-            ToolConfig::Http(config) => config.get_input_schema(),
-            ToolConfig::WebSearch(config) => config.get_input_schema(),
-            ToolConfig::CodeExecutor(config) => config.get_input_schema(),
-        }
-    }
-
-    /// Create the tool executor
-    fn create_tool_executor(&self, http_client: &reqwest::Client) -> Box<dyn Tool + '_> {
-        match &self.config {
-            ToolConfig::Http(config) => Box::new(HttpRequestTool::new(http_client, config)),
-            ToolConfig::WebSearch(config) => Box::new(WebSearchTool::new(http_client, config)),
-            ToolConfig::CodeExecutor(config) => Box::new(CodeExecutorTool::new(config)),
-        }
-    }
 }

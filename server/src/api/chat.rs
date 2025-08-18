@@ -28,9 +28,7 @@ use crate::{
     provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmTool},
     redis::RedisClient,
     tools::SendChatToolInput,
-    utils::{
-        encryption::Encryptor, generate_title::generate_title, stored_stream::StoredChatRsStream,
-    },
+    utils::{generate_title, Encryptor, StoredChatRsStream},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {

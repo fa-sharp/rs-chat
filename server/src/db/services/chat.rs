@@ -10,7 +10,7 @@ use crate::{
         schema::{chat_messages, chat_sessions},
         DbConnection,
     },
-    utils::full_text_search::{full_text_query, SessionSearchResult},
+    utils::{full_text_query, SessionSearchResult},
 };
 
 pub struct ChatDbService<'a> {

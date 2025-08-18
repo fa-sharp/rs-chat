@@ -7,10 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    db::models::ChatRsExternalApiTool, provider::LlmTool,
-    utils::sender_with_logging::SenderWithLogging,
-};
+use crate::{db::models::ChatRsExternalApiTool, provider::LlmTool, utils::SenderWithLogging};
 
 use super::{ToolError, ToolLog, ToolParameters, ToolResult};
 
@@ -21,13 +18,22 @@ pub enum ChatRsExternalApiToolConfig {
     CustomApi(custom_api::CustomApiConfig),
     WebSearch(web_search::WebSearchConfig),
 }
+impl ChatRsExternalApiToolConfig {
+    /// Validate the configuration
+    pub fn validate(&mut self) -> ToolResult<()> {
+        match self {
+            ChatRsExternalApiToolConfig::CustomApi(config) => config.validate(),
+            ChatRsExternalApiToolConfig::WebSearch(config) => config.validate(),
+        }
+    }
+}
 
 /// Chat input settings for an external API tool
 #[derive(Debug, PartialEq, JsonSchema, Serialize, Deserialize)]
 pub struct ExternalApiToolInput {
     /// ID of the external API tool
     id: Uuid,
-    /// Dynamic configuration for the external API tool
+    /// Dynamic configuration for the external API tool (set permissions, features, etc.)
     config: Option<ExternalApiToolInputConfig>,
 }
 
@@ -81,16 +87,21 @@ pub trait ExternalApiTool: Send + Sync {
         sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String>;
 
-    fn validate_input_params(
+    async fn validate_and_execute(
         &self,
         tool_name: &str,
         parameters: &ToolParameters,
-    ) -> ToolResult<()> {
+        secrets: &[String],
+        http_client: &reqwest::Client,
+        sender: &SenderWithLogging<ToolLog>,
+    ) -> ToolResult<String> {
         jsonschema::validate(
             &self.input_schema(tool_name)?,
             &serde_json::to_value(parameters)?,
         )
-        .map_err(|err| ToolError::InvalidParameters(err.to_string()))
+        .map_err(|err| ToolError::InvalidParameters(err.to_string()))?;
+        self.execute(tool_name, parameters, secrets, http_client, sender)
+            .await
     }
 }
 
@@ -109,14 +120,12 @@ trait ExternalApiToolConfig {
     ) -> Vec<LlmTool>;
 
     /// Validates the configuration of the external API.
-    fn validate(&mut self) -> ToolResult<()> {
-        Ok(())
-    }
+    fn validate(&mut self) -> ToolResult<()>;
 }
 
 impl ChatRsExternalApiTool {
     /// Create the tool executor from the database entity
-    pub fn build_external_api_tool_executor(&self) -> Box<dyn ExternalApiTool + '_> {
+    pub fn build_executor(&self) -> Box<dyn ExternalApiTool + '_> {
         match &self.config {
             ChatRsExternalApiToolConfig::CustomApi(config) => {
                 Box::new(custom_api::CustomApiTool::new(config))

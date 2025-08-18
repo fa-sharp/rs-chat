@@ -9,10 +9,10 @@ use subst::VariableMap;
 use crate::{
     provider::{LlmTool, LlmToolType},
     tools::{
-        utils::{http_request_builder::HttpRequestBuilder, validate_json_schema},
+        utils::{validate_json_schema, HttpRequestBuilder},
         ToolJsonSchema,
     },
-    utils::sender_with_logging::SenderWithLogging,
+    utils::SenderWithLogging,
 };
 
 use super::{
@@ -74,7 +74,7 @@ impl ExternalApiToolConfig for CustomApiConfig {
                 name: format!("{}:{}", self.name, name),
                 description: config.description.clone(),
                 input_schema: serde_json::to_value(&config.input_schema)
-                    .expect("Should already be validated"),
+                    .expect("Should be valid JSON"),
             })
             .collect()
     }

@@ -12,43 +12,46 @@ use uuid::Uuid;
 use crate::{
     db::models::ChatRsUser,
     provider::LlmToolType,
-    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolConfig, ToolConfigPublic},
+    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig},
 };
 
-#[derive(Identifiable, Queryable, Selectable, Associations)]
+#[derive(Debug, Identifiable, Queryable, Selectable, Associations, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
-#[diesel(table_name = super::schema::tools)]
-pub struct ChatRsTool {
+#[diesel(table_name = super::schema::system_tools)]
+pub struct ChatRsSystemTool {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub name: String,
-    pub description: String,
-    pub config: ToolConfig,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, Serialize, Deserialize)]
-#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
-#[diesel(table_name = super::schema::tools)]
-pub struct ChatRsToolPublic {
-    pub id: Uuid,
-    #[serde(skip_serializing)]
-    pub user_id: Uuid,
-    pub name: String,
-    pub description: String,
-    pub config: ToolConfigPublic,
+    pub config: ChatRsSystemToolConfig,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = super::schema::tools)]
-pub struct NewChatRsTool<'r> {
+#[diesel(table_name = super::schema::system_tools)]
+pub struct NewChatRsSystemTool<'r> {
     pub user_id: &'r Uuid,
-    pub name: &'r str,
-    pub description: &'r str,
-    pub config: &'r ToolConfig,
+    pub config: &'r ChatRsSystemToolConfig,
+}
+
+#[derive(Debug, Identifiable, Queryable, Selectable, Associations, Serialize, JsonSchema)]
+#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
+#[diesel(table_name = super::schema::external_api_tools)]
+pub struct ChatRsExternalApiTool {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub config: ChatRsExternalApiToolConfig,
+    pub secret_1: Option<Uuid>,
+    pub secret_2: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = super::schema::external_api_tools)]
+pub struct NewChatRsExternalApiTool<'r> {
+    pub user_id: &'r Uuid,
+    pub config: &'r ChatRsExternalApiToolConfig,
+    pub secret_1: Option<&'r Uuid>,
 }
 
 /// A tool call requested by the provider
@@ -74,6 +77,9 @@ pub struct ChatRsExecutedToolCall {
     pub id: String,
     /// ID of the tool used
     pub tool_id: Uuid,
+    /// Type of the tool used
+    #[serde(default)]
+    pub tool_type: LlmToolType,
     /// Whether the tool call resulted in an error
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_error: Option<bool>,
@@ -83,28 +89,4 @@ pub struct ChatRsExecutedToolCall {
     /// Collected errors from the tool execution
     #[serde(skip_serializing_if = "Option::is_none")]
     pub errors: Option<Vec<String>>,
-}
-
-#[derive(Debug, Identifiable, Queryable, Selectable, Associations, JsonSchema)]
-#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
-#[diesel(table_name = super::schema::system_tools)]
-pub struct ChatRsSystemTool {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub config: ChatRsSystemToolConfig,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Identifiable, Queryable, Selectable, Associations, JsonSchema)]
-#[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
-#[diesel(table_name = super::schema::external_api_tools)]
-pub struct ChatRsExternalApiTool {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub config: ChatRsExternalApiToolConfig,
-    pub secret_1: Option<Uuid>,
-    pub secret_2: Option<Uuid>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }

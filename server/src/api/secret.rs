@@ -13,7 +13,7 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    utils::encryption::Encryptor,
+    utils::Encryptor,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -35,9 +35,9 @@ async fn get_all_secrets(
 }
 
 #[derive(JsonSchema, serde::Deserialize)]
-struct SecretInput {
-    key: String,
-    name: String,
+pub struct SecretInput {
+    pub key: String,
+    pub name: String,
 }
 
 /// Create a new secret

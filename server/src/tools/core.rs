@@ -2,11 +2,8 @@
 
 use std::collections::HashMap;
 
-use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-use crate::utils::sender_with_logging::SenderWithLogging;
 
 /// Standard result type for all tool operations
 pub type ToolResult<T> = Result<T, ToolError>;
@@ -59,29 +56,6 @@ pub enum ToolError {
     Io(#[from] std::io::Error),
 }
 
-/// Core trait that all tools must implement
-#[async_trait]
-pub trait Tool: Send + Sync {
-    /// The tool's name for logging
-    fn name(&self) -> &str;
-
-    /// Get the JSON schema for input parameters
-    fn input_schema(&self) -> serde_json::Value;
-
-    /// Validate input parameters (default implementation uses the tool's input JSON schema)
-    fn validate_input(&self, parameters: &ToolParameters) -> ToolResult<()> {
-        jsonschema::validate(&self.input_schema(), &serde_json::to_value(parameters)?)
-            .map_err(|err| ToolError::InvalidParameters(err.to_string()))
-    }
-
-    /// Execute the tool with given parameters. Real-time logs/status updates can be sent via the sender.
-    async fn execute(
-        &self,
-        parameters: &ToolParameters,
-        sender: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String>;
-}
-
 /// JSON schema for tool input parameters
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ToolJsonSchema {
@@ -97,13 +71,4 @@ pub struct ToolJsonSchema {
 pub enum ToolJsonSchemaType {
     #[serde(rename = "object")]
     Object,
-}
-
-/// Ensure JSON schema is valid (using Draft 2020-12).
-/// Also sets `additionalProperties` to false as required by OpenAI.
-pub(super) fn validate_json_schema(input_schema: &mut ToolJsonSchema) -> ToolResult<()> {
-    input_schema.additional_properties = Some(false);
-    jsonschema::draft202012::meta::validate(&serde_json::to_value(input_schema)?)
-        .map_err(|e| ToolError::InvalidJsonSchema(e.to_string()))?;
-    Ok(())
 }

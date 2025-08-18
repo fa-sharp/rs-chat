@@ -20,6 +20,7 @@ impl Encryptor {
         Ok(Self { cipher })
     }
 
+    /// Encrypts a string using AES-256-GCM and returns the ciphertext and nonce.
     pub fn encrypt_string(&self, plaintext: &str) -> Result<(Vec<u8>, Vec<u8>), LlmError> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = self
@@ -30,6 +31,7 @@ impl Encryptor {
         Ok((ciphertext, nonce.to_vec()))
     }
 
+    /// Encrypts a byte slice using AES-256-GCM and returns the ciphertext and nonce.
     pub fn encrypt_bytes(&self, bytes: &[u8]) -> Result<(Vec<u8>, Vec<u8>), LlmError> {
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = self
@@ -40,6 +42,7 @@ impl Encryptor {
         Ok((ciphertext, nonce.to_vec()))
     }
 
+    /// Decrypts a string using AES-256-GCM.
     pub fn decrypt_string(&self, ciphertext: &[u8], nonce: &[u8]) -> Result<String, LlmError> {
         let nonce = Nonce::from_slice(nonce);
         let plaintext = self
@@ -50,6 +53,7 @@ impl Encryptor {
         Ok(String::from_utf8(plaintext).map_err(|_| LlmError::DecryptionError)?)
     }
 
+    /// Decrypts a byte slice using AES-256-GCM.
     pub fn decrypt_bytes(&self, ciphertext: &[u8], nonce: &[u8]) -> Result<Vec<u8>, LlmError> {
         let nonce = Nonce::from_slice(nonce);
         let bytes = self

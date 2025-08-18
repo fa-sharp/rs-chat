@@ -19,7 +19,7 @@ use crate::{
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
-    utils::encryption::setup_encryption,
+    utils::setup_encryption,
     web::setup_static_files,
 };
 

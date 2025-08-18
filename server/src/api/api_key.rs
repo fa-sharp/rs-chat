@@ -13,7 +13,7 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    utils::encryption::Encryptor,
+    utils::Encryptor,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {

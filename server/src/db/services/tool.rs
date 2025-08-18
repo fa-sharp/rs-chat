@@ -5,10 +5,10 @@ use uuid::Uuid;
 
 use crate::db::{
     models::{
-        ChatRsExternalApiTool, ChatRsSecret, ChatRsSystemTool, ChatRsTool, ChatRsToolPublic,
-        NewChatRsTool,
+        ChatRsExternalApiTool, ChatRsSecret, ChatRsSystemTool, NewChatRsExternalApiTool,
+        NewChatRsSystemTool,
     },
-    schema::{external_api_tools, secrets, system_tools, tools},
+    schema::{external_api_tools, secrets, system_tools},
     DbConnection,
 };
 
@@ -21,39 +21,22 @@ impl<'a> ToolDbService<'a> {
         ToolDbService { db }
     }
 
-    pub async fn find_by_id(
+    pub async fn find_by_user(
         &mut self,
         user_id: &Uuid,
-        tool_id: &Uuid,
-    ) -> Result<Option<ChatRsTool>, Error> {
-        tools::table
-            .filter(tools::user_id.eq(user_id))
-            .filter(tools::id.eq(tool_id))
-            .select(ChatRsTool::as_select())
-            .first(self.db)
-            .await
-            .optional()
-    }
-
-    pub async fn find_by_user(&mut self, user_id: &Uuid) -> Result<Vec<ChatRsTool>, Error> {
-        tools::table
-            .filter(tools::user_id.eq(user_id))
-            .select(ChatRsTool::as_select())
-            .order_by(tools::name.asc())
+    ) -> Result<(Vec<ChatRsSystemTool>, Vec<ChatRsExternalApiTool>), Error> {
+        let system_tools = system_tools::table
+            .filter(system_tools::user_id.eq(user_id))
+            .select(ChatRsSystemTool::as_select())
             .load(self.db)
-            .await
-    }
-
-    pub async fn find_by_user_public(
-        &mut self,
-        user_id: &Uuid,
-    ) -> Result<Vec<ChatRsToolPublic>, Error> {
-        tools::table
-            .filter(tools::user_id.eq(user_id))
-            .select(ChatRsToolPublic::as_select())
-            .order_by(tools::name.asc())
+            .await?;
+        let external_api_tools = external_api_tools::table
+            .filter(external_api_tools::user_id.eq(user_id))
+            .select(ChatRsExternalApiTool::as_select())
             .load(self.db)
-            .await
+            .await?;
+
+        Ok((system_tools, external_api_tools))
     }
 
     pub async fn find_system_tool_by_id(
@@ -115,28 +98,69 @@ impl<'a> ToolDbService<'a> {
             .await
     }
 
-    pub async fn create(&mut self, tool: NewChatRsTool<'_>) -> Result<ChatRsToolPublic, Error> {
-        diesel::insert_into(tools::table)
+    pub async fn create_system_tool(
+        &mut self,
+        tool: NewChatRsSystemTool<'_>,
+    ) -> Result<ChatRsSystemTool, Error> {
+        diesel::insert_into(system_tools::table)
             .values(tool)
-            .returning(ChatRsToolPublic::as_select())
+            .returning(ChatRsSystemTool::as_select())
             .get_result(self.db)
             .await
     }
 
-    pub async fn delete(&mut self, user_id: &Uuid, tool_id: &Uuid) -> Result<Uuid, Error> {
-        diesel::delete(tools::table)
-            .filter(tools::user_id.eq(user_id))
-            .filter(tools::id.eq(tool_id))
-            .returning(tools::id)
+    pub async fn create_external_api_tool(
+        &mut self,
+        tool: NewChatRsExternalApiTool<'_>,
+    ) -> Result<ChatRsExternalApiTool, Error> {
+        diesel::insert_into(external_api_tools::table)
+            .values(tool)
+            .returning(ChatRsExternalApiTool::as_select())
+            .get_result(self.db)
+            .await
+    }
+
+    pub async fn delete_system_tool(
+        &mut self,
+        user_id: &Uuid,
+        tool_id: &Uuid,
+    ) -> Result<Uuid, Error> {
+        diesel::delete(system_tools::table)
+            .filter(system_tools::user_id.eq(user_id))
+            .filter(system_tools::id.eq(tool_id))
+            .returning(system_tools::id)
+            .get_result(self.db)
+            .await
+    }
+
+    pub async fn delete_external_api_tool(
+        &mut self,
+        user_id: &Uuid,
+        tool_id: &Uuid,
+    ) -> Result<Uuid, Error> {
+        diesel::delete(external_api_tools::table)
+            .filter(external_api_tools::user_id.eq(user_id))
+            .filter(external_api_tools::id.eq(tool_id))
+            .returning(external_api_tools::id)
             .get_result(self.db)
             .await
     }
 
     pub async fn delete_by_user(&mut self, user_id: &Uuid) -> Result<Vec<Uuid>, Error> {
-        diesel::delete(tools::table)
-            .filter(tools::user_id.eq(user_id))
-            .returning(tools::id)
+        let deleted_system_tools = diesel::delete(system_tools::table)
+            .filter(system_tools::user_id.eq(user_id))
+            .returning(system_tools::id)
             .get_results(self.db)
-            .await
+            .await?;
+        let deleted_external_api_tools = diesel::delete(external_api_tools::table)
+            .filter(external_api_tools::user_id.eq(user_id))
+            .returning(external_api_tools::id)
+            .get_results(self.db)
+            .await?;
+
+        Ok(deleted_system_tools
+            .into_iter()
+            .chain(deleted_external_api_tools.into_iter())
+            .collect())
     }
 }

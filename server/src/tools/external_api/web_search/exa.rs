@@ -1,7 +1,7 @@
 use rocket::async_trait;
 use serde::Deserialize;
 
-use crate::tools::{utils::http_request_builder::HttpRequestBuilder, ToolError};
+use crate::tools::{utils::HttpRequestBuilder, ToolError};
 
 use super::{WebSearchProvider, WebSearchResult};
 

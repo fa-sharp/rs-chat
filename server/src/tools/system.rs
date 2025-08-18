@@ -6,9 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    db::models::ChatRsSystemTool, provider::LlmTool, utils::sender_with_logging::SenderWithLogging,
-};
+use crate::{db::models::ChatRsSystemTool, provider::LlmTool, utils::SenderWithLogging};
 
 use super::{ToolError, ToolLog, ToolParameters, ToolResult};
 
@@ -18,6 +16,15 @@ use super::{ToolError, ToolLog, ToolParameters, ToolResult};
 pub enum ChatRsSystemToolConfig {
     CodeRunner(code_runner::CodeRunnerConfig),
     Files(()),
+}
+impl ChatRsSystemToolConfig {
+    /// Validate the configuration
+    pub fn validate(&self) -> ToolResult<()> {
+        match self {
+            ChatRsSystemToolConfig::CodeRunner(config) => config.validate(),
+            ChatRsSystemToolConfig::Files(_) => Ok(()),
+        }
+    }
 }
 
 /// Chat input settings for system tools
@@ -45,10 +52,10 @@ impl SystemToolInput {
     }
 }
 
-/// Trait for all system tools which validates input parameters and executes the tool.
+/// Trait for all system tools which allows validating input parameters and executing the tool.
 #[async_trait]
 pub trait SystemTool: Send + Sync {
-    fn input_schema(&self, tool_name: &str) -> serde_json::Value;
+    fn input_schema(&self, tool_name: &str) -> &serde_json::Value;
     async fn execute(
         &self,
         tool_name: &str,
@@ -56,16 +63,18 @@ pub trait SystemTool: Send + Sync {
         sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String>;
 
-    fn validate_input_params(
+    async fn validate_and_execute(
         &self,
         tool_name: &str,
         parameters: &ToolParameters,
-    ) -> ToolResult<()> {
+        sender: &SenderWithLogging<ToolLog>,
+    ) -> ToolResult<String> {
         jsonschema::validate(
-            &self.input_schema(tool_name),
+            self.input_schema(tool_name),
             &serde_json::to_value(parameters)?,
         )
-        .map_err(|err| ToolError::InvalidParameters(err.to_string()))
+        .map_err(|err| ToolError::InvalidParameters(err.to_string()))?;
+        self.execute(tool_name, parameters, sender).await
     }
 }
 
@@ -84,14 +93,12 @@ trait SystemToolConfig {
     ) -> Vec<LlmTool>;
 
     /// Validates the configuration of the system tool.
-    fn validate(&self) -> ToolResult<()> {
-        Ok(())
-    }
+    fn validate(&self) -> ToolResult<()>;
 }
 
 impl ChatRsSystemTool {
     /// Create the system tool executor from the database entity
-    pub fn build_system_tool_executor(&self) -> Box<dyn SystemTool + '_> {
+    pub fn build_executor(&self) -> Box<dyn SystemTool + '_> {
         match &self.config {
             ChatRsSystemToolConfig::CodeRunner(config) => {
                 Box::new(code_runner::CodeRunner::new(config))

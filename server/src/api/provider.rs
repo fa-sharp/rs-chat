@@ -19,7 +19,7 @@ use crate::{
     provider::build_llm_provider_api,
     provider_models::LlmModel,
     redis::RedisClient,
-    utils::encryption::Encryptor,
+    utils::Encryptor,
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
