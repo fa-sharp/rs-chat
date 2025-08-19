@@ -74,7 +74,7 @@ enum CodeLanguage {
 pub struct CodeRunnerConfig {
     /// Timeout in seconds for the code execution.
     #[serde(default = "default_timeout")]
-    #[validate(range(min = 5, max = 120))]
+    #[validate(range(min = 5, max = 60))]
     pub timeout_seconds: u32,
     /// Memory limit in MB for the code execution.
     #[serde(default = "default_memory_limit")]
@@ -82,7 +82,7 @@ pub struct CodeRunnerConfig {
     pub memory_limit_mb: u32,
     /// CPU limit for the code execution
     #[serde(default = "default_cpu_limit")]
-    #[validate(range(min = 0.1, max = 2.0))]
+    #[validate(range(min = 0.1, max = 1.2))]
     pub cpu_limit: f32,
 }
 fn default_timeout() -> u32 {

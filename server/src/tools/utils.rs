@@ -10,6 +10,7 @@ pub use http_request_builder::HttpRequestBuilder;
 pub fn get_json_schema<T: JsonSchema>() -> serde_json::Value {
     let settings = SchemaSettings::draft07().with(|s| {
         s.inline_subschemas = true; // Enable inline subschemas for compatibility with LLM providers
+        s.meta_schema = None;
     });
     let schema = settings.into_generator().into_root_schema_for::<T>();
     serde_json::to_value(schema).expect("Should be valid JSON")
