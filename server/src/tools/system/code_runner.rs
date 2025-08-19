@@ -1,9 +1,8 @@
 mod docker;
 mod dockerfiles;
+use docker::{DockerExecutor, DockerExecutorOptions};
 
 use std::sync::LazyLock;
-
-use docker::{DockerExecutor, DockerExecutorOptions};
 
 use rocket::async_trait;
 use schemars::JsonSchema;

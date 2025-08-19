@@ -1,4 +1,5 @@
 mod code_runner;
+mod system_info;
 
 use diesel_as_jsonb::AsJsonb;
 use rocket::async_trait;
@@ -16,6 +17,7 @@ use super::{ToolError, ToolLog, ToolParameters, ToolResult};
 pub enum ChatRsSystemToolConfig {
     CodeRunner(code_runner::CodeRunnerConfig),
     Files(()),
+    SystemInfo,
 }
 impl ChatRsSystemToolConfig {
     /// Validate the configuration
@@ -23,6 +25,7 @@ impl ChatRsSystemToolConfig {
         match self {
             ChatRsSystemToolConfig::CodeRunner(config) => config.validate(),
             ChatRsSystemToolConfig::Files(_) => Ok(()),
+            ChatRsSystemToolConfig::SystemInfo => Ok(()),
         }
     }
 }
@@ -30,8 +33,11 @@ impl ChatRsSystemToolConfig {
 /// Chat input settings for system tools
 #[derive(Debug, PartialEq, JsonSchema, Serialize, Deserialize)]
 pub struct SystemToolInput {
+    /// Enable/disable the code runner tool
     #[serde(default)]
     code_runner: bool,
+    /// Enable/disable tools to get system information, current date/time, etc.
+    info: bool,
     // TODO files, etc...
 }
 impl SystemToolInput {
@@ -43,6 +49,18 @@ impl SystemToolInput {
                 .iter()
                 .find_map(|t| match &t.config {
                     ChatRsSystemToolConfig::CodeRunner(config) => Some((config, t.id)),
+                    _ => None,
+                })
+                .ok_or(ToolError::ToolNotFound)?;
+            llm_tools.extend(config.get_llm_tools(tool_id, None));
+        }
+        if self.info {
+            let (config, tool_id) = system_tools
+                .iter()
+                .find_map(|t| match &t.config {
+                    ChatRsSystemToolConfig::SystemInfo => {
+                        Some((system_info::SystemInfoConfig {}, t.id))
+                    }
                     _ => None,
                 })
                 .ok_or(ToolError::ToolNotFound)?;
@@ -67,14 +85,14 @@ pub trait SystemTool: Send + Sync {
         &self,
         tool_name: &str,
         parameters: &ToolParameters,
-        sender: &SenderWithLogging<ToolLog>,
+        tx: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String> {
         jsonschema::validate(
             self.input_schema(tool_name),
             &serde_json::to_value(parameters)?,
         )
         .map_err(|err| ToolError::InvalidParameters(err.to_string()))?;
-        self.execute(tool_name, parameters, sender).await
+        self.execute(tool_name, parameters, tx).await
     }
 }
 
@@ -103,7 +121,8 @@ impl ChatRsSystemTool {
             ChatRsSystemToolConfig::CodeRunner(config) => {
                 Box::new(code_runner::CodeRunner::new(config))
             }
-            _ => unimplemented!(),
+            ChatRsSystemToolConfig::SystemInfo => Box::new(system_info::SystemInfo::new()),
+            ChatRsSystemToolConfig::Files(_) => unimplemented!(),
         }
     }
 }
