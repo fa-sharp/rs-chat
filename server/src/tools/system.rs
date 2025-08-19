@@ -47,7 +47,7 @@ impl SystemToolInput {
         if self.code_runner {
             let (config, tool_id) = system_tools
                 .iter()
-                .find_map(|t| match &t.config {
+                .find_map(|t| match &t.data {
                     ChatRsSystemToolConfig::CodeRunner(config) => Some((config, t.id)),
                     _ => None,
                 })
@@ -57,7 +57,7 @@ impl SystemToolInput {
         if self.info {
             let (config, tool_id) = system_tools
                 .iter()
-                .find_map(|t| match &t.config {
+                .find_map(|t| match &t.data {
                     ChatRsSystemToolConfig::SystemInfo => {
                         Some((system_info::SystemInfoConfig {}, t.id))
                     }
@@ -117,7 +117,7 @@ trait SystemToolConfig {
 impl ChatRsSystemTool {
     /// Create the system tool executor from the database entity
     pub fn build_executor(&self) -> Box<dyn SystemTool + '_> {
-        match &self.config {
+        match &self.data {
             ChatRsSystemToolConfig::CodeRunner(config) => {
                 Box::new(code_runner::CodeRunner::new(config))
             }

@@ -103,7 +103,7 @@ async fn create_tool(
             let tool = ToolDbService::new(&mut db)
                 .create_system_tool(NewChatRsSystemTool {
                     user_id: &user_id,
-                    config,
+                    data: config,
                 })
                 .await?;
             Ok(Json(CreateToolResponse::System(tool)))
@@ -129,7 +129,7 @@ async fn create_tool(
             let tool = ToolDbService::new(&mut db)
                 .create_external_api_tool(NewChatRsExternalApiTool {
                     user_id: &user_id,
-                    config: &config,
+                    data: &config,
                     secret_1: secret_1_id.as_ref(),
                 })
                 .await?;
@@ -295,8 +295,17 @@ async fn delete_external_api_tool(
     mut db: DbConnection,
     tool_id: Uuid,
 ) -> Result<String, ApiError> {
+    let (tool, secret_1) = ToolDbService::new(&mut db)
+        .find_external_api_tool_by_id(&user_id, &tool_id)
+        .await?
+        .ok_or(ToolError::ToolNotFound)?;
+    if let Some(secret) = secret_1 {
+        let _ = SecretDbService::new(&mut db)
+            .delete(&user_id, &secret.id)
+            .await?;
+    }
     let id = ToolDbService::new(&mut db)
-        .delete_external_api_tool(&user_id, &tool_id)
+        .delete_external_api_tool(&user_id, &tool.id)
         .await?;
 
     Ok(id.to_string())

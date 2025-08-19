@@ -51,7 +51,7 @@ diesel::table! {
     external_api_tools (id) {
         id -> Uuid,
         user_id -> Uuid,
-        config -> Jsonb,
+        data -> Jsonb,
         secret_1 -> Nullable<Uuid>,
         secret_2 -> Nullable<Uuid>,
         created_at -> Timestamptz,
@@ -87,7 +87,7 @@ diesel::table! {
     system_tools (id) {
         id -> Uuid,
         user_id -> Uuid,
-        config -> Jsonb,
+        data -> Jsonb,
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
     }

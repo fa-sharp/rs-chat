@@ -54,7 +54,7 @@ impl ExternalApiToolInput {
             .iter()
             .find(|tool| tool.id == self.id)
             .ok_or(ToolError::ToolNotFound)?;
-        let llm_tools = match &tool.config {
+        let llm_tools = match &tool.data {
             ChatRsExternalApiToolConfig::CustomApi(custom_api_config) => {
                 let dynamic_config = match &self.config {
                     Some(ExternalApiToolInputConfig::CustomApi(config)) => Some(config),
@@ -126,7 +126,7 @@ trait ExternalApiToolConfig {
 impl ChatRsExternalApiTool {
     /// Create the tool executor from the database entity
     pub fn build_executor(&self) -> Box<dyn ExternalApiTool + '_> {
-        match &self.config {
+        match &self.data {
             ChatRsExternalApiToolConfig::CustomApi(config) => {
                 Box::new(custom_api::CustomApiTool::new(config))
             }

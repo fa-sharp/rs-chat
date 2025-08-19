@@ -21,7 +21,7 @@ use crate::{
 pub struct ChatRsSystemTool {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub config: ChatRsSystemToolConfig,
+    pub data: ChatRsSystemToolConfig,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -30,7 +30,7 @@ pub struct ChatRsSystemTool {
 #[diesel(table_name = super::schema::system_tools)]
 pub struct NewChatRsSystemTool<'r> {
     pub user_id: &'r Uuid,
-    pub config: &'r ChatRsSystemToolConfig,
+    pub data: &'r ChatRsSystemToolConfig,
 }
 
 #[derive(Debug, Identifiable, Queryable, Selectable, Associations, Serialize, JsonSchema)]
@@ -39,7 +39,7 @@ pub struct NewChatRsSystemTool<'r> {
 pub struct ChatRsExternalApiTool {
     pub id: Uuid,
     pub user_id: Uuid,
-    pub config: ChatRsExternalApiToolConfig,
+    pub data: ChatRsExternalApiToolConfig,
     pub secret_1: Option<Uuid>,
     pub secret_2: Option<Uuid>,
     pub created_at: DateTime<Utc>,
@@ -50,7 +50,7 @@ pub struct ChatRsExternalApiTool {
 #[diesel(table_name = super::schema::external_api_tools)]
 pub struct NewChatRsExternalApiTool<'r> {
     pub user_id: &'r Uuid,
-    pub config: &'r ChatRsExternalApiToolConfig,
+    pub data: &'r ChatRsExternalApiToolConfig,
     pub secret_1: Option<&'r Uuid>,
 }
 

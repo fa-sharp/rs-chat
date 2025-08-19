@@ -94,7 +94,7 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
         let mut llm_tools: Vec<LlmTool> = Vec::with_capacity(2);
         if input_config.as_ref().map_or(true, |config| config.search) {
             llm_tools.push(LlmTool {
-                name: format!("{}:search", self.provider.provider_str()),
+                name: format!("{}_web_search", self.provider.provider_str()),
                 description: QUERY_DESCRIPTION.into(),
                 input_schema: QUERY_INPUT_SCHEMA.clone(),
                 tool_id,
@@ -103,7 +103,7 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
         }
         if input_config.as_ref().map_or(true, |config| config.extract) {
             llm_tools.push(LlmTool {
-                name: format!("{}:content", self.provider.provider_str()),
+                name: format!("{}_web_content", self.provider.provider_str()),
                 description: CONTENT_DESCRIPTION.into(),
                 input_schema: CONTENT_INPUT_SCHEMA.clone(),
                 tool_id,
@@ -123,7 +123,7 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
 #[async_trait]
 impl ExternalApiTool for WebSearchTool {
     fn input_schema(&self, tool_name: &str) -> ToolResult<serde_json::Value> {
-        match tool_name.split_once(':').ok_or(ToolError::ToolNotFound)?.1 {
+        match tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1 {
             "web_search" => Ok(QUERY_INPUT_SCHEMA.clone()),
             "web_content" => Ok(CONTENT_INPUT_SCHEMA.clone()),
             _ => Err(ToolError::ToolNotFound),

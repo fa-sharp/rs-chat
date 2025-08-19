@@ -522,7 +522,12 @@ struct AnthropicStreamToolCall {
 impl AnthropicStreamToolCall {
     /// Convert Anthropic tool call format to ChatRsToolCall
     fn convert(self, llm_tools: &[LlmTool]) -> Option<ChatRsToolCall> {
-        let parameters = serde_json::from_str(&self.input).ok()?;
+        let input = if self.input.trim().is_empty() {
+            "{}"
+        } else {
+            &self.input
+        };
+        let parameters = serde_json::from_str(input).ok()?;
         llm_tools
             .iter()
             .find(|tool| tool.name == self.name)

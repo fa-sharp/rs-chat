@@ -1,14 +1,19 @@
+use std::sync::LazyLock;
+
 use rocket::async_trait;
+use schemars::JsonSchema;
 
 use crate::{
     provider::{LlmTool, LlmToolType},
-    tools::system::SystemToolConfig,
+    tools::{system::SystemToolConfig, utils::get_json_schema},
     utils::SenderWithLogging,
 };
 
 use super::{SystemTool, ToolError, ToolLog, ToolParameters, ToolResult};
 
-const NAME_PREFIX: &str = "system";
+const TOOL_PREFIX: &str = "system_";
+
+static JSON_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| get_json_schema::<SystemInfo>());
 
 const DATE_TIME_NAME: &str = "datetime_now";
 const DATE_TIME_DESC: &str = "Get the current date and time in RFC3339 format. \
@@ -18,12 +23,8 @@ const SERVER_URL_NAME: &str = "server_url";
 const SERVER_URL_DESC: &str = "Get the URL of the server that this chat application is running on. \
     This may be useful to help direct the user to files or other resources that are hosted on the server.";
 
-const INFO_NAME: &str = "info";
-const INFO_DESC: &str =
-    "Get technical information about the server that this chat application is running on.";
-
 /// Tool to get system information.
-#[derive(Debug)]
+#[derive(Debug, JsonSchema)]
 pub struct SystemInfo {}
 impl SystemInfo {
     pub fn new() -> Self {
@@ -43,23 +44,16 @@ impl SystemToolConfig for SystemInfoConfig {
         vec![
             LlmTool {
                 tool_id,
-                name: format!("{}:{}", NAME_PREFIX, DATE_TIME_NAME),
+                name: format!("{}{}", TOOL_PREFIX, DATE_TIME_NAME),
                 description: DATE_TIME_DESC.into(),
-                input_schema: serde_json::Value::Null,
+                input_schema: JSON_SCHEMA.to_owned(),
                 tool_type: LlmToolType::System,
             },
             LlmTool {
                 tool_id,
-                name: format!("{}:{}", NAME_PREFIX, SERVER_URL_NAME),
+                name: format!("{}{}", TOOL_PREFIX, SERVER_URL_NAME),
                 description: SERVER_URL_DESC.into(),
-                input_schema: serde_json::Value::Null,
-                tool_type: LlmToolType::System,
-            },
-            LlmTool {
-                tool_id,
-                name: format!("{}:{}", NAME_PREFIX, INFO_NAME),
-                description: INFO_DESC.into(),
-                input_schema: serde_json::Value::Null,
+                input_schema: JSON_SCHEMA.to_owned(),
                 tool_type: LlmToolType::System,
             },
         ]
@@ -73,7 +67,7 @@ impl SystemToolConfig for SystemInfoConfig {
 #[async_trait]
 impl SystemTool for SystemInfo {
     fn input_schema(&self, _tool_name: &str) -> &serde_json::Value {
-        &serde_json::Value::Null
+        &JSON_SCHEMA
     }
 
     async fn execute(
@@ -82,7 +76,7 @@ impl SystemTool for SystemInfo {
         _params: &ToolParameters,
         _tx: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<String> {
-        match tool_name.split(':').nth(1) {
+        match tool_name.strip_prefix(TOOL_PREFIX) {
             Some(DATE_TIME_NAME) => {
                 let now = chrono::Utc::now();
                 Ok(now.to_rfc3339())
@@ -92,13 +86,6 @@ impl SystemTool for SystemInfo {
                     ToolError::ToolExecutionError("Could not determine Server URL".into())
                 })?;
                 Ok(server_url)
-            }
-            Some(INFO_NAME) => {
-                let os = std::env::consts::OS.to_string();
-                let arch = std::env::consts::ARCH.to_string();
-                let family = std::env::consts::FAMILY.to_string();
-                let info = format!("OS: {}, Arch: {}, Family: {}", os, arch, family);
-                Ok(info)
             }
             _ => Err(ToolError::ToolNotFound),
         }

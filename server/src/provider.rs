@@ -74,6 +74,7 @@ pub struct LlmApiProviderSharedOptions {
 }
 
 /// Generic tool that can be passed to LLM providers
+#[derive(Debug)]
 pub struct LlmTool {
     pub name: String,
     pub description: String,

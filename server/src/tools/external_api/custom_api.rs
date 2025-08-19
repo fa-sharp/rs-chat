@@ -68,10 +68,10 @@ impl ExternalApiToolConfig for CustomApiConfig {
                     .and_then(|c| c.enabled.as_ref())
                     .map_or(true, |enabled| enabled.contains(name))
             })
-            .map(|(name, config)| LlmTool {
+            .map(|(tool_name, config)| LlmTool {
                 tool_id,
                 tool_type: LlmToolType::ExternalApi,
-                name: format!("{}:{}", self.name, name),
+                name: format!("{}_{tool_name}", self.name),
                 description: config.description.clone(),
                 input_schema: serde_json::to_value(&config.input_schema)
                     .expect("Should be valid JSON"),
@@ -93,7 +93,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         let http_request = self
             .config
             .tools
-            .get(tool_name.split_once(':').ok_or(ToolError::ToolNotFound)?.1)
+            .get(tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1)
             .ok_or(ToolError::ToolNotFound)?;
         Ok(serde_json::to_value(&http_request.input_schema)?)
     }
@@ -109,7 +109,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         let request_config = self
             .config
             .tools
-            .get(tool_name.split_once(':').ok_or(ToolError::ToolNotFound)?.1)
+            .get(tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1)
             .ok_or(ToolError::ToolNotFound)?;
 
         // Build the HTTP request components
