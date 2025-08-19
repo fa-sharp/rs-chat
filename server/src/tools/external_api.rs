@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{db::models::ChatRsExternalApiTool, provider::LlmTool, utils::SenderWithLogging};
 
-use super::{ToolError, ToolLog, ToolParameters, ToolResult};
+use super::{ToolError, ToolLog, ToolParameters, ToolResponseFormat, ToolResult};
 
 /// External API tool configuration saved in the database
 #[derive(Debug, Serialize, Deserialize, JsonSchema, AsJsonb)]
@@ -85,7 +85,7 @@ pub trait ExternalApiTool: Send + Sync {
         secrets: &[String],
         http_client: &reqwest::Client,
         sender: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String>;
+    ) -> ToolResult<(String, ToolResponseFormat)>;
 
     async fn validate_and_execute(
         &self,
@@ -94,7 +94,7 @@ pub trait ExternalApiTool: Send + Sync {
         secrets: &[String],
         http_client: &reqwest::Client,
         sender: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String> {
+    ) -> ToolResult<(String, ToolResponseFormat)> {
         jsonschema::validate(
             &self.input_schema(tool_name)?,
             &serde_json::to_value(parameters)?,

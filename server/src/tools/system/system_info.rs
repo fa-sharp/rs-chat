@@ -9,7 +9,7 @@ use crate::{
     utils::SenderWithLogging,
 };
 
-use super::{SystemTool, ToolError, ToolLog, ToolParameters, ToolResult};
+use super::{SystemTool, ToolError, ToolLog, ToolParameters, ToolResponseFormat, ToolResult};
 
 const TOOL_PREFIX: &str = "system_";
 
@@ -75,17 +75,17 @@ impl SystemTool for SystemInfo {
         tool_name: &str,
         _params: &ToolParameters,
         _tx: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String> {
+    ) -> ToolResult<(String, ToolResponseFormat)> {
         match tool_name.strip_prefix(TOOL_PREFIX) {
             Some(DATE_TIME_NAME) => {
                 let now = chrono::Utc::now();
-                Ok(now.to_rfc3339())
+                Ok((now.to_rfc3339(), ToolResponseFormat::Text))
             }
             Some(SERVER_URL_NAME) => {
                 let server_url = std::env::var("RS_CHAT_SERVER_ADDRESS").map_err(|_| {
                     ToolError::ToolExecutionError("Could not determine Server URL".into())
                 })?;
-                Ok(server_url)
+                Ok((server_url, ToolResponseFormat::Text))
             }
             _ => Err(ToolError::ToolNotFound),
         }

@@ -12,13 +12,16 @@ use crate::{
 };
 
 use super::{
-    ExternalApiTool, ExternalApiToolConfig, ToolError, ToolLog, ToolParameters, ToolResult,
+    ExternalApiTool, ExternalApiToolConfig, ToolError, ToolLog, ToolParameters, ToolResponseFormat,
+    ToolResult,
 };
 
 use exa::ExaSearchTool;
 
-const QUERY_DESCRIPTION: &str = "Search the web for a given query.";
-const CONTENT_DESCRIPTION: &str = "Extract content from a given URL.";
+const WEB_SEARCH_NAME: &str = "web_search";
+const WEB_SEARCH_DESC: &str = "Search the web for a given query.";
+const EXTRACT_NAME: &str = "web_content";
+const EXTRACT_DESC: &str = "Extract content from a given URL.";
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -35,10 +38,10 @@ struct ContentInputSchema {
     url: String,
 }
 
-static QUERY_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
+static WEB_SEARCH_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
     serde_json::to_value(schema_for!(QueryInputSchema)).expect("Should be valid JSON")
 });
-static CONTENT_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
+static EXTRACT_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
     serde_json::to_value(schema_for!(ContentInputSchema)).expect("Should be valid JSON")
 });
 
@@ -56,9 +59,16 @@ pub struct WebSearchConfig {
     #[serde(default = "default_count")]
     #[validate(range(min = 1, max = 10))]
     count: u8,
+    /// Max characters when extracting web content.
+    #[serde(default = "default_max_characters")]
+    #[validate(range(min = 500, max = 10_000))]
+    max_characters: u32,
 }
 fn default_count() -> u8 {
     10
+}
+fn default_max_characters() -> u32 {
+    5_000
 }
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]
@@ -94,18 +104,18 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
         let mut llm_tools: Vec<LlmTool> = Vec::with_capacity(2);
         if input_config.as_ref().map_or(true, |config| config.search) {
             llm_tools.push(LlmTool {
-                name: format!("{}_web_search", self.provider.provider_str()),
-                description: QUERY_DESCRIPTION.into(),
-                input_schema: QUERY_INPUT_SCHEMA.clone(),
+                name: format!("{}_{}", self.provider.provider_str(), WEB_SEARCH_NAME),
+                description: WEB_SEARCH_DESC.into(),
+                input_schema: WEB_SEARCH_INPUT_SCHEMA.clone(),
                 tool_id,
                 tool_type: LlmToolType::ExternalApi,
             });
         }
         if input_config.as_ref().map_or(true, |config| config.extract) {
             llm_tools.push(LlmTool {
-                name: format!("{}_web_content", self.provider.provider_str()),
-                description: CONTENT_DESCRIPTION.into(),
-                input_schema: CONTENT_INPUT_SCHEMA.clone(),
+                name: format!("{}_{}", self.provider.provider_str(), EXTRACT_NAME),
+                description: EXTRACT_DESC.into(),
+                input_schema: EXTRACT_INPUT_SCHEMA.clone(),
                 tool_id,
                 tool_type: LlmToolType::ExternalApi,
             });
@@ -124,46 +134,70 @@ impl<'a> ExternalApiToolConfig for WebSearchConfig {
 impl ExternalApiTool for WebSearchTool {
     fn input_schema(&self, tool_name: &str) -> ToolResult<serde_json::Value> {
         match tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1 {
-            "web_search" => Ok(QUERY_INPUT_SCHEMA.clone()),
-            "web_content" => Ok(CONTENT_INPUT_SCHEMA.clone()),
+            WEB_SEARCH_NAME => Ok(WEB_SEARCH_INPUT_SCHEMA.clone()),
+            EXTRACT_NAME => Ok(EXTRACT_INPUT_SCHEMA.clone()),
             _ => Err(ToolError::ToolNotFound),
         }
     }
 
     async fn execute(
         &self,
-        _tool_name: &str,
+        tool_name: &str,
         parameters: &ToolParameters,
         secrets: &[String],
         http_client: &reqwest::Client,
         tx: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String> {
+    ) -> ToolResult<(String, ToolResponseFormat)> {
         let api_key = secrets
             .get(0)
             .ok_or_else(|| ToolError::InvalidConfiguration("Missing API key".into()))?;
-        let query = parameters
-            .get("query")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| ToolError::FormattingError("Missing 'query' parameter".to_string()))?;
-        if query.trim().is_empty() {
-            return Err(ToolError::FormattingError(
-                "Query parameter cannot be empty".to_string(),
-            ));
-        }
-
-        let _ = tx.send(ToolLog::Log("Searching...".into())).await;
-        match self.provider.search(query, api_key, http_client).await {
-            Ok(search_results) => {
-                let message = format!("Found {} results", search_results.len());
-                let _ = tx.send(ToolLog::Log(message)).await;
-                let formatted_results = self.format_results(&search_results);
-                Ok(formatted_results)
+        match tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1 {
+            WEB_SEARCH_NAME => {
+                let query = parameters
+                    .get("query")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        ToolError::FormattingError("Missing 'query' parameter".to_string())
+                    })?
+                    .trim();
+                let _ = tx.send(ToolLog::Log("Searching...".into())).await;
+                match self.provider.search(query, api_key, http_client).await {
+                    Ok(search_results) => {
+                        let message = format!("Found {} results", search_results.len());
+                        let _ = tx.send(ToolLog::Log(message)).await;
+                        let formatted_results = serde_json::to_string(&search_results)?;
+                        Ok((formatted_results, ToolResponseFormat::Json))
+                    }
+                    Err(err) => {
+                        let error_message = format!("Search error: {}", err);
+                        let _ = tx.send(ToolLog::Error(error_message)).await;
+                        Err(err)
+                    }
+                }
             }
-            Err(err) => {
-                let error_message = format!("Search error: {}", err);
-                let _ = tx.send(ToolLog::Error(error_message)).await;
-                Err(err)
+            EXTRACT_NAME => {
+                let url = parameters
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        ToolError::FormattingError("Missing 'url' parameter".to_string())
+                    })?
+                    .trim();
+                let _ = tx.send(ToolLog::Log("Extracting...".into())).await;
+                match self.provider.extract(url, api_key, http_client).await {
+                    Ok(extracted_text) => {
+                        let message = format!("Extracted text. Length: {}", extracted_text.len());
+                        let _ = tx.send(ToolLog::Log(message)).await;
+                        Ok((extracted_text, ToolResponseFormat::Text))
+                    }
+                    Err(err) => {
+                        let error_message = format!("Extraction error: {}", err);
+                        let _ = tx.send(ToolLog::Error(error_message)).await;
+                        Err(err)
+                    }
+                }
             }
+            _ => Err(ToolError::ToolNotFound),
         }
     }
 }
@@ -171,54 +205,33 @@ impl ExternalApiTool for WebSearchTool {
 impl WebSearchTool {
     pub fn new(config: &WebSearchConfig) -> Self {
         let provider: Box<dyn WebSearchProvider + Send + Sync> = match &config.provider {
-            WebSearchProviderConfig::Exa => Box::new(ExaSearchTool::new(config.count)),
+            WebSearchProviderConfig::Exa => {
+                Box::new(ExaSearchTool::new(config.count, config.max_characters))
+            }
         };
         Self { provider }
-    }
-
-    fn format_results(&self, results: &[WebSearchResult]) -> String {
-        if results.is_empty() {
-            return "No search results found.".to_string();
-        }
-
-        let mut formatted = String::new();
-        formatted.push_str(&format!(
-            "Search Results from {} ({})\n\n",
-            self.provider.name(),
-            results.len()
-        ));
-
-        for (i, result) in results.iter().enumerate() {
-            formatted.push_str(&format!("{}. {}\n", i + 1, result.title));
-            formatted.push_str(&format!("   URL: {}\n", result.url));
-            if !result.description.is_empty() {
-                let truncated = if result.description.len() > 300 {
-                    format!("{}...", &result.description[..300])
-                } else {
-                    result.description.clone()
-                };
-                formatted.push_str(&format!("   {}\n", truncated));
-            }
-            formatted.push('\n');
-        }
-
-        formatted
     }
 }
 
 /// Trait for all web search providers
 #[async_trait]
 trait WebSearchProvider {
-    fn name(&self) -> &str;
     async fn search(
         &self,
         query: &str,
         api_key: &str,
         http_client: &reqwest::Client,
-    ) -> Result<Vec<WebSearchResult>, ToolError>;
+    ) -> ToolResult<Vec<WebSearchResult>>;
+    async fn extract(
+        &self,
+        url: &str,
+        api_key: &str,
+        http_client: &reqwest::Client,
+    ) -> ToolResult<String>;
 }
 
-#[derive(Debug)]
+/// Shared search result format
+#[derive(Debug, Serialize)]
 struct WebSearchResult {
     title: String,
     url: String,

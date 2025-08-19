@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     provider::{LlmTool, LlmToolType},
     tools::{
-        core::{ToolLog, ToolParameters, ToolResult},
+        core::{ToolLog, ToolParameters, ToolResponseFormat, ToolResult},
         system::{SystemTool, SystemToolConfig},
         utils::get_json_schema,
         ToolError,
@@ -126,7 +126,7 @@ impl SystemTool for CodeRunner<'_> {
         _tool_name: &str,
         params: &ToolParameters,
         sender: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String> {
+    ) -> ToolResult<(String, ToolResponseFormat)> {
         let input = serde_json::from_value::<CodeRunnerInput>(serde_json::to_value(params)?)
             .map_err(|e| ToolError::InvalidParameters(e.to_string()))?;
         let executor = DockerExecutor::new(
@@ -139,8 +139,9 @@ impl SystemTool for CodeRunner<'_> {
             },
         );
 
-        executor
+        let tool_response = executor
             .execute(&input.code, &input.dependencies, sender)
-            .await
+            .await?;
+        Ok((tool_response, ToolResponseFormat::Markdown))
     }
 }

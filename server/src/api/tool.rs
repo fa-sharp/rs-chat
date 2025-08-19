@@ -29,7 +29,9 @@ use crate::{
     },
     errors::ApiError,
     provider::LlmToolType,
-    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolError, ToolLog},
+    tools::{
+        ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolError, ToolLog, ToolResponseFormat,
+    },
     utils::{Encryptor, SenderWithLogging},
 };
 
@@ -237,9 +239,9 @@ async fn execute_tool(
             }
             _ => unreachable!(),
         };
-        let (content, is_error) = match tool_result {
-            Ok(response) => (response, None),
-            Err(e) => (e.to_string(), Some(true)),
+        let (content, format, is_error) = match tool_result {
+            Ok((response, format)) => (response, format, None),
+            Err(e) => (e.to_string(), ToolResponseFormat::Text, Some(true)),
         };
         drop(sender_with_logging); // Drop sender to close logging channel
         let (logs, errors) = log_collector_task.await.unwrap_or_default();
@@ -255,6 +257,7 @@ async fn execute_tool(
                         id: tool_call.id,
                         tool_id: tool_call.tool_id,
                         tool_type: tool_call.tool_type,
+                        response_format: format,
                         is_error,
                         logs,
                         errors,

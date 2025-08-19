@@ -320,36 +320,37 @@ impl DockerExecutor {
 
         // Process output and exit status
         let (stdout, stderr) = container_output_task.await.unwrap_or_default();
-        let formatted_output =
-            format!("**Output (stdout):**\n\n{stdout}\n\n**Logs (stderr):**\n\n{stderr}\n");
+        let output_text = format!("Output (stdout):\n\n{stdout}\n\nLogs (stderr):\n\n{stderr}\n");
+        let output_markdown =
+            format!("## Output (stdout):\n```text\n{stdout}\n```\n## Logs (stderr):\n```text\n{stderr}\n```\n");
         match container_exit_result {
             Err(_) => {
                 send_error(tx, "Code execution timed out".into()).await;
                 Err(ToolError::ToolExecutionError(format!(
-                    "❌ Code execution timed out.\n\n{formatted_output}"
+                    "❌ Code execution timed out.\n\n{output_text}"
                 )))
             }
             Ok(Some(wait_result)) => match wait_result {
                 Ok(_) => Ok(format!(
-                    "✅ Code executed successfully!\n\n{formatted_output}"
+                    "✅ Code executed successfully!\n\n{output_markdown}"
                 )),
                 Err(err) => {
                     if let bollard::errors::Error::DockerContainerWaitError { code, .. } = err {
                         let message = format!("Code execution failed with exit status {code}");
                         send_error(tx, message.clone()).await;
                         Err(ToolError::ToolExecutionError(format!(
-                            "❌ {message}.\n\n{formatted_output}"
+                            "❌ {message}.\n\n{output_text}"
                         )))
                     } else {
                         send_error(tx, "Code execution failed".into()).await;
                         Err(ToolError::ToolExecutionError(format!(
-                            "❌ Code execution failed.\n\n{formatted_output}"
+                            "❌ Code execution failed.\n\n{output_text}"
                         )))
                     }
                 }
             },
             Ok(None) => Ok(format!(
-                "Code executed with unknown exit status.\n\n{formatted_output}"
+                "Code executed with unknown exit status.\n\n{output_markdown}"
             )),
         }
     }

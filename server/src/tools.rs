@@ -4,7 +4,7 @@ mod system;
 mod utils;
 
 pub use {
-    core::{ToolError, ToolJsonSchema, ToolLog, ToolParameters, ToolResult},
+    core::{ToolError, ToolJsonSchema, ToolLog, ToolParameters, ToolResponseFormat, ToolResult},
     external_api::{ChatRsExternalApiToolConfig, ExternalApiToolInput},
     system::{ChatRsSystemToolConfig, SystemToolInput},
 };

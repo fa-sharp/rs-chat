@@ -16,7 +16,8 @@ use crate::{
 };
 
 use super::{
-    ExternalApiTool, ExternalApiToolConfig, ToolError, ToolLog, ToolParameters, ToolResult,
+    ExternalApiTool, ExternalApiToolConfig, ToolError, ToolLog, ToolParameters, ToolResponseFormat,
+    ToolResult,
 };
 
 /// Custom API tool that is a collection of HTTP requests
@@ -105,7 +106,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         _secrets: &[String],
         http_client: &reqwest::Client,
         tx: &SenderWithLogging<ToolLog>,
-    ) -> Result<String, ToolError> {
+    ) -> Result<(String, ToolResponseFormat), ToolError> {
         let request_config = self
             .config
             .tools
@@ -126,7 +127,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         {
             Ok(response) => {
                 let _ = tx.send(ToolLog::Log("Success!".into())).await;
-                Ok(response)
+                Ok((response, ToolResponseFormat::Text))
             }
             Err(err) => {
                 let _ = tx.send(ToolLog::Error(err.to_string())).await;

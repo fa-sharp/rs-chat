@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{db::models::ChatRsSystemTool, provider::LlmTool, utils::SenderWithLogging};
 
-use super::{ToolError, ToolLog, ToolParameters, ToolResult};
+use super::{ToolError, ToolLog, ToolParameters, ToolResponseFormat, ToolResult};
 
 /// System tool configuration saved in the database
 #[derive(Debug, Serialize, Deserialize, JsonSchema, AsJsonb)]
@@ -79,14 +79,14 @@ pub trait SystemTool: Send + Sync {
         tool_name: &str,
         parameters: &ToolParameters,
         sender: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String>;
+    ) -> ToolResult<(String, ToolResponseFormat)>;
 
     async fn validate_and_execute(
         &self,
         tool_name: &str,
         parameters: &ToolParameters,
         tx: &SenderWithLogging<ToolLog>,
-    ) -> ToolResult<String> {
+    ) -> ToolResult<(String, ToolResponseFormat)> {
         jsonschema::validate(
             self.input_schema(tool_name),
             &serde_json::to_value(parameters)?,

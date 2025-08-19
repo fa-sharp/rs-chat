@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     db::models::ChatRsUser,
     provider::LlmToolType,
-    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig},
+    tools::{ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolResponseFormat},
 };
 
 #[derive(Debug, Identifiable, Queryable, Selectable, Associations, Serialize, JsonSchema)]
@@ -80,6 +80,9 @@ pub struct ChatRsExecutedToolCall {
     /// Type of the tool used
     #[serde(default)]
     pub tool_type: LlmToolType,
+    /// Format of the tool response
+    #[serde(default)]
+    pub response_format: ToolResponseFormat,
     /// Whether the tool call resulted in an error
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_error: Option<bool>,

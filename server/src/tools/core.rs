@@ -28,6 +28,16 @@ impl From<ToolLog> for rocket::response::stream::Event {
     }
 }
 
+/// The format of the tool response
+#[derive(Default, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolResponseFormat {
+    #[default]
+    Text,
+    Json,
+    Markdown,
+}
+
 /// Tool input parameters
 pub type ToolParameters = HashMap<String, serde_json::Value>;
 
