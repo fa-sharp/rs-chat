@@ -145,7 +145,7 @@ export function InfoButton({
             Tool call error
           </div>
         )}
-        {meta.assistant?.provider_id && (
+        {typeof meta.assistant?.provider_id === "number" && (
           <div>
             <span className="font-bold">Provider:</span>{" "}
             {providers?.find((p) => p.id === meta.assistant?.provider_id)?.name}

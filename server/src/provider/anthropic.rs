@@ -6,10 +6,10 @@ use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolCall},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsToolCall},
     provider::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
-        LlmUsage, DEFAULT_MAX_TOKENS,
+        LlmTool, LlmUsage, DEFAULT_MAX_TOKENS,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
@@ -104,13 +104,13 @@ impl<'a> AnthropicProvider<'a> {
         (anthropic_messages, system_prompt)
     }
 
-    fn build_tools(&self, tools: &'a [ChatRsTool]) -> Vec<AnthropicTool<'a>> {
+    fn build_tools(&self, tools: &'a [LlmTool]) -> Vec<AnthropicTool<'a>> {
         tools
             .iter()
             .map(|tool| AnthropicTool {
                 name: &tool.name,
                 description: &tool.description,
-                input_schema: tool.get_input_schema(),
+                input_schema: &tool.input_schema,
             })
             .collect()
     }
@@ -118,7 +118,7 @@ impl<'a> AnthropicProvider<'a> {
     async fn parse_sse_stream(
         &self,
         mut response: reqwest::Response,
-        tools: Option<Vec<ChatRsTool>>,
+        tools: Option<Vec<LlmTool>>,
     ) -> LlmApiStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
@@ -188,13 +188,13 @@ impl<'a> AnthropicProvider<'a> {
                                                 }
                                             }
                                             AnthropicStreamEvent::ContentBlockStop { index } => {
-                                                if let Some(rs_chat_tools) = &tools {
+                                                if let Some(llm_tools) = &tools {
                                                     if !current_tool_calls.is_empty() {
                                                         let converted_call = current_tool_calls
                                                             .iter_mut()
                                                             .find(|tc| tc.as_ref().is_some_and(|tc| tc.index == index))
                                                             .and_then(|tc| tc.take())
-                                                            .and_then(|tc| tc.convert(rs_chat_tools));
+                                                            .and_then(|tc| tc.convert(llm_tools));
                                                         if let Some(converted_call) = converted_call {
                                                             yield Ok(LlmStreamChunk {
                                                                 text: None,
@@ -256,7 +256,7 @@ impl<'a> LlmApiProvider for AnthropicProvider<'a> {
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
-        tools: Option<Vec<ChatRsTool>>,
+        tools: Option<Vec<LlmTool>>,
         options: &LlmApiProviderSharedOptions,
     ) -> Result<LlmApiStream, LlmError> {
         let (anthropic_messages, system_prompt) = self.build_messages(&messages);
@@ -393,7 +393,7 @@ struct AnthropicRequest<'a> {
 struct AnthropicTool<'a> {
     name: &'a str,
     description: &'a str,
-    input_schema: serde_json::Value,
+    input_schema: &'a serde_json::Value,
 }
 
 /// Anthropic content block for messages
@@ -521,15 +521,21 @@ struct AnthropicStreamToolCall {
 
 impl AnthropicStreamToolCall {
     /// Convert Anthropic tool call format to ChatRsToolCall
-    fn convert(self, rs_chat_tools: &[ChatRsTool]) -> Option<ChatRsToolCall> {
-        let parameters = serde_json::from_str(&self.input).ok()?;
-        rs_chat_tools
+    fn convert(self, llm_tools: &[LlmTool]) -> Option<ChatRsToolCall> {
+        let input = if self.input.trim().is_empty() {
+            "{}"
+        } else {
+            &self.input
+        };
+        let parameters = serde_json::from_str(input).ok()?;
+        llm_tools
             .iter()
             .find(|tool| tool.name == self.name)
             .map(|tool| ChatRsToolCall {
                 id: self.id,
-                tool_id: tool.id,
+                tool_id: tool.tool_id,
                 tool_name: self.name,
+                tool_type: tool.tool_type,
                 parameters,
             })
     }

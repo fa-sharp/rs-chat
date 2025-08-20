@@ -94,7 +94,7 @@ Your API keys are encrypted and stored in the database.
 
 2. **Start development databases**
    ```bash
-   docker compose up -d
+   docker compose up -d db redis
    ```
 
 3. **Set up the backend**
@@ -165,6 +165,15 @@ services:
       # RS_CHAT_SSO_HEADER_ENABLED: true
       # RS_CHAT_SSO_USERNAME_HEADER: X-Remote-User
       # ...
+      ## For running code on a remote Docker host
+      # DOCKER_HOST: tcp://remote-docker-host:port
+      # DOCKER_TLS_VERIFY: 1
+      # DOCKER_CERT_PATH: /certs
+    volumes:
+      ## For running code on local Docker host
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      ## Certificates for remote Docker host
+      # - ./path/to/certs:/certs
 ```
 
 ## 🔒 Security & Privacy

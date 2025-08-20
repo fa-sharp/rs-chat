@@ -4,10 +4,10 @@ use rocket::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsTool, ChatRsToolCall},
+    db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsToolCall},
     provider::{
         LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
-        LlmUsage,
+        LlmTool, LlmUsage,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
@@ -77,7 +77,7 @@ impl<'a> OpenAIProvider<'a> {
             .collect()
     }
 
-    fn build_tools(&self, tools: &'a [ChatRsTool]) -> Vec<OpenAITool> {
+    fn build_tools(&self, tools: &'a [LlmTool]) -> Vec<OpenAITool> {
         tools
             .iter()
             .map(|tool| OpenAITool {
@@ -85,7 +85,7 @@ impl<'a> OpenAIProvider<'a> {
                 function: OpenAIToolFunction {
                     name: &tool.name,
                     description: &tool.description,
-                    parameters: tool.get_input_schema(),
+                    parameters: &tool.input_schema,
                     strict: true,
                 },
             })
@@ -95,7 +95,7 @@ impl<'a> OpenAIProvider<'a> {
     async fn parse_sse_stream(
         &self,
         mut response: reqwest::Response,
-        tools: Option<Vec<ChatRsTool>>,
+        tools: Option<Vec<LlmTool>>,
     ) -> LlmApiStream {
         let stream = async_stream::stream! {
             let mut buffer = String::new();
@@ -193,7 +193,7 @@ impl<'a> LlmApiProvider for OpenAIProvider<'a> {
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
-        tools: Option<Vec<ChatRsTool>>,
+        tools: Option<Vec<LlmTool>>,
         options: &LlmApiProviderSharedOptions,
     ) -> Result<LlmApiStream, LlmError> {
         let openai_messages = self.build_messages(&messages);
@@ -344,7 +344,7 @@ struct OpenAITool<'a> {
 struct OpenAIToolFunction<'a> {
     name: &'a str,
     description: &'a str,
-    parameters: serde_json::Value,
+    parameters: &'a serde_json::Value,
     strict: bool,
 }
 
@@ -417,7 +417,7 @@ struct OpenAIStreamToolCall {
 
 impl OpenAIStreamToolCall {
     /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
-    fn convert(self, rs_chat_tools: &[ChatRsTool]) -> Option<ChatRsToolCall> {
+    fn convert(self, rs_chat_tools: &[LlmTool]) -> Option<ChatRsToolCall> {
         let id = self.id?;
         let tool_name = self.function.name?;
         let parameters = serde_json::from_str(&self.function.arguments?).ok()?;
@@ -426,8 +426,9 @@ impl OpenAIStreamToolCall {
             .find(|tool| tool.name == tool_name)
             .map(|tool| ChatRsToolCall {
                 id,
-                tool_id: tool.id,
+                tool_id: tool.tool_id,
                 tool_name,
+                tool_type: tool.tool_type,
                 parameters,
             })
     }

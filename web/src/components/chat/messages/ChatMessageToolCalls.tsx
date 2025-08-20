@@ -1,9 +1,11 @@
-import { ChevronDown, ChevronUp, PlayCircle } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, PlayCircle } from "lucide-react";
+import { lazy, Suspense, useMemo, useState } from "react";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/types";
+import { useStreamingTools } from "@/lib/context/StreamingContext";
+import { getToolFromToolCall } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 
 const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
@@ -11,10 +13,8 @@ const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
 interface Props {
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onExecute: (toolCallId: string) => void;
-  onExecuteAll: () => void;
-  isExecuting: boolean;
 }
 
 export default function ChatMessageToolCalls({
@@ -22,9 +22,9 @@ export default function ChatMessageToolCalls({
   executedToolCalls,
   tools,
   onExecute,
-  onExecuteAll,
-  isExecuting,
 }: Props) {
+  const { streamedTools } = useStreamingTools();
+
   const [expanded, setExpanded] = useState(false);
 
   if (!toolCalls || toolCalls.length === 0) {
@@ -32,7 +32,7 @@ export default function ChatMessageToolCalls({
   }
 
   return (
-    <div className="prose-h3:mt-0 prose-h3:mb-1 prose-pre:my-1">
+    <div className="prose-h3:mt-0 prose-h3:mb-0.5 prose-h3:text-lg prose-pre:my-1">
       <h3 className="flex gap-2">
         Tool Calls ({toolCalls.length})
         <Button
@@ -40,8 +40,8 @@ export default function ChatMessageToolCalls({
           variant="outline"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? <ChevronUp /> : <ChevronDown />}
           {expanded ? "Collapse" : "Expand"}
+          {expanded ? <ChevronUp /> : <ChevronDown />}
         </Button>
       </h3>
       <div className={cn("flex flex-col", expanded && "gap-2")}>
@@ -53,21 +53,9 @@ export default function ChatMessageToolCalls({
             expanded={expanded}
             onExecute={() => onExecute(toolCall.id)}
             canExecute={!executedToolCalls?.some((tc) => tc.id === toolCall.id)}
-            isExecuting={isExecuting}
+            isExecuting={streamedTools[toolCall.id]?.status === "streaming"}
           />
         ))}
-        {executedToolCalls?.length === 0 && (
-          <p>
-            <Button
-              onClick={onExecuteAll}
-              loading={isExecuting}
-              disabled={isExecuting}
-            >
-              {!isExecuting && <PlayCircle />}
-              {isExecuting ? "Executing..." : "Execute All"}
-            </Button>
-          </p>
-        )}
       </div>
     </div>
   );
@@ -82,19 +70,26 @@ function ChatMessageToolCall({
   canExecute,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onExecute: () => void;
   isExecuting: boolean;
   canExecute: boolean;
   expanded: boolean;
 }) {
-  const tool = tools?.find((tool) => tool.id === toolCall.tool_id);
+  const tool = useMemo(
+    () => getToolFromToolCall(toolCall, tools),
+    [tools, toolCall],
+  );
 
   return !expanded ? (
     <div className="flex gap-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 font-semibold">
-          {tool && getToolIcon(tool)}
+          {isExecuting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            tool && getToolIcon(tool)
+          )}
           {toolCall.tool_name}
         </div>
         {canExecute && (
@@ -112,25 +107,47 @@ function ChatMessageToolCall({
       <pre className="text-nowrap">{JSON.stringify(toolCall.parameters)}</pre>
     </div>
   ) : (
-    <div key={toolCall.id} className="flex flex-col gap-1">
+    <div key={toolCall.id} className="flex flex-col gap-1 py-2">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 font-semibold">
-          {tool && getToolIcon(tool)}
+          {isExecuting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            tool && getToolIcon(tool)
+          )}
           {tool && `${getToolTypeLabel(tool)}: `}
           {toolCall.tool_name}
         </div>
         {canExecute && (
-          <Button size="sm" disabled={isExecuting} onClick={onExecute}>
+          <Button
+            size="sm"
+            disabled={isExecuting}
+            loading={isExecuting}
+            onClick={onExecute}
+          >
             <PlayCircle />
             Execute
           </Button>
         )}
       </div>
+      <div className="font-semibold">Input</div>
       <Suspense fallback={<div>Loading...</div>}>
         <ChatFancyMarkdown>
           {`\`\`\`json\n${JSON.stringify(toolCall.parameters, null, 2)}\n\`\`\``}
         </ChatFancyMarkdown>
       </Suspense>
+      {tool?.data.type === "code_runner" &&
+        typeof toolCall.parameters.code === "string" &&
+        typeof toolCall.parameters.language === "string" && (
+          <>
+            <div className="font-semibold">Code</div>
+            <Suspense fallback={<div>Loading...</div>}>
+              <ChatFancyMarkdown>
+                {`\`\`\`${toolCall.parameters.language}\n${toolCall.parameters.code}\n\`\`\``}
+              </ChatFancyMarkdown>
+            </Suspense>
+          </>
+        )}
       <div className="text-sm text-muted-foreground">
         Tool call ID: {toolCall.id}
         <br />

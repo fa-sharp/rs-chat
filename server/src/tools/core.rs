@@ -2,12 +2,41 @@
 
 use std::collections::HashMap;
 
-use rocket::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Standard result type for all tool operations
 pub type ToolResult<T> = Result<T, ToolError>;
+
+/// Tool logging stream chunk
+#[derive(Debug, Clone)]
+pub enum ToolLog {
+    Result(String),
+    Log(String),
+    Debug(String),
+    Error(String),
+}
+
+impl From<ToolLog> for rocket::response::stream::Event {
+    fn from(chunk: ToolLog) -> Self {
+        match chunk {
+            ToolLog::Result(data) => Self::data(data).event("result"),
+            ToolLog::Log(data) => Self::data(data).event("log"),
+            ToolLog::Debug(data) => Self::data(data).event("debug"),
+            ToolLog::Error(data) => Self::data(data).event("error"),
+        }
+    }
+}
+
+/// The format of the tool response
+#[derive(Default, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolResponseFormat {
+    #[default]
+    Text,
+    Json,
+    Markdown,
+}
 
 /// Tool input parameters
 pub type ToolParameters = HashMap<String, serde_json::Value>;
@@ -17,6 +46,8 @@ pub type ToolParameters = HashMap<String, serde_json::Value>;
 pub enum ToolError {
     #[error("Invalid JSON schema: {0}")]
     InvalidJsonSchema(String),
+    #[error("Invalid configuration: {0}")]
+    InvalidConfiguration(String),
     #[error("Input parameters don't match JSON schema: {0}")]
     InvalidParameters(String),
     #[error("Tool not found")]
@@ -29,25 +60,10 @@ pub enum ToolError {
     SerializationError(#[from] serde_json::Error),
     #[error("Tool execution error: {0}")]
     ToolExecutionError(String),
-}
-
-/// Core trait that all tools must implement
-#[async_trait]
-pub trait Tool: Send + Sync {
-    /// The tool's name for logging
-    fn name(&self) -> &str;
-
-    /// Get the JSON schema for input parameters
-    fn input_schema(&self) -> serde_json::Value;
-
-    /// Validate input parameters (default implementation uses the tool's input JSON schema)
-    fn validate_input(&self, parameters: &ToolParameters) -> ToolResult<()> {
-        jsonschema::validate(&self.input_schema(), &serde_json::to_value(parameters)?)
-            .map_err(|err| ToolError::InvalidParameters(err.to_string()))
-    }
-
-    /// Execute the tool with given parameters
-    async fn execute(&self, parameters: &ToolParameters) -> ToolResult<String>;
+    #[error("Tool execution cancelled: {0}")]
+    Cancelled(String),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// JSON schema for tool input parameters
@@ -65,13 +81,4 @@ pub struct ToolJsonSchema {
 pub enum ToolJsonSchemaType {
     #[serde(rename = "object")]
     Object,
-}
-
-/// Ensure JSON schema is valid (using Draft 2020-12).
-/// Also sets `additionalProperties` to false as required by OpenAI.
-pub(super) fn validate_json_schema(input_schema: &mut ToolJsonSchema) -> ToolResult<()> {
-    input_schema.additional_properties = Some(false);
-    jsonschema::draft202012::meta::validate(&serde_json::to_value(input_schema)?)
-        .map_err(|e| ToolError::InvalidJsonSchema(e.to_string()))?;
-    Ok(())
 }

@@ -31,7 +31,7 @@ export default memo(function ChatMessageInput({
   const {
     providerId,
     modelId,
-    toolIds,
+    toolInput,
     maxTokens,
     temperature,
     error,
@@ -39,10 +39,13 @@ export default memo(function ChatMessageInput({
     formRef,
     isGenerating,
     onSelectModel,
-    onToggleTool,
+    onSetSystemTool,
+    onToggleExternalApiTool,
     setMaxTokens,
     setTemperature,
+    canGetAgenticResponse,
     onSubmitUserMessage,
+    onSubmitWithoutUserMessage,
   } = inputState;
 
   const currentProvider = useMemo(() => {
@@ -109,8 +112,9 @@ export default memo(function ChatMessageInput({
             />
             <ChatToolSelect
               tools={tools}
-              selectedToolIds={toolIds}
-              toggleTool={onToggleTool}
+              toolInput={toolInput}
+              onSetSystemTool={onSetSystemTool}
+              onToggleExternalApiTool={onToggleExternalApiTool}
             />
           </>
         )}
@@ -128,16 +132,28 @@ export default memo(function ChatMessageInput({
           <div className="text-sm text-destructive-foreground">{error}</div>
         )}
 
-        <Button
-          disabled={isGenerating}
-          type="submit"
-          size="sm"
-          className="ml-auto gap-1.5 flex items-center"
-        >
-          Send Message
-          {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
-          <CornerDownLeft className="size-3.5" />
-        </Button>
+        <div className="ml-auto flex gap-2 items-center">
+          {canGetAgenticResponse && (
+            <Button
+              type="button"
+              size="sm"
+              disabled={isGenerating}
+              onClick={onSubmitWithoutUserMessage}
+            >
+              Get Agent Response
+            </Button>
+          )}
+          <Button
+            disabled={isGenerating}
+            type="submit"
+            size="sm"
+            className="gap-1.5 flex items-center"
+          >
+            Send Message
+            {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
+            <CornerDownLeft className="size-3.5" />
+          </Button>
+        </div>
       </div>
     </form>
   );

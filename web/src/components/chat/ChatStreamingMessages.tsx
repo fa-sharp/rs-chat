@@ -9,8 +9,8 @@ import {
   ChatBubble,
   ChatBubbleAvatar,
   ChatBubbleMessage,
-} from "../../ui/chat/chat-bubble";
-import { proseAssistantClasses, proseClasses } from "./proseStyles";
+} from "../ui/chat/chat-bubble";
+import { proseAssistantClasses, proseClasses } from "./messages/proseStyles";
 
 interface Props {
   sessionId: string;
@@ -51,7 +51,7 @@ export default function ChatStreamingMessages({
         )}
 
       {streamingMessage && (
-        <ChatBubble variant="received">
+        <ChatBubble variant="received" layout="ai">
           <ChatBubbleAvatar
             fallback={<Bot className="size-4" />}
             className="animate-pulse"

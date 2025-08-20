@@ -46,7 +46,7 @@ impl HttpRequestBuilder {
         self
     }
 
-    pub fn query_param(mut self, key: &str, value: &str) -> Self {
+    pub fn _query_param(mut self, key: &str, value: &str) -> Self {
         let separator = if self.url.contains('?') { "&" } else { "?" };
         self.url.push_str(&format!(
             "{}{}={}",

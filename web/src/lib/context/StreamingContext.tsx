@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useState } from "react";
 
 import { streamChat } from "../api/chat";
 import { chatSessionQueryKey, recentSessionsQueryKey } from "../api/session";
+import { streamToolExecution } from "../api/tool";
 import type { components } from "../api/types";
 
 export interface StreamedChat {
@@ -10,6 +11,20 @@ export interface StreamedChat {
   error?: string;
   status: "streaming" | "completed";
 }
+
+export interface StreamedToolExecution {
+  result: string;
+  logs: string[];
+  debugLogs: string[];
+  error?: string;
+  status: "streaming" | "completed" | "error";
+}
+const streamedToolExecutionInit = (): StreamedToolExecution => ({
+  result: "",
+  logs: [],
+  debugLogs: [],
+  status: "streaming",
+});
 
 /** Hook to stream a chat, get chat stream status, etc. */
 export const useStreamingChats = () => {
@@ -51,11 +66,48 @@ export const useStreamingChats = () => {
   };
 };
 
-/** Manage ongoing chat streams */
+/** Hook to stream tool executions */
+export const useStreamingTools = () => {
+  const { streamedTools, startToolExecution, cancelToolExecution } =
+    useContext(ChatStreamContext);
+
+  /** Execute a tool with streaming */
+  const onToolExecute = useCallback(
+    (messageId: string, sessionId: string, toolCallId: string) => {
+      startToolExecution(messageId, sessionId, toolCallId);
+    },
+    [startToolExecution],
+  );
+
+  /** Cancel a tool execution */
+  const onToolCancel = useCallback(
+    (sessionId: string, toolCallId: string) => {
+      cancelToolExecution(sessionId, toolCallId);
+    },
+    [cancelToolExecution],
+  );
+
+  return {
+    streamedTools,
+    onToolExecute,
+    onToolCancel,
+  };
+};
+
+/** Manage ongoing chat streams and tool executions */
 const useChatStreamManager = () => {
   const [streamedChats, setStreamedChats] = useState<{
     [sessionId: string]: StreamedChat | undefined;
   }>({});
+
+  const [streamedTools, setStreamedTools] = useState<{
+    [toolCallId: string]: StreamedToolExecution | undefined;
+  }>({});
+
+  const [activeToolStreams, setActiveToolStreams] = useState<{
+    [toolCallId: string]: { close: () => void } | undefined;
+  }>({});
+
   const addChatPart = useCallback((sessionId: string, part: string) => {
     setStreamedChats((prev) => ({
       ...prev,
@@ -116,7 +168,7 @@ const useChatStreamManager = () => {
   );
 
   /** Refetch chat session for the new assistant message */
-  const refetchSessionForNewResponse = useCallback(
+  const refetchSessionForNewAssistantResponse = useCallback(
     async (sessionId: string) => {
       const retryDelay = 1000; // 1 second
       try {
@@ -156,6 +208,42 @@ const useChatStreamManager = () => {
     [invalidateSession, queryClient],
   );
 
+  /** Refetch chat session for the new tool message */
+  const refetchSessionForNewToolMessage = useCallback(
+    async (sessionId: string, toolCallId: string) => {
+      const retryDelay = 1000; // 1 second
+      try {
+        let hasNewToolMessage = false;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (!hasNewToolMessage && retryCount < maxRetries) {
+          await invalidateSession(sessionId);
+
+          const updatedData = queryClient.getQueryData<{
+            messages: components["schemas"]["ChatRsMessage"][];
+          }>(["chatSession", { sessionId }]);
+          hasNewToolMessage =
+            updatedData?.messages?.some(
+              (msg) =>
+                msg.role === "Tool" && msg.meta.tool_call?.id === toolCallId,
+            ) || false;
+
+          if (!hasNewToolMessage) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise((resolve) => setTimeout(resolve, retryDelay));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error refetching chat session:", error);
+        await invalidateSession(sessionId);
+      }
+    },
+    [invalidateSession, queryClient],
+  );
+
   /** Start a new chat stream */
   const startStream = useCallback(
     (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
@@ -171,7 +259,7 @@ const useChatStreamManager = () => {
       });
       stream.start
         .then(() => {
-          refetchSessionForNewResponse(sessionId).then(() =>
+          refetchSessionForNewAssistantResponse(sessionId).then(() =>
             clearChat(sessionId),
           );
         })
@@ -187,13 +275,138 @@ const useChatStreamManager = () => {
       addChatError,
       setChatStatus,
       invalidateSession,
-      refetchSessionForNewResponse,
+      refetchSessionForNewAssistantResponse,
     ],
+  );
+
+  /** Add tool execution result chunk */
+  const addToolResult = useCallback((toolCallId: string, result: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: {
+        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
+        result: (prev?.[toolCallId]?.result || "") + result,
+      },
+    }));
+  }, []);
+
+  /** Add tool execution log */
+  const addToolLog = useCallback((toolCallId: string, log: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: {
+        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
+        logs: [...(prev?.[toolCallId]?.logs || []), log],
+      },
+    }));
+  }, []);
+
+  /** Add tool execution debug log */
+  const addToolDebug = useCallback((toolCallId: string, debug: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: {
+        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
+        debugLogs: [...(prev?.[toolCallId]?.debugLogs || []), debug],
+      },
+    }));
+  }, []);
+
+  /** Add tool execution error */
+  const addToolError = useCallback((toolCallId: string, error: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: {
+        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
+        error,
+        status: "error",
+      },
+    }));
+  }, []);
+
+  /** Set tool execution status */
+  const setToolStatus = useCallback(
+    (toolCallId: string, status: "streaming" | "completed" | "error") => {
+      setStreamedTools((prev) => ({
+        ...prev,
+        [toolCallId]: {
+          ...(prev?.[toolCallId] || streamedToolExecutionInit()),
+          status,
+        },
+      }));
+    },
+    [],
+  );
+
+  /** Clear active tool execution */
+  const clearTool = useCallback((toolCallId: string) => {
+    setStreamedTools((prev) => ({
+      ...prev,
+      [toolCallId]: undefined,
+    }));
+    setActiveToolStreams((prev) => ({
+      ...prev,
+      [toolCallId]: undefined,
+    }));
+  }, []);
+
+  /** Start tool execution stream */
+  const startToolExecution = useCallback(
+    (messageId: string, sessionId: string, toolCallId: string) => {
+      const stream = streamToolExecution(messageId, toolCallId, {
+        onResult: (data) => addToolResult(toolCallId, data),
+        onLog: (data) => addToolLog(toolCallId, data),
+        onDebug: (data) => addToolDebug(toolCallId, data),
+        onError: (error) => addToolError(toolCallId, error),
+      });
+
+      clearTool(toolCallId);
+      setToolStatus(toolCallId, "streaming");
+      setActiveToolStreams((prev) => ({
+        ...prev,
+        [toolCallId]: { close: stream.close },
+      }));
+
+      stream.start
+        .then(() => setToolStatus(toolCallId, "completed"))
+        .catch(() => setToolStatus(toolCallId, "error"))
+        .finally(() => {
+          refetchSessionForNewToolMessage(sessionId, toolCallId).then(() => {
+            clearTool(toolCallId);
+          });
+        });
+    },
+    [
+      setToolStatus,
+      addToolResult,
+      addToolLog,
+      addToolDebug,
+      addToolError,
+      clearTool,
+      refetchSessionForNewToolMessage,
+    ],
+  );
+
+  /** Cancel tool execution */
+  const cancelToolExecution = useCallback(
+    (sessionId: string, toolCallId: string) => {
+      const activeStream = activeToolStreams[toolCallId];
+      if (activeStream) {
+        activeStream.close();
+        refetchSessionForNewToolMessage(sessionId, toolCallId).then(() => {
+          clearTool(toolCallId);
+        });
+      }
+    },
+    [activeToolStreams, clearTool, refetchSessionForNewToolMessage],
   );
 
   return {
     startStream,
     streamedChats,
+    streamedTools,
+    startToolExecution,
+    cancelToolExecution,
   };
 };
 

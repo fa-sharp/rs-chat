@@ -8,9 +8,10 @@ import {
   ChatBubbleMessage,
 } from "@/components/ui/chat/chat-bubble";
 import type { components } from "@/lib/api/types";
-import { cn, escapeBackticks } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
 import ChatMessageToolCalls from "./ChatMessageToolCalls";
+import ChatMessageToolResult from "./ChatMessageToolResult";
 import {
   proseAssistantClasses,
   proseClasses,
@@ -22,11 +23,9 @@ const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 interface Props {
   message: components["schemas"]["ChatRsMessage"];
   user?: components["schemas"]["ChatRsUser"];
-  tools?: components["schemas"]["ChatRsTool"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   onExecuteToolCall: (messageId: string, toolCallId: string) => void;
-  onExecuteAllToolCalls: (messageId: string) => void;
-  isExecutingTool: boolean;
   providers?: components["schemas"]["ChatRsProvider"][];
   onDeleteMessage: (messageId: string) => void;
 }
@@ -37,8 +36,6 @@ export default function ChatMessage({
   tools,
   executedToolCalls,
   onExecuteToolCall,
-  onExecuteAllToolCalls,
-  isExecutingTool,
   providers,
   onDeleteMessage,
 }: Props) {
@@ -65,24 +62,17 @@ export default function ChatMessage({
         className={cn(
           proseClasses,
           message.role === "User" && proseUserClasses,
-          message.role === "Assistant" && proseAssistantClasses,
+          (message.role === "Assistant" || message.role === "Tool") &&
+            proseAssistantClasses,
         )}
       >
-        <Suspense
-          fallback={
-            <Markdown>
-              {message.role === "Tool"
-                ? formatToolResponse(message)
-                : message.content}
-            </Markdown>
-          }
-        >
-          <ChatFancyMarkdown>
-            {message.role === "Tool"
-              ? formatToolResponse(message)
-              : message.content}
-          </ChatFancyMarkdown>
-        </Suspense>
+        {message.role === "Tool" ? (
+          <ChatMessageToolResult message={message} tools={tools} />
+        ) : (
+          <Suspense fallback={<Markdown>{message.content}</Markdown>}>
+            <ChatFancyMarkdown>{message.content}</ChatFancyMarkdown>
+          </Suspense>
+        )}
         {message.role === "Assistant" && (
           <>
             {message.meta.assistant?.tool_calls && (
@@ -91,11 +81,9 @@ export default function ChatMessage({
                 toolCalls={message.meta.assistant.tool_calls}
                 executedToolCalls={executedToolCalls}
                 onExecute={(id) => onExecuteToolCall(message.id, id)}
-                onExecuteAll={() => onExecuteAllToolCalls(message.id)}
-                isExecuting={isExecutingTool}
               />
             )}
-            <div className="flex items-center justify-between">
+            <div className="flex items-end justify-between">
               <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                 <InfoButton meta={message.meta} providers={providers} />
                 <CopyButton message={message.content} />
@@ -108,7 +96,7 @@ export default function ChatMessage({
           </>
         )}
         {message.role === "User" && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
               <CopyButton message={message.content} variant="default" />
               <DeleteButton
@@ -122,7 +110,7 @@ export default function ChatMessage({
           </div>
         )}
         {message.role === "Tool" && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <div className="flex items-center mt-2 gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
               <InfoButton meta={message.meta} providers={providers} />
               <CopyButton message={message.content} />
@@ -136,10 +124,6 @@ export default function ChatMessage({
       </ChatBubbleMessage>
     </ChatBubble>
   );
-}
-
-function formatToolResponse(message: components["schemas"]["ChatRsMessage"]) {
-  return `### Tool Response: ${message.meta.tool_call?.tool_name}\n\`\`\`${message.content.startsWith("{") ? "json" : "text"}\n${escapeBackticks(message.content)}\n\`\`\``;
 }
 
 const now = new Date();

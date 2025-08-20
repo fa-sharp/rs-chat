@@ -1,5 +1,5 @@
 services:
-  postgres:
+  db:
     image: postgres:17-alpine
     container_name: postgres
     environment:
@@ -18,6 +18,23 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  rschat:
+    build:
+      context: .
+    ports:
+      - "8080:8080"
+    environment:
+      RUST_LOG: info
+      RS_CHAT_SERVER_ADDRESS: http://localhost:8080
+      RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
+      RS_CHAT_REDIS_URL: redis://redis:6379
+    env_file: server/.env
+    volumes:
+      - ./.docker:/certs
+    depends_on:
+      - db
+      - redis
 
 volumes:
   postgres_data:
