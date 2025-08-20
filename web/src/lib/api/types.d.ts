@@ -289,7 +289,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/tool/{tool_id}": {
+    "/tool/system/{tool_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -299,8 +299,25 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Delete a tool */
-        delete: operations["delete_tool"];
+        /** @description Delete a system tool */
+        delete: operations["delete_system_tool"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tool/external-api/{tool_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Delete an external API tool */
+        delete: operations["delete_external_api_tool"];
         options?: never;
         head?: never;
         patch?: never;
@@ -491,8 +508,57 @@ export interface components {
             updated_at: string;
         };
         ChatRsSessionMeta: {
-            /** @description IDs of the tools available to the assistant */
-            tools?: string[] | null;
+            /** @description User configuration of tools for this session */
+            tool_config?: components["schemas"]["SendChatToolInput"] | null;
+        };
+        /** @description User configuration of tools when sending a chat message */
+        SendChatToolInput: {
+            system?: components["schemas"]["SystemToolInput"] | null;
+            external_apis?: components["schemas"]["ExternalApiToolInput"][] | null;
+        };
+        /** @description Chat input settings for system tools */
+        SystemToolInput: {
+            /**
+             * @description Enable/disable the code runner tool
+             * @default false
+             */
+            code_runner: boolean;
+            /**
+             * @description Enable/disable tools to get system information, current date/time, etc.
+             * @default false
+             */
+            info: boolean;
+        };
+        /** @description Chat input settings for an external API tool */
+        ExternalApiToolInput: {
+            /**
+             * Format: uuid
+             * @description ID of the external API tool
+             */
+            id: string;
+            /** @description Dynamic configuration for the external API tool (set permissions, features, etc.) */
+            config?: components["schemas"]["ExternalApiToolInputConfig"] | null;
+        };
+        ExternalApiToolInputConfig: {
+            /** @enum {string} */
+            type: "web_search";
+            config: components["schemas"]["WebSearchDynamicConfig"];
+        } | {
+            /** @enum {string} */
+            type: "custom_api";
+            config: components["schemas"]["CustomApiDynamicConfig"];
+        };
+        /** @description Dynamic configuration for the web search tool. */
+        WebSearchDynamicConfig: {
+            /** @description Whether search is enabled. */
+            search: boolean;
+            /** @description Whether content extraction is enabled. */
+            extract: boolean;
+        };
+        /** @description Dynamic configuration for the custom API tool */
+        CustomApiDynamicConfig: {
+            /** @description Which requests/tools are enabled */
+            enabled?: string[] | null;
         };
         SessionIdResponse: {
             session_id: string;
@@ -554,11 +620,18 @@ export interface components {
             tool_id: string;
             /** @description Name of the tool used */
             tool_name: string;
+            /**
+             * @description Type of the tool used
+             * @default system
+             */
+            tool_type: components["schemas"]["LlmToolType"];
             /** @description Input parameters passed to the tool */
             parameters: {
                 [key: string]: unknown;
             };
         };
+        /** @enum {string} */
+        LlmToolType: "system" | "external_api";
         /** @description Usage stats from the LLM provider */
         LlmUsage: {
             /** Format: uint32 */
@@ -580,6 +653,16 @@ export interface components {
              * @description ID of the tool used
              */
             tool_id: string;
+            /**
+             * @description Type of the tool used
+             * @default system
+             */
+            tool_type: components["schemas"]["LlmToolType"];
+            /**
+             * @description Format of the tool response
+             * @default text
+             */
+            response_format: components["schemas"]["ToolResponseFormat"];
             /** @description Whether the tool call resulted in an error */
             is_error?: boolean | null;
             /** @description Collected logs from the tool execution */
@@ -587,6 +670,11 @@ export interface components {
             /** @description Collected errors from the tool execution */
             errors?: string[] | null;
         };
+        /**
+         * @description The format of the tool response
+         * @enum {string}
+         */
+        ToolResponseFormat: "text" | "json" | "markdown";
         /** @description Session matches for a full-text search query of chat titles and messages */
         SessionSearchResult: {
             /** Format: uuid */
@@ -604,7 +692,7 @@ export interface components {
             title: string;
         };
         SendChatInput: {
-            /** @description The new chat message */
+            /** @description The new chat message from the user */
             message?: string | null;
             /**
              * Format: int32
@@ -613,74 +701,97 @@ export interface components {
             provider_id: number;
             /** @description Provider options */
             provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
-            /** @description IDs of the tools available to the assistant */
-            tools?: string[] | null;
+            /** @description Configuration of tools available to the assistant */
+            tools?: components["schemas"]["SendChatToolInput"] | null;
         };
-        ChatRsToolPublic: {
+        GetAllToolsResponse: {
+            /** @description System tools */
+            system: components["schemas"]["ChatRsSystemTool"][];
+            /** @description External API tools */
+            external_api: components["schemas"]["ChatRsExternalApiTool"][];
+        };
+        ChatRsSystemTool: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             user_id: string;
-            name: string;
-            description: string;
-            config: components["schemas"]["ToolConfigPublic"];
+            data: components["schemas"]["ChatRsSystemToolConfig"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             updated_at: string;
         };
-        /** @description The tool's configuration */
-        ToolConfigPublic: {
+        /** @description System tool configuration saved in the database */
+        ChatRsSystemToolConfig: {
             /** @enum {string} */
-            type: "Http";
-            url: string;
-            method: string;
+            type: "code_runner";
+            config: components["schemas"]["CodeRunnerConfig"];
         } | {
             /** @enum {string} */
-            type: "WebSearch";
-            /** @description The chosen search provider. */
-            provider: components["schemas"]["WebSearchProviderConfigPublic"];
+            type: "files";
+            config: null;
+        } | {
+            /** @enum {string} */
+            type: "system_info";
+        };
+        /** @description Configuration for the code runner tool. */
+        CodeRunnerConfig: {
             /**
-             * Format: uint8
-             * @description Max search results to return.
+             * Format: uint32
+             * @description Timeout in seconds for the code execution.
+             * @default 30
              */
-            count: number;
-        } | {
-            /** @enum {string} */
-            type: "CodeExecutor";
-            /** Format: uint32 */
-            timeout_seconds?: number | null;
-            /** Format: uint32 */
-            memory_limit_mb?: number | null;
-            /** Format: float */
-            cpu_limit?: number | null;
+            timeout_seconds: number;
+            /**
+             * Format: uint32
+             * @description Memory limit in MB for the code execution.
+             * @default 512
+             */
+            memory_limit_mb: number;
+            /**
+             * Format: float
+             * @description CPU limit for the code execution
+             * @default 0.5
+             */
+            cpu_limit: number;
         };
-        WebSearchProviderConfigPublic: {
-            /** @enum {string} */
-            type: "brave";
-        } | {
-            /** @enum {string} */
-            type: "serpapi";
-        } | {
-            /** @enum {string} */
-            type: "googlecustomsearch";
-        } | {
-            /** @enum {string} */
-            type: "exa";
+        ChatRsExternalApiTool: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            data: components["schemas"]["ChatRsExternalApiToolConfig"];
+            /** Format: uuid */
+            secret_1?: string | null;
+            /** Format: uuid */
+            secret_2?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
         };
-        ToolInput: {
-            /** @description Name of the tool */
+        /** @description External API tool configuration saved in the database */
+        ChatRsExternalApiToolConfig: {
+            /** @enum {string} */
+            type: "custom_api";
+            config: components["schemas"]["CustomApiConfig"];
+        } | {
+            /** @enum {string} */
+            type: "web_search";
+            config: components["schemas"]["WebSearchConfig"];
+        };
+        /** @description Saved configuration for the custom API tool */
+        CustomApiConfig: {
+            /** @description Name of the custom API tool. Will be prefixed to the request names. */
             name: string;
-            /** @description Description of the tool */
-            description: string;
-            /** @description Tool-specific configuration */
-            config: components["schemas"]["ToolConfig"];
+            /** @description Map of request names to their configurations */
+            tools: {
+                [key: string]: components["schemas"]["HttpRequestConfig"];
+            };
         };
-        /** @description Tool configuration stored in the daabase */
-        ToolConfig: {
-            /** @enum {string} */
-            type: "Http";
-            input_schema: components["schemas"]["ToolJsonSchema"];
+        /** @description Configuration for individual HTTP requests */
+        HttpRequestConfig: {
+            description: string;
             url: string;
             method: string;
             query?: {
@@ -690,26 +801,7 @@ export interface components {
             headers?: {
                 [key: string]: string;
             } | null;
-        } | {
-            /** @enum {string} */
-            type: "WebSearch";
-            /** @description Provider-specific configuration */
-            provider: components["schemas"]["WebSearchProviderConfig"];
-            /**
-             * Format: uint8
-             * @description Max search results to return.
-             * @default 10
-             */
-            count: number;
-        } | {
-            /** @enum {string} */
-            type: "CodeExecutor";
-            /** Format: uint32 */
-            timeout_seconds?: number | null;
-            /** Format: uint32 */
-            memory_limit_mb?: number | null;
-            /** Format: float */
-            cpu_limit?: number | null;
+            input_schema: components["schemas"]["ToolJsonSchema"];
         };
         /** @description JSON schema for tool input parameters */
         ToolJsonSchema: {
@@ -722,53 +814,76 @@ export interface components {
         };
         /** @enum {string} */
         ToolJsonSchemaType: "object";
+        /** @description Saved configuration for the web search tool. */
+        WebSearchConfig: {
+            /** @description Provider-specific configuration */
+            provider: components["schemas"]["WebSearchProviderConfig"];
+            /**
+             * Format: uint8
+             * @description Max search results to return.
+             * @default 10
+             */
+            count: number;
+            /**
+             * Format: uint32
+             * @description Max characters when extracting web content.
+             * @default 5000
+             */
+            max_characters: number;
+        };
         WebSearchProviderConfig: {
             /** @enum {string} */
-            type: "brave";
-            api_key: string;
-            /**
-             * @description Country code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#country-codes
-             * @default null
-             */
-            country: string | null;
-            /**
-             * @description Language code for search results. See https://api-dashboard.search.brave.com/app/documentation/web-search/codes#language-codes
-             * @default null
-             */
-            search_lang: string | null;
-        } | {
-            /** @enum {string} */
-            type: "serpapi";
-            api_key: string;
-            /**
-             * @description Country code for search results. See https://serpapi.com/google-countries
-             * @default null
-             */
-            country: string | null;
-            /**
-             * @description Language code for search results. See https://serpapi.com/google-lr-languages
-             * @default null
-             */
-            search_lang: string | null;
-            /**
-             * @description Search engine to use. See https://serpapi.com/search-api. Default: "google"
-             * @default null
-             */
-            engine: string | null;
-        } | {
-            /** @enum {string} */
-            type: "googlecustomsearch";
-            api_key: string;
-            /** @default null */
-            country: string | null;
-            /** @default null */
-            search_lang: string | null;
-            /** @description Google Custom Search Engine ID */
-            cx: string;
-        } | {
-            /** @enum {string} */
             type: "exa";
-            api_key: string;
+        };
+        CreateToolResponse: {
+            /** @enum {string} */
+            type: "system";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            data: components["schemas"]["ChatRsSystemToolConfig"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        } | {
+            /** @enum {string} */
+            type: "external_api";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            data: components["schemas"]["ChatRsExternalApiToolConfig"];
+            /** Format: uuid */
+            secret_1?: string | null;
+            /** Format: uuid */
+            secret_2?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateToolInput: {
+            system: components["schemas"]["ChatRsSystemToolConfig"];
+        } | {
+            /** @description External API tool configuration saved in the database */
+            external_api: {
+                /** @description API key / secret key */
+                secret_1?: components["schemas"]["SecretInput"] | null;
+            } & ({
+                /** @enum {string} */
+                type: "custom_api";
+                config: components["schemas"]["CustomApiConfig"];
+            } | {
+                /** @enum {string} */
+                type: "web_search";
+                config: components["schemas"]["WebSearchConfig"];
+            });
+        };
+        SecretInput: {
+            key: string;
+            name: string;
         };
         ChatRsSecretMeta: {
             /** Format: uuid */
@@ -776,10 +891,6 @@ export interface components {
             name: string;
             /** Format: date-time */
             created_at: string;
-        };
-        SecretInput: {
-            key: string;
-            name: string;
         };
         ChatRsApiKey: {
             /** Format: uuid */
@@ -1918,7 +2029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsToolPublic"][];
+                    "application/json": components["schemas"]["GetAllToolsResponse"];
                 };
             };
             /** @description Bad request */
@@ -1977,7 +2088,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ToolInput"];
+                "application/json": components["schemas"]["CreateToolInput"];
             };
         };
         responses: {
@@ -1986,7 +2097,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsToolPublic"];
+                    "application/json": components["schemas"]["CreateToolResponse"];
                 };
             };
             /** @description Bad request */
@@ -2103,7 +2214,73 @@ export interface operations {
             };
         };
     };
-    delete_tool: {
+    delete_system_tool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tool_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_external_api_tool: {
         parameters: {
             query?: never;
             header?: never;

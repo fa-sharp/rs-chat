@@ -21,7 +21,7 @@ export const useTools = () =>
 export const useCreateTool = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (toolInput: components["schemas"]["ToolInput"]) => {
+    mutationFn: async (toolInput: components["schemas"]["CreateToolInput"]) => {
       const response = await client.POST("/tool/", {
         body: toolInput,
       });
@@ -34,12 +34,30 @@ export const useCreateTool = () => {
   });
 };
 
-export const useDeleteTool = () => {
+export const useDeleteSystemTool = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (toolId: string) => {
-      const response = await client.DELETE("/tool/{tool_id}", {
+      const response = await client.DELETE("/tool/system/{tool_id}", {
         params: { path: { tool_id: toolId } },
+        parseAs: "text",
+      });
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      return response.data;
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  });
+};
+
+export const useDeleteExternalApiTool = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (toolId: string) => {
+      const response = await client.DELETE("/tool/external-api/{tool_id}", {
+        params: { path: { tool_id: toolId } },
+        parseAs: "text",
       });
       if (response.error) {
         throw new Error(response.error.message);
