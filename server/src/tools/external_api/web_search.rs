@@ -34,7 +34,6 @@ struct QueryInputSchema {
 #[serde(deny_unknown_fields)]
 struct ContentInputSchema {
     /// The URL to extract
-    #[validate(url)]
     url: String,
 }
 
