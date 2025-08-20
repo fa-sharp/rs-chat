@@ -22,7 +22,8 @@ use crate::{
 
 const CODE_RUNNER_NAME: &str = "code_runner";
 const CODE_RUNNER_DESCRIPTION: &str = "Run code snippet in a sandboxed environment. \
-    Any output files should be written to the `/var/output` directory.";
+    Temporary files can be written to the `$HOME` directory (must be created first). \
+    Other than that, it is a read-only environment.";
 const DEFAULT_TIMEOUT_SECONDS: u32 = 30;
 const DEFAULT_MEMORY_LIMIT_MB: u32 = 512;
 const DEFAULT_CPU_LIMIT: f32 = 0.5;
