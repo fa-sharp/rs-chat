@@ -101,7 +101,7 @@ function RouteComponent() {
     providers,
     initialProviderId: lastAssistantMessage?.meta.assistant?.provider_id,
     initialOptions: lastAssistantMessage?.meta.assistant?.provider_options,
-    initialToolIds: session?.session.meta.tools,
+    initialTools: session?.session.meta.tool_config,
     isGenerating: currentStream?.status === "streaming",
     canGetAgenticResponse,
     onSubmit,

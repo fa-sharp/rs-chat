@@ -31,7 +31,7 @@ export default memo(function ChatMessageInput({
   const {
     providerId,
     modelId,
-    toolIds,
+    toolInput,
     maxTokens,
     temperature,
     error,
@@ -39,7 +39,8 @@ export default memo(function ChatMessageInput({
     formRef,
     isGenerating,
     onSelectModel,
-    onToggleTool,
+    onSetSystemTool,
+    onToggleExternalApiTool,
     setMaxTokens,
     setTemperature,
     canGetAgenticResponse,
@@ -111,8 +112,9 @@ export default memo(function ChatMessageInput({
             />
             <ChatToolSelect
               tools={tools}
-              selectedToolIds={toolIds}
-              toggleTool={onToggleTool}
+              toolInput={toolInput}
+              onSetSystemTool={onSetSystemTool}
+              onToggleExternalApiTool={onToggleExternalApiTool}
             />
           </>
         )}

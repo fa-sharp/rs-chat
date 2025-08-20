@@ -4,13 +4,22 @@ import type { components } from "@/lib/api/types";
 
 const DEFAULT_MAX_TOKENS = 2000;
 const DEFAULT_TEMPERATURE = 0.7;
+const DEFAULT_TOOL_INPUT: {
+  system: NonNullable<components["schemas"]["SendChatToolInput"]["system"]>;
+  external_apis: NonNullable<
+    components["schemas"]["SendChatToolInput"]["external_apis"]
+  >;
+} = {
+  system: { code_runner: false, info: false },
+  external_apis: [],
+};
 
 export const useChatInputState = ({
   sessionId,
   providers,
   initialProviderId,
   initialOptions,
-  initialToolIds,
+  initialTools,
   isGenerating,
   canGetAgenticResponse,
   onSubmit,
@@ -19,7 +28,7 @@ export const useChatInputState = ({
   providers?: components["schemas"]["ChatRsProvider"][];
   initialProviderId?: number | null;
   initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
-  initialToolIds?: string[] | null;
+  initialTools?: components["schemas"]["SendChatToolInput"] | null;
   isGenerating: boolean;
   canGetAgenticResponse: boolean;
   onSubmit: (input: components["schemas"]["SendChatInput"]) => void;
@@ -32,7 +41,9 @@ export const useChatInputState = ({
     [providers, providerId],
   );
   const [modelId, setModel] = useState(initialOptions?.model || "");
-  const [toolIds, setToolIds] = useState<string[]>(initialToolIds || []);
+  const [toolInput, setToolInput] = useState<
+    components["schemas"]["SendChatToolInput"] | null
+  >(initialTools || DEFAULT_TOOL_INPUT);
   const [maxTokens, setMaxTokens] = useState<number>(
     initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS,
   );
@@ -46,11 +57,11 @@ export const useChatInputState = ({
     if (!sessionId) return;
     setProviderId(initialProviderId || null);
     setModel(initialOptions?.model || "");
-    setToolIds(initialToolIds || []);
+    setToolInput(initialTools || null);
     setMaxTokens(initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS);
     setTemperature(initialOptions?.temperature ?? DEFAULT_TEMPERATURE);
     setError("");
-  }, [initialProviderId, initialOptions, initialToolIds, sessionId]);
+  }, [initialProviderId, initialOptions, initialTools, sessionId]);
 
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -73,15 +84,41 @@ export const useChatInputState = ({
     [providers],
   );
 
-  const onToggleTool = useCallback((toolId: string) => {
-    setToolIds((prevToolIds) => {
-      if (prevToolIds.includes(toolId)) {
-        return prevToolIds.filter((id) => id !== toolId);
-      } else {
-        return [...prevToolIds, toolId];
-      }
-    });
-  }, []);
+  type SystemToolInput = NonNullable<
+    components["schemas"]["SendChatToolInput"]["system"]
+  >;
+  type SystemToolType = keyof SystemToolInput;
+  const onSetSystemTool = useCallback(
+    <T extends SystemToolType>(toolType: T, setting: SystemToolInput[T]) => {
+      setToolInput((prevToolInput) => {
+        const newSystemInput = {
+          ...(prevToolInput?.system || DEFAULT_TOOL_INPUT.system),
+        };
+        newSystemInput[toolType] = setting;
+        return { ...prevToolInput, system: newSystemInput };
+      });
+    },
+    [],
+  );
+
+  type ExternalApiToolInput = NonNullable<
+    components["schemas"]["SendChatToolInput"]["external_apis"]
+  >[number];
+  const onToggleExternalApiTool = useCallback(
+    (toolInput: ExternalApiToolInput) => {
+      setToolInput((prevToolInput) => {
+        const newExternalApis = [...(prevToolInput?.external_apis || [])];
+        const index = newExternalApis.findIndex(
+          (api) => api.id === toolInput.id,
+        );
+        if (index === -1) newExternalApis.push(toolInput);
+        else newExternalApis.splice(index, 1);
+
+        return { ...prevToolInput, external_apis: newExternalApis };
+      });
+    },
+    [],
+  );
 
   const onSubmitUserMessage = useCallback(() => {
     if (isGenerating || !inputRef.current?.value) {
@@ -105,14 +142,14 @@ export const useChatInputState = ({
         temperature,
         max_tokens: maxTokens,
       },
-      tools: toolIds,
+      tools: toolInput,
     });
     formRef.current?.reset();
   }, [
     providerId,
     selectedProvider,
     modelId,
-    toolIds,
+    toolInput,
     temperature,
     maxTokens,
     onSubmit,
@@ -130,12 +167,12 @@ export const useChatInputState = ({
         temperature,
         max_tokens: maxTokens,
       },
-      tools: toolIds,
+      tools: toolInput,
     });
   }, [
     providerId,
     modelId,
-    toolIds,
+    toolInput,
     temperature,
     maxTokens,
     onSubmit,
@@ -146,7 +183,7 @@ export const useChatInputState = ({
     () => ({
       providerId,
       modelId,
-      toolIds,
+      toolInput,
       maxTokens,
       temperature,
       error,
@@ -157,21 +194,23 @@ export const useChatInputState = ({
       isGenerating,
       canGetAgenticResponse,
       onSelectModel,
-      onToggleTool,
+      onSetSystemTool,
+      onToggleExternalApiTool,
       onSubmitUserMessage,
       onSubmitWithoutUserMessage,
     }),
     [
       providerId,
       modelId,
-      toolIds,
+      toolInput,
       maxTokens,
       temperature,
       error,
       isGenerating,
       canGetAgenticResponse,
       onSelectModel,
-      onToggleTool,
+      onSetSystemTool,
+      onToggleExternalApiTool,
       onSubmitUserMessage,
       onSubmitWithoutUserMessage,
     ],

@@ -23,7 +23,7 @@ const ChatFancyMarkdown = React.lazy(() => import("./ChatFancyMarkdown"));
 interface Props {
   message: components["schemas"]["ChatRsMessage"];
   user?: components["schemas"]["ChatRsUser"];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   onExecuteToolCall: (messageId: string, toolCallId: string) => void;
   providers?: components["schemas"]["ChatRsProvider"][];

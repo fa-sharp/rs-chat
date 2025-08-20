@@ -8,7 +8,7 @@ interface Props {
   user?: components["schemas"]["ChatRsUser"];
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   providers?: Array<components["schemas"]["ChatRsProvider"]>;
-  tools?: Array<components["schemas"]["ChatRsToolPublic"]>;
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onToolExecute: (
     messageId: string,
     sessionId: string,

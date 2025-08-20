@@ -64,7 +64,7 @@ export function WebSearchToolForm({
           config,
           secret_1: {
             key: apiKey,
-            name: "API Key",
+            name: `${provider} API Key`,
           },
         },
       };

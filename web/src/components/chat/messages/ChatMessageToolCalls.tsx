@@ -1,10 +1,11 @@
 import { ChevronDown, ChevronUp, Loader2, PlayCircle } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/types";
 import { useStreamingTools } from "@/lib/context/StreamingContext";
+import { getToolFromToolCall } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 
 const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
@@ -12,7 +13,7 @@ const ChatFancyMarkdown = lazy(() => import("./ChatFancyMarkdown"));
 interface Props {
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onExecute: (toolCallId: string) => void;
 }
 
@@ -69,13 +70,16 @@ function ChatMessageToolCall({
   canExecute,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onExecute: () => void;
   isExecuting: boolean;
   canExecute: boolean;
   expanded: boolean;
 }) {
-  const tool = tools?.find((tool) => tool.id === toolCall.tool_id);
+  const tool = useMemo(
+    () => getToolFromToolCall(toolCall, tools),
+    [tools, toolCall],
+  );
 
   return !expanded ? (
     <div className="flex gap-2">
@@ -132,7 +136,7 @@ function ChatMessageToolCall({
           {`\`\`\`json\n${JSON.stringify(toolCall.parameters, null, 2)}\n\`\`\``}
         </ChatFancyMarkdown>
       </Suspense>
-      {tool?.config.type === "CodeExecutor" &&
+      {tool?.data.type === "code_runner" &&
         typeof toolCall.parameters.code === "string" &&
         typeof toolCall.parameters.language === "string" && (
           <>

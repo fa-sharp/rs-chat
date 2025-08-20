@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { components } from "@/lib/api/types";
+import { getToolFromToolCall } from "@/lib/tools";
 import { cn, escapeBackticks } from "@/lib/utils";
 import ChatMessageToolLogs from "./ChatMessageToolLogs";
 
@@ -20,13 +21,15 @@ export default function ChatMessageToolResult({
   tools,
 }: {
   message: components["schemas"]["ChatRsMessage"];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
 }) {
   const [showOutput, setShowOutput] = useState(false);
 
-  const tool = tools?.find(
-    (tool) => tool.id === message.meta.tool_call?.tool_id,
-  );
+  const tool = useMemo(() => {
+    if (!message.meta.tool_call) return null;
+    return getToolFromToolCall(message.meta.tool_call, tools);
+  }, [tools, message.meta.tool_call]);
+
   return (
     <div className="flex flex-col gap-1">
       {/* Tool header */}
@@ -38,7 +41,7 @@ export default function ChatMessageToolResult({
               message.meta.tool_call?.is_error && "text-destructive-foreground",
             )}
           >
-            {tool ? getToolTypeLabel(tool) : "Tool"}: {tool?.name || "Unknown"}
+            {tool ? getToolTypeLabel(tool) : "Tool"}
           </span>
         </div>
       </div>

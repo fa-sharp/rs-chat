@@ -235,5 +235,5 @@ trait WebSearchProvider {
 struct WebSearchResult {
     title: String,
     url: String,
-    description: String,
+    text: String,
 }

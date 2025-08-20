@@ -53,7 +53,7 @@ impl WebSearchProvider for ExaSearchTool {
             .map(|result| WebSearchResult {
                 title: result.title,
                 url: result.url,
-                description: result.text.unwrap_or_default(),
+                text: result.text.unwrap_or_default(),
             })
             .collect())
     }
@@ -64,7 +64,7 @@ impl WebSearchProvider for ExaSearchTool {
         api_key: &str,
         http_client: &reqwest::Client,
     ) -> ToolResult<String> {
-        let builder = HttpRequestBuilder::new("POST", "https://api.exa.ai/extract")
+        let builder = HttpRequestBuilder::new("POST", "https://api.exa.ai/contents")
             .header("X-Api-Key", api_key)?
             .body(
                 serde_json::json!({
@@ -83,7 +83,7 @@ impl WebSearchProvider for ExaSearchTool {
             serde_json::from_str(&response_text).map_err(|e| {
                 ToolError::ToolExecutionError(format!("Failed to parse Exa response: {}", e))
             })?;
-        let exa_result = exa_response.data.results.first().ok_or_else(|| {
+        let exa_result = exa_response.results.first().ok_or_else(|| {
             ToolError::ToolExecutionError("No result found in Exa response".to_string())
         })?;
 
@@ -118,11 +118,6 @@ struct ExaSearchResult {
 
 #[derive(Debug, Deserialize)]
 struct ExaExtractResponse {
-    data: ExaExtractData,
-}
-
-#[derive(Debug, Deserialize)]
-struct ExaExtractData {
     results: Vec<ExaExtractResult>,
 }
 

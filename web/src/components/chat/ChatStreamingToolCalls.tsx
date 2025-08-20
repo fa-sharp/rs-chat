@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Loader2, Wrench, X } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
@@ -17,6 +17,7 @@ import {
 import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import type { components } from "@/lib/api/types";
 import type { StreamedToolExecution } from "@/lib/context/StreamingContext";
+import { getToolFromToolCall } from "@/lib/tools";
 import { cn, escapeBackticks } from "@/lib/utils";
 import { useAutoScroll } from "../ui/chat/hooks/useAutoScroll";
 import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
@@ -24,7 +25,7 @@ import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
 interface Props {
   streamedTools: Record<string, StreamedToolExecution | undefined>;
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   sessionId: string;
   onCancel: (sessionId: string, toolCallId: string) => void;
 }
@@ -73,12 +74,15 @@ function StreamingToolCall({
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
   streamedTool: StreamedToolExecution;
-  tools?: components["schemas"]["ChatRsToolPublic"][];
+  tools?: components["schemas"]["GetAllToolsResponse"];
   onCancel: () => void;
 }) {
   const [showDebug, setShowDebug] = useState(false);
 
-  const tool = tools?.find((t) => t.id === toolCall.tool_id);
+  const tool = useMemo(
+    () => getToolFromToolCall(toolCall, tools),
+    [tools, toolCall],
+  );
   const isStreaming = streamedTool.status === "streaming";
   const hasError = streamedTool.status === "error" || !!streamedTool.error;
   const hasLogs = streamedTool.logs.length > 0;
