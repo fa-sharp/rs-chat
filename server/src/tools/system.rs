@@ -31,12 +31,13 @@ impl ChatRsSystemToolConfig {
 }
 
 /// Chat input settings for system tools
-#[derive(Debug, PartialEq, JsonSchema, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, JsonSchema, Serialize, Deserialize)]
 pub struct SystemToolInput {
     /// Enable/disable the code runner tool
     #[serde(default)]
     code_runner: bool,
     /// Enable/disable tools to get system information, current date/time, etc.
+    #[serde(default)]
     info: bool,
     // TODO files, etc...
 }
