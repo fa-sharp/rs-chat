@@ -54,7 +54,7 @@ export default function ChatProviderSelect({
             {providers?.map((provider) => (
               <CommandItem
                 key={provider.id}
-                value={String(provider.id)}
+                value={provider.name}
                 onSelect={() => {
                   onSelectModel(provider.id, "");
                   setOpen(false);
