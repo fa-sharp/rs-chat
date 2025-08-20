@@ -91,7 +91,7 @@ export function CustomApiToolForm({
       name: "",
       type: "string",
       description: "",
-      required: false,
+      required: true,
     };
     updateRequest(requestId, {
       parameters: [
