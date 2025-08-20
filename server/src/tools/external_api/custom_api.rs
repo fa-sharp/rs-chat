@@ -94,7 +94,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         let http_request = self
             .config
             .tools
-            .get(tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1)
+            .get(self.get_request_name(tool_name)?)
             .ok_or(ToolError::ToolNotFound)?;
         Ok(serde_json::to_value(&http_request.input_schema)?)
     }
@@ -110,7 +110,7 @@ impl ExternalApiTool for CustomApiTool<'_> {
         let request_config = self
             .config
             .tools
-            .get(tool_name.split_once('_').ok_or(ToolError::ToolNotFound)?.1)
+            .get(self.get_request_name(tool_name)?)
             .ok_or(ToolError::ToolNotFound)?;
 
         // Build the HTTP request components
@@ -140,6 +140,12 @@ impl ExternalApiTool for CustomApiTool<'_> {
 impl<'a> CustomApiTool<'a> {
     pub fn new(config: &'a CustomApiConfig) -> Self {
         Self { config }
+    }
+
+    fn get_request_name(&self, tool_name: &'a str) -> ToolResult<&'a str> {
+        tool_name
+            .strip_prefix(&format!("{}_", self.config.name))
+            .ok_or(ToolError::ToolNotFound)
     }
 
     async fn execute_request(
