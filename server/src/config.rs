@@ -20,7 +20,7 @@ pub struct AppConfig {
     pub database_url: String,
     /// Redis connection URL
     pub redis_url: String,
-    /// Redis pool size (default: 2)
+    /// Redis pool size (default: 4)
     pub redis_pool: Option<usize>,
 }
 

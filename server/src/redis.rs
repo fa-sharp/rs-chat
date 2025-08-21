@@ -56,7 +56,7 @@ pub fn setup_redis() -> AdHoc {
                                 ..Default::default()
                             };
                         })
-                        .build_pool(app_config.redis_pool.unwrap_or(2))
+                        .build_pool(app_config.redis_pool.unwrap_or(4))
                         .expect("Failed to build Redis pool");
                     pool.init().await.expect("Failed to connect to Redis");
 

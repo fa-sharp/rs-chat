@@ -1,7 +1,11 @@
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
-use fred::prelude::StreamsInterface;
+use fred::prelude::{KeysInterface, StreamsInterface};
 use rocket::futures::StreamExt;
+use serde::Serialize;
 
 use crate::{
     db::models::ChatRsToolCall,
@@ -9,7 +13,7 @@ use crate::{
 };
 
 const MAX_CHUNK_SIZE: usize = 1000;
-const MAX_FLUSH_TIME: Duration = Duration::from_millis(500);
+const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 
 /// Utility struct for processing an incoming LLM stream and intermittently
 /// flushing the data to a Redis stream.
@@ -17,28 +21,40 @@ const MAX_FLUSH_TIME: Duration = Duration::from_millis(500);
 pub struct LlmStreamProcessor {
     redis: fred::prelude::Client,
     /// The current chunk of data being processed.
-    current_chunk: RedisStreamChunkData,
+    current_chunk: ChunkState,
     /// Accumulated text response from the assistant.
     complete_text: Option<String>,
     /// Accumulated tool calls from the assistant.
     tool_calls: Option<Vec<ChatRsToolCall>>,
-    /// Accumulated errors during the stream from the assistant.
+    /// Accumulated errors during the stream from the LLM provider.
     errors: Option<Vec<LlmError>>,
-    /// Accumulated usage information from the assistant.
+    /// Accumulated usage information from the LLM provider.
     usage: Option<LlmUsage>,
 }
 
-#[derive(Debug)]
-enum RedisStreamChunk {
-    Data(RedisStreamChunkData),
-    End,
-}
-
 #[derive(Debug, Default)]
-struct RedisStreamChunkData {
+struct ChunkState {
     text: Option<String>,
     tool_calls: Option<Vec<ChatRsToolCall>>,
     error: Option<String>,
+}
+
+/// Chunk of the LLM response stored in the Redis stream.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+enum RedisStreamChunk {
+    Start,
+    Text(String),
+    ToolCall(String),
+    Error(String),
+    End,
+}
+impl From<RedisStreamChunk> for HashMap<String, String> {
+    /// Converts a `RedisStreamChunk` into a hash map, suitable for the Redis client.
+    fn from(chunk: RedisStreamChunk) -> Self {
+        let value = serde_json::to_value(chunk).unwrap_or_default();
+        serde_json::from_value(value).unwrap_or_default()
+    }
 }
 
 impl LlmStreamProcessor {
@@ -61,8 +77,11 @@ impl LlmStreamProcessor {
         Option<LlmUsage>,
         Option<Vec<LlmError>>,
     ) {
-        let mut last_flush_time = Instant::now();
+        if let Err(e) = self.notify_start_of_redis_stream(&stream_key).await {
+            self.errors.get_or_insert_default().push(LlmError::Redis(e));
+        };
 
+        let mut last_flush_time = Instant::now();
         while let Some(chunk) = stream.next().await {
             match chunk {
                 Ok(chunk) => {
@@ -77,18 +96,17 @@ impl LlmStreamProcessor {
                     }
                 }
                 Err(err) => {
-                    self.current_chunk.error = Some(err.to_string());
-                    self.errors.get_or_insert_default().push(err);
+                    self.process_error(err);
                 }
             }
 
             if self.should_flush(&last_flush_time) {
-                self.flush_and_reset_chunk(&stream_key).await;
+                self.flush_and_reset(&stream_key).await;
                 last_flush_time = Instant::now();
             }
         }
 
-        if let Err(e) = self.mark_end_of_redis_stream(&stream_key).await {
+        if let Err(e) = self.notify_end_of_redis_stream(&stream_key).await {
             self.errors.get_or_insert_default().push(LlmError::Redis(e));
         };
 
@@ -126,69 +144,67 @@ impl LlmStreamProcessor {
         }
     }
 
+    fn process_error(&mut self, err: LlmError) {
+        self.current_chunk.error = Some(err.to_string());
+        self.errors.get_or_insert_default().push(err);
+    }
+
     fn should_flush(&self, last_flush_time: &Instant) -> bool {
-        // Flush if there are any tool calls or errors
         if self.current_chunk.tool_calls.is_some() || self.current_chunk.error.is_some() {
             return true;
         }
-        // Skip flushing if chunk is completely empty
-        if self.current_chunk.text.is_none() {
-            return false;
+        if let Some(ref text) = self.current_chunk.text {
+            return text.len() > MAX_CHUNK_SIZE || last_flush_time.elapsed() > FLUSH_INTERVAL;
         }
-        // Check for time and size triggers
-        last_flush_time.elapsed() > MAX_FLUSH_TIME
-            || self
-                .current_chunk
-                .text
-                .as_ref()
-                .is_some_and(|t| t.len() > MAX_CHUNK_SIZE)
+        return false;
+    }
+
+    async fn flush_and_reset(&mut self, stream_key: &str) {
+        let chunk_state = std::mem::take(&mut self.current_chunk);
+
+        let mut chunks: Vec<RedisStreamChunk> = Vec::with_capacity(2);
+        if let Some(text) = chunk_state.text {
+            chunks.push(RedisStreamChunk::Text(text));
+        }
+        if let Some(tool_calls) = chunk_state.tool_calls {
+            chunks.extend(tool_calls.into_iter().map(|tc| {
+                RedisStreamChunk::ToolCall(serde_json::to_string(&tc).unwrap_or_default())
+            }));
+        }
+        if let Some(error) = chunk_state.error {
+            chunks.push(RedisStreamChunk::Error(error));
+        }
+
+        let entries = chunks.into_iter().map(|chunk| chunk.into()).collect();
+        let _ = self.add_to_redis_stream(stream_key, entries).await;
+    }
+
+    async fn notify_start_of_redis_stream(
+        &mut self,
+        stream_key: &str,
+    ) -> Result<(), fred::prelude::Error> {
+        let entries = vec![RedisStreamChunk::Start.into()];
+        self.add_to_redis_stream(stream_key, entries).await
+    }
+
+    async fn notify_end_of_redis_stream(
+        &mut self,
+        stream_key: &str,
+    ) -> Result<(), fred::prelude::Error> {
+        let entries = vec![RedisStreamChunk::End.into()];
+        self.add_to_redis_stream(stream_key, entries).await
     }
 
     async fn add_to_redis_stream(
         &mut self,
         stream_key: &str,
-        data: Vec<(&str, String)>,
+        entries: Vec<HashMap<String, String>>,
     ) -> Result<(), fred::prelude::Error> {
-        self.redis.xadd(stream_key, false, None, "*", data).await
-    }
-
-    async fn flush_and_reset_chunk(&mut self, stream_key: &str) {
-        let chunk = std::mem::take(&mut self.current_chunk);
-        if let Ok(data) = RedisStreamChunk::Data(chunk).try_into() {
-            let _ = self.add_to_redis_stream(stream_key, data).await;
+        let pipeline = self.redis.pipeline();
+        for entry in entries {
+            let _: () = pipeline.xadd(stream_key, false, None, "*", entry).await?;
         }
-    }
-
-    async fn mark_end_of_redis_stream(
-        &mut self,
-        stream_key: &str,
-    ) -> Result<(), fred::prelude::Error> {
-        let data = RedisStreamChunk::End.try_into().expect("Should convert");
-        self.add_to_redis_stream(stream_key, data).await
-    }
-}
-
-impl TryFrom<RedisStreamChunk> for Vec<(&str, String)> {
-    type Error = serde_json::Error;
-
-    /// Converts a `RedisStreamChunk` into a vector of key-value pairs, suitable for the Redis client.
-    fn try_from(chunk: RedisStreamChunk) -> Result<Self, Self::Error> {
-        match chunk {
-            RedisStreamChunk::Data(data) => {
-                let mut vec = Vec::with_capacity(3);
-                vec.push(("type", "data".into()));
-                if let Some(text) = data.text {
-                    vec.push(("text", text));
-                }
-                if let Some(tool_calls) = data.tool_calls {
-                    vec.push(("tool_calls", serde_json::to_string(&tool_calls)?));
-                }
-                if let Some(error) = data.error {
-                    vec.push(("error", error));
-                }
-                Ok(vec)
-            }
-            RedisStreamChunk::End => Ok(vec![("type", "end".into())]),
-        }
+        let _: () = pipeline.expire(stream_key, 60, None).await?;
+        pipeline.all().await
     }
 }

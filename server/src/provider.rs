@@ -36,6 +36,10 @@ pub enum LlmError {
     NoResponse,
     #[error("Unsupported provider")]
     UnsupportedProvider,
+    #[error("Already streaming a response for this session")]
+    AlreadyStreaming,
+    #[error("No ongoing stream for this session")]
+    StreamNotFound,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]
