@@ -53,7 +53,7 @@ pub struct LlmStreamChunk {
 }
 
 /// Usage stats from the LLM provider
-#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LlmUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,

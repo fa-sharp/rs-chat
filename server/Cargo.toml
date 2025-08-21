@@ -34,7 +34,10 @@ diesel_as_jsonb = "1.0.1"
 diesel_async_migrations = "0.15.0"
 dotenvy = "0.15.7"
 enum-iterator = "2.1.0"
-fred = { version = "10.1.0", default-features = false, features = ["i-keys"] }
+fred = { version = "10.1.0", default-features = false, features = [
+    "i-keys",
+    "i-streams",
+] }
 hex = "0.4.3"
 jsonschema = { version = "0.30.0", default-features = false }
 rand = "0.9.1"
