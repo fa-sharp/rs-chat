@@ -1,3 +1,4 @@
+use diesel_async::pooled_connection::deadpool;
 use rocket::{
     catch, catchers,
     response::{self, Responder},
@@ -13,6 +14,8 @@ use crate::{provider::LlmError, tools::ToolError};
 pub enum ApiError {
     #[error(transparent)]
     Db(#[from] diesel::result::Error),
+    #[error(transparent)]
+    DbPool(#[from] deadpool::PoolError),
     #[error("Authentication error: {0}")]
     Authentication(String),
     #[error("Redis error: {0}")]

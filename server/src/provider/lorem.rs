@@ -17,11 +17,12 @@ use crate::{
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...'
+#[derive(Debug, Clone)]
 pub struct LoremProvider {
     pub config: LoremConfig,
 }
 
-#[derive(JsonSchema)]
+#[derive(Debug, Clone, JsonSchema)]
 pub struct LoremConfig {
     pub interval: u32,
 }

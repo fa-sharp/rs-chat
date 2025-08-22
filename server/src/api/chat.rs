@@ -20,16 +20,16 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{
-            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsProviderType,
-            ChatRsSessionMeta, NewChatRsMessage, UpdateChatRsSession,
+            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta,
+            NewChatRsMessage, UpdateChatRsSession,
         },
         services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
-    provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError, LlmTool},
+    provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
     redis::RedisClient,
-    tools::SendChatToolInput,
+    tools::{get_llm_tools_from_input, SendChatToolInput},
     utils::{generate_title, Encryptor, LlmStreamProcessor, StoredChatRsStream},
 };
 
@@ -71,12 +71,11 @@ pub async fn send_chat_stream(
     let (provider, api_key_secret) = ProviderDbService::new(&mut db)
         .get_by_id(&user_id, input.provider_id)
         .await?;
-    let provider_type: ChatRsProviderType = provider.provider_type.as_str().try_into()?;
     let api_key = api_key_secret
         .map(|secret| encryptor.decrypt_string(&secret.ciphertext, &secret.nonce))
         .transpose()?;
     let provider_api = build_llm_provider_api(
-        &provider_type,
+        &provider.provider_type.as_str().try_into()?,
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
@@ -84,22 +83,13 @@ pub async fn send_chat_stream(
     )?;
 
     // Get the user's chosen tools
-    let mut llm_tools: Option<Vec<LlmTool>> = None;
-    let mut tool_db_service = ToolDbService::new(&mut db);
-    if let Some(system_tool_input) = input.tools.as_ref().and_then(|t| t.system.as_ref()) {
-        let system_tools = tool_db_service.find_system_tools_by_user(&user_id).await?;
-        let system_llm_tools = system_tool_input.get_llm_tools(&system_tools)?;
-        llm_tools.get_or_insert_default().extend(system_llm_tools);
-    }
-    if let Some(external_apis_input) = input.tools.as_ref().and_then(|t| t.external_apis.as_ref()) {
-        let external_api_tools = tool_db_service
-            .find_external_api_tools_by_user(&user_id)
-            .await?;
-        for tool_input in external_apis_input {
-            let api_llm_tools = tool_input.into_llm_tools(&external_api_tools)?;
-            llm_tools.get_or_insert_default().extend(api_llm_tools);
+    let llm_tools = match input.tools.as_ref() {
+        Some(tool_input) => {
+            let mut tool_db_service = ToolDbService::new(&mut db);
+            Some(get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?)
         }
-    }
+        None => None,
+    };
 
     // Save user message and generate session title if needed
     if let Some(user_message) = &input.message {
@@ -108,16 +98,11 @@ pub async fn send_chat_stream(
                 &user_id,
                 &session_id,
                 &user_message,
-                provider_type,
+                &provider_api,
                 &provider.default_model,
-                provider.base_url.as_deref(),
-                api_key.clone(),
-                &http_client,
-                &redis,
                 db_pool,
             );
         }
-
         let new_message = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 content: user_message,
@@ -174,7 +159,8 @@ pub async fn send_chat_stream(
 }
 
 /// # Start chat stream
-/// Send a chat message and start streaming the response
+/// Send a chat message and start the streamed assistant response. After
+/// the response has started, use the `/stream` endpoint to connect to the SSE stream.
 #[openapi(tag = "Chat")]
 #[post("/<session_id>/v2", data = "<input>")]
 pub async fn send_chat_stream_v2(
@@ -202,12 +188,11 @@ pub async fn send_chat_stream_v2(
     let (provider, api_key_secret) = ProviderDbService::new(&mut db)
         .get_by_id(&user_id, input.provider_id)
         .await?;
-    let provider_type: ChatRsProviderType = provider.provider_type.as_str().try_into()?;
     let api_key = api_key_secret
         .map(|secret| encryptor.decrypt_string(&secret.ciphertext, &secret.nonce))
         .transpose()?;
     let provider_api = build_llm_provider_api(
-        &provider_type,
+        &provider.provider_type.as_str().try_into()?,
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
@@ -215,40 +200,26 @@ pub async fn send_chat_stream_v2(
     )?;
 
     // Get the user's chosen tools
-    let mut llm_tools: Option<Vec<LlmTool>> = None;
-    let mut tool_db_service = ToolDbService::new(&mut db);
-    if let Some(system_tool_input) = input.tools.as_ref().and_then(|t| t.system.as_ref()) {
-        let system_tools = tool_db_service.find_system_tools_by_user(&user_id).await?;
-        let system_llm_tools = system_tool_input.get_llm_tools(&system_tools)?;
-        llm_tools.get_or_insert_default().extend(system_llm_tools);
-    }
-    if let Some(external_apis_input) = input.tools.as_ref().and_then(|t| t.external_apis.as_ref()) {
-        let external_api_tools = tool_db_service
-            .find_external_api_tools_by_user(&user_id)
-            .await?;
-        for tool_input in external_apis_input {
-            let api_llm_tools = tool_input.into_llm_tools(&external_api_tools)?;
-            llm_tools.get_or_insert_default().extend(api_llm_tools);
+    let llm_tools = match input.tools.as_ref() {
+        Some(tool_input) => {
+            let mut tool_db_service = ToolDbService::new(&mut db);
+            Some(get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?)
         }
-    }
+        None => None,
+    };
 
-    // Save user message and generate session title if needed
+    // Generate session title if needed, and save user message to database
     if let Some(user_message) = &input.message {
         if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
             generate_title(
                 &user_id,
                 &session_id,
                 &user_message,
-                provider_type,
+                &provider_api,
                 &provider.default_model,
-                provider.base_url.as_deref(),
-                api_key.clone(),
-                &http_client,
-                &redis,
                 db_pool,
             );
         }
-
         let new_message = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 content: user_message,
@@ -336,8 +307,7 @@ pub async fn connect_to_chat_stream(
     let (_, prev_values): (String, Vec<(String, HashMap<String, String>)>) = redis
         .xread::<Option<Vec<_>>, _, _>(None, None, &stream_key, "0-0")
         .await?
-        .ok_or(LlmError::StreamNotFound)?
-        .pop()
+        .and_then(|mut streams| streams.pop())
         .ok_or(LlmError::StreamNotFound)?;
     let last_event = prev_values.last().cloned();
     let prev_events_sse = prev_values
@@ -378,7 +348,7 @@ pub async fn connect_to_chat_stream(
         drop(tx);
     });
 
-    // Send stream of events from Redis to the client, starting with all previous events
+    // Send stream of events from Redis to the client, starting with all previous events and then new events
     let stream = prev_events_stream.chain(ReceiverStream::new(rx)).boxed();
     Ok(EventStream::from(stream))
 }
@@ -389,20 +359,19 @@ async fn get_next_event(
     last_event_id: &str,
     tx: &tokio::sync::mpsc::Sender<Event>,
 ) -> Result<Option<(String, Event)>, LlmError> {
-    let next_stream_value: Option<Vec<(String, Vec<(String, HashMap<String, String>)>)>> = tokio::select! {
-        next_value = redis.xread::<_, _, _>(Some(1), Some(5_000), stream_key, last_event_id) => next_value?,
-        _ = tx.closed() => {
-            println!("Client disconnected");
-            return Ok(None);
+    let (_, mut events): (String, Vec<(String, HashMap<String, String>)>) = tokio::select! {
+        next_value = redis.xread::<Option<Vec<_>>, _, _>(Some(1), Some(8_000), stream_key, last_event_id) => {
+            match next_value?.as_mut().and_then(|streams| streams.pop()) {
+                Some(s) => s,
+                None => return Ok(None),
+            }
         },
+        _ = tx.closed() => return Ok(None)
     };
-    match next_stream_value
-        .and_then(|mut v| v.pop())
-        .and_then(|(_, mut events)| events.pop())
-    {
+    match events.pop() {
         Some((id, event)) => {
             if event.get("type").is_some_and(|t| t == "end") {
-                return Ok(None); // handle `end` event
+                return Ok(None);
             }
             Ok(Some(id.clone()).zip(convert_redis_event_to_sse((id, event))))
         }

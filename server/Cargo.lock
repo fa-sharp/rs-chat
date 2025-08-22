@@ -383,6 +383,7 @@ dependencies = [
  "diesel_as_jsonb",
  "diesel_async_migrations",
  "dotenvy",
+ "dyn-clone",
  "enum-iterator",
  "fred",
  "hex",

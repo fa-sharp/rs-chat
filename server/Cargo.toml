@@ -33,6 +33,7 @@ diesel-derive-enum = { version = "3.0.0-beta.1", features = ["postgres"] }
 diesel_as_jsonb = "1.0.1"
 diesel_async_migrations = "0.15.0"
 dotenvy = "0.15.7"
+dyn-clone = "1.0.19"
 enum-iterator = "2.1.0"
 fred = { version = "10.1.0", default-features = false, features = [
     "i-keys",

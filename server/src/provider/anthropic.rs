@@ -18,26 +18,27 @@ const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
 
 /// Anthropic chat provider
-pub struct AnthropicProvider<'a> {
+#[derive(Debug, Clone)]
+pub struct AnthropicProvider {
     client: reqwest::Client,
-    redis: &'a fred::prelude::Client,
-    api_key: &'a str,
+    redis: fred::prelude::Client,
+    api_key: String,
 }
 
-impl<'a> AnthropicProvider<'a> {
+impl AnthropicProvider {
     pub fn new(
         http_client: &reqwest::Client,
-        redis: &'a fred::prelude::Client,
-        api_key: &'a str,
+        redis: &fred::prelude::Client,
+        api_key: &str,
     ) -> Self {
         Self {
             client: http_client.clone(),
-            redis,
-            api_key,
+            redis: redis.clone(),
+            api_key: api_key.to_string(),
         }
     }
 
-    fn build_messages(
+    fn build_messages<'a>(
         &self,
         messages: &'a [ChatRsMessage],
     ) -> (Vec<AnthropicMessage<'a>>, Option<&'a str>) {
@@ -104,7 +105,7 @@ impl<'a> AnthropicProvider<'a> {
         (anthropic_messages, system_prompt)
     }
 
-    fn build_tools(&self, tools: &'a [LlmTool]) -> Vec<AnthropicTool<'a>> {
+    fn build_tools<'a>(&self, tools: &'a [LlmTool]) -> Vec<AnthropicTool<'a>> {
         tools
             .iter()
             .map(|tool| AnthropicTool {
@@ -252,7 +253,7 @@ impl<'a> AnthropicProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> LlmApiProvider for AnthropicProvider<'a> {
+impl LlmApiProvider for AnthropicProvider {
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
@@ -277,7 +278,7 @@ impl<'a> LlmApiProvider for AnthropicProvider<'a> {
             .post(MESSAGES_API_URL)
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            .header("x-api-key", self.api_key)
+            .header("x-api-key", &self.api_key)
             .json(&request)
             .send()
             .await
@@ -318,7 +319,7 @@ impl<'a> LlmApiProvider for AnthropicProvider<'a> {
             .post(MESSAGES_API_URL)
             .header("anthropic-version", API_VERSION)
             .header("content-type", "application/json")
-            .header("x-api-key", self.api_key)
+            .header("x-api-key", &self.api_key)
             .json(&request)
             .send()
             .await
@@ -333,16 +334,16 @@ impl<'a> LlmApiProvider for AnthropicProvider<'a> {
             )));
         }
 
-        let anthropic_response: AnthropicResponse = response
+        let mut anthropic_response: AnthropicResponse = response
             .json()
             .await
             .map_err(|e| LlmError::AnthropicError(format!("Failed to parse response: {}", e)))?;
 
         let text = anthropic_response
             .content
-            .first()
+            .get_mut(0)
             .and_then(|block| match block {
-                AnthropicResponseContentBlock::Text { text } => Some(text.clone()),
+                AnthropicResponseContentBlock::Text { text } => Some(std::mem::take(text)),
                 _ => None,
             })
             .ok_or_else(|| LlmError::NoResponse)?;

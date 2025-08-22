@@ -16,29 +16,30 @@ const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
 /// OpenAI chat provider
-pub struct OpenAIProvider<'a> {
+#[derive(Debug, Clone)]
+pub struct OpenAIProvider {
     client: reqwest::Client,
-    redis: &'a fred::prelude::Client,
-    api_key: &'a str,
-    base_url: &'a str,
+    redis: fred::prelude::Client,
+    api_key: String,
+    base_url: String,
 }
 
-impl<'a> OpenAIProvider<'a> {
+impl OpenAIProvider {
     pub fn new(
         http_client: &reqwest::Client,
-        redis: &'a fred::prelude::Client,
-        api_key: &'a str,
-        base_url: Option<&'a str>,
+        redis: &fred::prelude::Client,
+        api_key: &str,
+        base_url: Option<&str>,
     ) -> Self {
         Self {
             client: http_client.clone(),
-            redis,
-            api_key,
-            base_url: base_url.unwrap_or(OPENAI_API_BASE_URL),
+            redis: redis.clone(),
+            api_key: api_key.to_owned(),
+            base_url: base_url.unwrap_or(OPENAI_API_BASE_URL).to_owned(),
         }
     }
 
-    fn build_messages(&self, messages: &'a [ChatRsMessage]) -> Vec<OpenAIMessage<'a>> {
+    fn build_messages<'a>(&self, messages: &'a [ChatRsMessage]) -> Vec<OpenAIMessage<'a>> {
         messages
             .iter()
             .map(|message| {
@@ -77,7 +78,7 @@ impl<'a> OpenAIProvider<'a> {
             .collect()
     }
 
-    fn build_tools(&self, tools: &'a [LlmTool]) -> Vec<OpenAITool> {
+    fn build_tools<'a>(&self, tools: &'a [LlmTool]) -> Vec<OpenAITool<'a>> {
         tools
             .iter()
             .map(|tool| OpenAITool {
@@ -189,7 +190,7 @@ impl<'a> OpenAIProvider<'a> {
 }
 
 #[async_trait]
-impl<'a> LlmApiProvider for OpenAIProvider<'a> {
+impl LlmApiProvider for OpenAIProvider {
     async fn chat_stream(
         &self,
         messages: Vec<ChatRsMessage>,
@@ -269,16 +270,16 @@ impl<'a> LlmApiProvider for OpenAIProvider<'a> {
             )));
         }
 
-        let openai_response: OpenAIResponse = response
+        let mut openai_response: OpenAIResponse = response
             .json()
             .await
             .map_err(|e| LlmError::OpenAIError(format!("Failed to parse response: {}", e)))?;
 
         let text = openai_response
             .choices
-            .first()
-            .and_then(|choice| choice.message.as_ref())
-            .and_then(|message| message.content.as_ref())
+            .get_mut(0)
+            .and_then(|choice| choice.message.as_mut())
+            .and_then(|message| message.content.take())
             .ok_or(LlmError::NoResponse)?;
 
         if let Some(usage) = openai_response.usage {
@@ -286,14 +287,14 @@ impl<'a> LlmApiProvider for OpenAIProvider<'a> {
             println!("Prompt usage: {:?}", usage);
         }
 
-        Ok(text.clone())
+        Ok(text)
     }
 
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
         let models_service = ModelsDevService::new(self.redis.clone(), self.client.clone());
         let models = models_service
             .list_models({
-                match self.base_url {
+                match self.base_url.as_str() {
                     OPENROUTER_API_BASE_URL => ModelsDevServiceProvider::OpenRouter,
                     _ => ModelsDevServiceProvider::OpenAI,
                 }

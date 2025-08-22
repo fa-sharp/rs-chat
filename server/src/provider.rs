@@ -6,6 +6,7 @@ pub mod openai;
 
 use std::pin::Pin;
 
+use dyn_clone::DynClone;
 use rocket::{async_trait, futures::Stream};
 use schemars::JsonSchema;
 use uuid::Uuid;
@@ -99,7 +100,7 @@ pub enum LlmToolType {
 
 /// Unified API for LLM providers
 #[async_trait]
-pub trait LlmApiProvider {
+pub trait LlmApiProvider: Send + Sync + DynClone {
     /// Stream a chat response from the provider
     async fn chat_stream(
         &self,
@@ -120,13 +121,13 @@ pub trait LlmApiProvider {
 }
 
 /// Build the LLM API to make calls to the provider
-pub fn build_llm_provider_api<'a>(
+pub fn build_llm_provider_api(
     provider_type: &ChatRsProviderType,
-    base_url: Option<&'a str>,
-    api_key: Option<&'a str>,
+    base_url: Option<&str>,
+    api_key: Option<&str>,
     http_client: &reqwest::Client,
-    redis: &'a fred::prelude::Client,
-) -> Result<Box<dyn LlmApiProvider + Send + 'a>, LlmError> {
+    redis: &fred::prelude::Client,
+) -> Result<Box<dyn LlmApiProvider>, LlmError> {
     match provider_type {
         ChatRsProviderType::Openai => Ok(Box::new(OpenAIProvider::new(
             http_client,
