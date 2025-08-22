@@ -51,6 +51,8 @@ pub enum LlmError {
     DecryptionError,
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
+    #[error("Failed to save message: {0}")]
+    Database(#[from] diesel::result::Error),
 }
 
 /// A streaming chunk of data from the LLM provider

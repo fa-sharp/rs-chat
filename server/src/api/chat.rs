@@ -19,8 +19,8 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{
-            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta,
-            NewChatRsMessage, UpdateChatRsSession,
+            ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta, NewChatRsMessage,
+            UpdateChatRsSession,
         },
         services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
@@ -65,8 +65,8 @@ pub struct SendChatInput<'a> {
     message: Option<Cow<'a, str>>,
     /// The ID of the provider to chat with
     provider_id: i32,
-    /// Provider options
-    provider_options: LlmApiProviderSharedOptions,
+    /// Configuration for the provider
+    options: LlmApiProviderSharedOptions,
     /// Configuration of tools available to the assistant
     tools: Option<SendChatToolInput>,
 }
@@ -94,7 +94,7 @@ pub async fn send_chat_stream(
     }
 
     // Get session and message history
-    let (session, mut current_messages) = ChatDbService::new(&mut db)
+    let (session, mut messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user_id, &session_id)
         .await?;
 
@@ -114,16 +114,15 @@ pub async fn send_chat_stream(
     )?;
 
     // Get the user's chosen tools
-    let mut llm_tools = None;
+    let mut tools = None;
     if let Some(tool_input) = input.tools.as_ref() {
         let mut tool_db_service = ToolDbService::new(&mut db);
-        let tools = get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?;
-        llm_tools = Some(tools);
+        tools = Some(get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?);
     }
 
     // Generate session title if needed, and save user message to database
     if let Some(user_message) = &input.message {
-        if current_messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
+        if messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
             generate_title(
                 &user_id,
                 &session_id,
@@ -141,7 +140,7 @@ pub async fn send_chat_stream(
                 meta: ChatRsMessageMeta::default(),
             })
             .await?;
-        current_messages.push(new_message);
+        messages.push(new_message);
     }
 
     // Update session metadata if needed
@@ -151,7 +150,7 @@ pub async fn send_chat_stream(
             .tool_config
             .is_none_or(|config| config != tool_input)
         {
-            let meta = ChatRsSessionMeta::with_tool_config(Some(tool_input));
+            let meta = ChatRsSessionMeta::new(Some(tool_input));
             let data = UpdateChatRsSession {
                 meta: Some(&meta),
                 ..Default::default()
@@ -164,41 +163,21 @@ pub async fn send_chat_stream(
 
     // Get the provider's stream response
     let stream = provider_api
-        .chat_stream(current_messages, llm_tools, &input.provider_options)
+        .chat_stream(messages, tools, &input.options)
         .await?;
     let provider_id = input.provider_id;
-    let provider_options = input.provider_options.clone();
+    let provider_options = input.options.clone();
 
-    // Create the Redis stream, then spawn a task to stream the response
-    // and save it to the database on completion
-    stream_writer.start().await?;
+    // Create the Redis stream, then spawn a task to stream and save the response
+    stream_writer.create().await?;
     tokio::spawn(async move {
-        let (content, tool_calls, usage, _) = stream_writer.process(stream).await;
-        if let Err(e) = ChatDbService::new(&mut db)
-            .save_message(NewChatRsMessage {
-                session_id: &session_id,
-                role: ChatRsMessageRole::Assistant,
-                content: &content.unwrap_or_default(),
-                meta: ChatRsMessageMeta {
-                    assistant: Some(AssistantMeta {
-                        provider_id,
-                        provider_options: Some(provider_options),
-                        tool_calls,
-                        usage,
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                },
-            })
-            .await
-        {
-            rocket::warn!("Failed to save assistant response: {}", e);
-        }
-        stream_writer.finish().await.ok();
-        drop(stream_writer);
+        let mut chat_db_service = ChatDbService::new(&mut db);
+        stream_writer
+            .process(stream, &mut chat_db_service, provider_id, provider_options)
+            .await;
     });
 
-    Ok("Stream started".into())
+    Ok(format!("Stream started at /api/chat/{}/stream", session_id))
 }
 
 /// # Connect to chat stream

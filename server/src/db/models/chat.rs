@@ -34,7 +34,7 @@ pub struct ChatRsSessionMeta {
     pub tool_config: Option<SendChatToolInput>,
 }
 impl ChatRsSessionMeta {
-    pub fn with_tool_config(tool_config: Option<SendChatToolInput>) -> Self {
+    pub fn new(tool_config: Option<SendChatToolInput>) -> Self {
         Self { tool_config }
     }
 }
@@ -84,6 +84,14 @@ pub struct ChatRsMessageMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call: Option<ChatRsExecutedToolCall>,
 }
+impl ChatRsMessageMeta {
+    pub fn new_assistant(assistant: AssistantMeta) -> Self {
+        Self {
+            assistant: Some(assistant),
+            tool_call: None,
+        }
+    }
+}
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize)]
 pub struct AssistantMeta {
@@ -98,6 +106,9 @@ pub struct AssistantMeta {
     /// Provider usage information
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<LlmUsage>,
+    /// Errors encountered during message generation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<String>>,
     /// Whether this is a partial and/or interrupted message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
