@@ -21,16 +21,12 @@ const API_VERSION: &str = "2023-06-01";
 #[derive(Debug, Clone)]
 pub struct AnthropicProvider {
     client: reqwest::Client,
-    redis: fred::prelude::Client,
+    redis: fred::prelude::Pool,
     api_key: String,
 }
 
 impl AnthropicProvider {
-    pub fn new(
-        http_client: &reqwest::Client,
-        redis: &fred::prelude::Client,
-        api_key: &str,
-    ) -> Self {
+    pub fn new(http_client: &reqwest::Client, redis: &fred::prelude::Pool, api_key: &str) -> Self {
         Self {
             client: http_client.clone(),
             redis: redis.clone(),
@@ -357,7 +353,7 @@ impl LlmApiProvider for AnthropicProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
-        let models_service = ModelsDevService::new(self.redis.clone(), self.client.clone());
+        let models_service = ModelsDevService::new(&self.redis, &self.client);
         let models = models_service
             .list_models(ModelsDevServiceProvider::Anthropic)
             .await?;

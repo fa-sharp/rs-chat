@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use enum_iterator::{all, Sequence};
-use fred::prelude::*;
+use fred::prelude::{HashesInterface, KeysInterface};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -56,13 +56,16 @@ pub enum ModalityType {
 
 /// Service to fetch and cache LLM model list from https://models.dev
 pub struct ModelsDevService {
-    redis: Client,
+    redis: fred::prelude::Pool,
     http_client: reqwest::Client,
 }
 
 impl ModelsDevService {
-    pub fn new(redis: Client, http_client: reqwest::Client) -> Self {
-        Self { redis, http_client }
+    pub fn new(redis: &fred::prelude::Pool, http_client: &reqwest::Client) -> Self {
+        Self {
+            redis: redis.clone(),
+            http_client: http_client.clone(),
+        }
     }
 
     pub async fn list_models(
@@ -108,7 +111,7 @@ impl ModelsDevService {
                 cache.insert(provider_str.to_owned(), parsed_models_str);
             }
 
-            let pipeline = self.redis.pipeline();
+            let pipeline = self.redis.next().pipeline();
             let _: () = pipeline.hset(CACHE_KEY, cache).await?;
             let _: () = pipeline.expire(CACHE_KEY, CACHE_TTL, None).await?;
             let _: () = pipeline.all().await?;

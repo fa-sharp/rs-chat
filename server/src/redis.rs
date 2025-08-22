@@ -1,44 +1,11 @@
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
 
-use fred::prelude::{Builder, Client, ClientLike, Config, Pool, TcpConfig};
-use rocket::{
-    fairing::AdHoc,
-    http::Status,
-    request::{FromRequest, Outcome},
-};
-use rocket_okapi::OpenApiFromRequest;
+use fred::prelude::{Builder, ClientLike, Config, Pool, TcpConfig};
+use rocket::fairing::AdHoc;
 
 use crate::config::get_app_config;
 
-/// Redis connection, available as a request guard. When used as a request parameter,
-/// it will retrieve a connection from the managed Redis pool.
-#[derive(OpenApiFromRequest)]
-pub struct RedisClient(Client);
-impl Deref for RedisClient {
-    type Target = Client;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-/// Retrieve a connection from the managed Redis pool. Responds with an
-/// internal server error if Redis not initialized.
-#[rocket::async_trait]
-impl<'r> FromRequest<'r> for RedisClient {
-    type Error = String;
-
-    async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
-        let Some(pool) = req.rocket().state::<Pool>() else {
-            return Outcome::Error((
-                Status::InternalServerError,
-                "Redis not initialized".to_owned(),
-            ));
-        };
-        Outcome::Success(RedisClient(pool.next().clone()))
-    }
-}
-
-/// Fairing that sets up and initializes the Redis database
+/// Fairing that sets up and initializes the Redis connection pool.
 pub fn setup_redis() -> AdHoc {
     AdHoc::on_ignite("Redis", |rocket| async {
         rocket

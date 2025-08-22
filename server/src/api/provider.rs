@@ -18,7 +18,6 @@ use crate::{
     errors::ApiError,
     provider::build_llm_provider_api,
     provider_models::LlmModel,
-    redis::RedisClient,
     utils::Encryptor,
 };
 
@@ -54,7 +53,7 @@ async fn get_all_providers(
 async fn list_models(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-    redis: RedisClient,
+    redis: &State<fred::prelude::Pool>,
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     provider_id: i32,

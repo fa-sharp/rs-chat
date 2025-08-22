@@ -130,7 +130,7 @@ pub fn build_llm_provider_api(
     base_url: Option<&str>,
     api_key: Option<&str>,
     http_client: &reqwest::Client,
-    redis: &fred::prelude::Client,
+    redis: &fred::prelude::Pool,
 ) -> Result<Box<dyn LlmApiProvider>, LlmError> {
     match provider_type {
         ChatRsProviderType::Openai => Ok(Box::new(OpenAIProvider::new(
