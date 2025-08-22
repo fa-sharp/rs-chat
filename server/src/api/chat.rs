@@ -1,9 +1,9 @@
-use std::{borrow::Cow, collections::HashMap, pin::Pin};
+use std::{borrow::Cow, pin::Pin};
 
-use fred::prelude::{KeysInterface, StreamsInterface};
+use fred::prelude::KeysInterface;
 use rocket::{
-    futures::{Stream, StreamExt},
-    post,
+    futures::{stream, Stream, StreamExt},
+    get, post,
     response::stream::{Event, EventStream},
     serde::json::Json,
     Route, State,
@@ -29,8 +29,9 @@ use crate::{
     errors::ApiError,
     provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
     redis::RedisClient,
+    stream::{LlmStreamWriter, SseStreamReader},
     tools::{get_llm_tools_from_input, SendChatToolInput},
-    utils::{generate_title, Encryptor, LlmStreamProcessor, StoredChatRsStream},
+    utils::{generate_title, Encryptor, StoredChatRsStream},
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
@@ -51,7 +52,7 @@ pub struct SendChatInput<'a> {
 
 /// Send a chat message and stream the response
 #[openapi(tag = "Chat")]
-#[post("/<session_id>", data = "<input>")]
+#[post("/<session_id>/v1", data = "<input>")]
 pub async fn send_chat_stream(
     user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
@@ -159,15 +160,15 @@ pub async fn send_chat_stream(
 }
 
 /// # Start chat stream
-/// Send a chat message and start the streamed assistant response. After
-/// the response has started, use the `/stream` endpoint to connect to the SSE stream.
+/// Send a chat message and start the streamed assistant response. After the response
+/// has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
 #[openapi(tag = "Chat")]
-#[post("/<session_id>/v2", data = "<input>")]
+#[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream_v2(
     user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
-    redis: RedisClient,
+    redis: &State<fred::prelude::Pool>,
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
@@ -184,7 +185,7 @@ pub async fn send_chat_stream_v2(
         .get_session_with_messages(&user_id, &session_id)
         .await?;
 
-    // Build the chat provider
+    // Build the LLM provider
     let (provider, api_key_secret) = ProviderDbService::new(&mut db)
         .get_by_id(&user_id, input.provider_id)
         .await?;
@@ -196,17 +197,16 @@ pub async fn send_chat_stream_v2(
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
-        &redis,
+        redis.next(),
     )?;
 
     // Get the user's chosen tools
-    let llm_tools = match input.tools.as_ref() {
-        Some(tool_input) => {
-            let mut tool_db_service = ToolDbService::new(&mut db);
-            Some(get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?)
-        }
-        None => None,
-    };
+    let mut llm_tools = None;
+    if let Some(tool_input) = input.tools.as_ref() {
+        let mut tool_db_service = ToolDbService::new(&mut db);
+        let tools = get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?;
+        llm_tools = Some(tools);
+    }
 
     // Generate session title if needed, and save user message to database
     if let Some(user_message) = &input.message {
@@ -253,18 +253,18 @@ pub async fn send_chat_stream_v2(
         }
     }
 
-    // Get the provider's stream response, and spawn a task to stream it to Redis
-    // and save the response to the database on completion
+    // Get the provider's stream response
     let stream = provider_api
         .chat_stream(current_messages, llm_tools, &input.provider_options)
         .await?;
-    let stream_processor = LlmStreamProcessor::new(&redis);
     let provider_id = input.provider_id;
     let provider_options = input.provider_options.clone();
+
+    // Spawn a task to stream the response to Redis and save it to the database on completion
+    let stream_writer = LlmStreamWriter::new(&redis);
     tokio::spawn(async move {
-        let (content, tool_calls, usage, _) = stream_processor
-            .process_llm_stream(&stream_key, stream)
-            .await;
+        let (content, tool_calls, usage, _) =
+            stream_writer.process_stream(&stream_key, stream).await;
         if let Err(e) = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 session_id: &session_id,
@@ -295,103 +295,32 @@ pub async fn send_chat_stream_v2(
 /// # Connect to chat stream
 /// Connect to an ongoing chat stream and stream the assistant response
 #[openapi(tag = "Chat")]
-#[post("/<session_id>/stream")]
+#[get("/<session_id>/stream")]
 pub async fn connect_to_chat_stream(
     user_id: ChatRsUserId,
-    redis: RedisClient,
+    redis: &State<fred::prelude::Pool>,
     session_id: Uuid,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     let stream_key = format!("user:{}:chat:{}", user_id.0, session_id);
+    let stream_reader = SseStreamReader::new(&redis);
 
-    // Get all previous events from the Redis stream
-    let (_, prev_values): (String, Vec<(String, HashMap<String, String>)>) = redis
-        .xread::<Option<Vec<_>>, _, _>(None, None, &stream_key, "0-0")
-        .await?
-        .and_then(|mut streams| streams.pop())
-        .ok_or(LlmError::StreamNotFound)?;
-    let last_event = prev_values.last().cloned();
-    let prev_events_sse = prev_values
-        .into_iter()
-        .filter_map(convert_redis_event_to_sse);
-    let prev_events_stream = rocket::futures::stream::iter(prev_events_sse);
-
-    // If `end` event already received, just return previous events
-    if let Some((_, ref data)) = last_event {
-        if data.get("type").is_some_and(|t| t == "end") {
-            return Ok(EventStream::from(prev_events_stream.boxed()));
-        }
+    // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
+    let (prev_events, last_event_id, is_end) = stream_reader.get_prev_events(&stream_key).await?;
+    let prev_events_stream = stream::iter(prev_events);
+    if is_end {
+        return Ok(EventStream::from(prev_events_stream.boxed()));
     }
 
     // Spawn a task to receive new events from Redis and add them to the channel
     let (tx, rx) = tokio::sync::mpsc::channel::<Event>(50);
     tokio::spawn(async move {
-        let mut last_event_id = last_event.map(|(id, _)| id).unwrap_or_else(|| "0-0".into());
-        loop {
-            match get_next_event(&redis, &stream_key, &last_event_id, &tx).await {
-                Ok(Some((id, event))) => {
-                    last_event_id = id;
-                    if let Err(_) = tx.send(event).await {
-                        break; // client disconnected, stop sending events
-                    }
-                }
-                Ok(None) => {
-                    tx.send(Event::empty().event("end")).await.ok();
-                    break; // No more events, end of stream
-                }
-                Err(e) => {
-                    let event = Event::data(format!("Error: {}", e)).event("error");
-                    tx.send(event).await.ok();
-                    break;
-                }
-            }
-        }
+        stream_reader
+            .stream_events(&stream_key, &last_event_id, &tx)
+            .await;
         drop(tx);
     });
 
-    // Send stream of events from Redis to the client, starting with all previous events and then new events
+    // Send stream to client
     let stream = prev_events_stream.chain(ReceiverStream::new(rx)).boxed();
     Ok(EventStream::from(stream))
-}
-
-async fn get_next_event(
-    redis: &RedisClient,
-    stream_key: &str,
-    last_event_id: &str,
-    tx: &tokio::sync::mpsc::Sender<Event>,
-) -> Result<Option<(String, Event)>, LlmError> {
-    let (_, mut events): (String, Vec<(String, HashMap<String, String>)>) = tokio::select! {
-        next_value = redis.xread::<Option<Vec<_>>, _, _>(Some(1), Some(8_000), stream_key, last_event_id) => {
-            match next_value?.as_mut().and_then(|streams| streams.pop()) {
-                Some(s) => s,
-                None => return Ok(None),
-            }
-        },
-        _ = tx.closed() => return Ok(None)
-    };
-    match events.pop() {
-        Some((id, event)) => {
-            if event.get("type").is_some_and(|t| t == "end") {
-                return Ok(None);
-            }
-            Ok(Some(id.clone()).zip(convert_redis_event_to_sse((id, event))))
-        }
-        None => Ok(None),
-    }
-}
-
-fn convert_redis_event_to_sse((id, event): (String, HashMap<String, String>)) -> Option<Event> {
-    let mut r#type = None;
-    let mut data = None;
-    for (key, value) in event {
-        match key.as_str() {
-            "type" => r#type = Some(value),
-            "data" => data = Some(value),
-            _ => {}
-        }
-    }
-    if let Some(r#type) = r#type {
-        Some(Event::data(data.unwrap_or_default()).event(r#type).id(id))
-    } else {
-        None
-    }
 }

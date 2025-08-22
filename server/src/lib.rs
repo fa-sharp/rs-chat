@@ -6,6 +6,7 @@ pub mod errors;
 pub mod provider;
 pub mod provider_models;
 pub mod redis;
+pub mod stream;
 pub mod tools;
 pub mod utils;
 pub mod web;

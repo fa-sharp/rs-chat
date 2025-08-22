@@ -41,6 +41,10 @@ pub enum LlmError {
     AlreadyStreaming,
     #[error("No ongoing stream for this session")]
     StreamNotFound,
+    #[error("Missing event in stream")]
+    NoStreamEvent,
+    #[error("Client disconnected")]
+    ClientDisconnected,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]

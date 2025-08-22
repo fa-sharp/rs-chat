@@ -12,14 +12,18 @@ use crate::{
     provider::{LlmApiStream, LlmError, LlmUsage},
 };
 
-const MAX_CHUNK_SIZE: usize = 1000;
+/// Interval at which chunks are flushed to Redis.
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
+/// Max accumulated size of the text before it is automatically flushed to Redis.
+const MAX_CHUNK_SIZE: usize = 1000;
+/// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
+const STREAM_EXPIRE: i64 = 30;
 
-/// Utility struct for processing an incoming LLM stream and intermittently
-/// flushing the data to a Redis stream.
-#[derive(Debug, Default)]
-pub struct LlmStreamProcessor {
-    redis: fred::prelude::Client,
+/// Utility for processing an incoming LLM response stream and intermittently
+/// writing chunks to a Redis stream.
+#[derive(Debug)]
+pub struct LlmStreamWriter {
+    redis: fred::prelude::Pool,
     /// The current chunk of data being processed.
     current_chunk: ChunkState,
     /// Accumulated text response from the assistant.
@@ -32,6 +36,7 @@ pub struct LlmStreamProcessor {
     usage: Option<LlmUsage>,
 }
 
+/// Internal state
 #[derive(Debug, Default)]
 struct ChunkState {
     text: Option<String>,
@@ -57,17 +62,21 @@ impl From<RedisStreamChunk> for HashMap<String, String> {
     }
 }
 
-impl LlmStreamProcessor {
-    pub fn new(redis: &fred::prelude::Client) -> Self {
-        LlmStreamProcessor {
+impl LlmStreamWriter {
+    pub fn new(redis: &fred::prelude::Pool) -> Self {
+        LlmStreamWriter {
             redis: redis.clone(),
-            ..Default::default()
+            current_chunk: ChunkState::default(),
+            complete_text: None,
+            tool_calls: None,
+            errors: None,
+            usage: None,
         }
     }
 
     /// Process the incoming stream from the LLM provider, intermittently
-    /// flush to Redis stream, and return the accumulated results.
-    pub async fn process_llm_stream(
+    /// flushing chunks to a Redis stream, and return the final accumulated response.
+    pub async fn process_stream(
         mut self,
         stream_key: &str,
         mut stream: LlmApiStream,
@@ -200,11 +209,11 @@ impl LlmStreamProcessor {
         stream_key: &str,
         entries: Vec<HashMap<String, String>>,
     ) -> Result<(), fred::prelude::Error> {
-        let pipeline = self.redis.pipeline();
+        let pipeline = self.redis.next().pipeline();
         for entry in entries {
             let _: () = pipeline.xadd(stream_key, false, None, "*", entry).await?;
         }
-        let _: () = pipeline.expire(stream_key, 60, None).await?;
+        let _: () = pipeline.expire(stream_key, STREAM_EXPIRE, None).await?;
         pipeline.all().await
     }
 }
