@@ -39,7 +39,7 @@ pub enum LlmError {
     UnsupportedProvider,
     #[error("Already streaming a response for this session")]
     AlreadyStreaming,
-    #[error("No ongoing stream for this session")]
+    #[error("No stream found, or the stream was cancelled")]
     StreamNotFound,
     #[error("Missing event in stream")]
     NoStreamEvent,

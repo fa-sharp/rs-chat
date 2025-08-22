@@ -6,10 +6,12 @@ use std::{
 use fred::prelude::{KeysInterface, StreamsInterface};
 use rocket::futures::StreamExt;
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::{
     db::models::ChatRsToolCall,
     provider::{LlmApiStream, LlmError, LlmUsage},
+    stream::get_chat_stream_key,
 };
 
 /// Interval at which chunks are flushed to Redis.
@@ -19,11 +21,12 @@ const MAX_CHUNK_SIZE: usize = 1000;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
 
-/// Utility for processing an incoming LLM response stream and intermittently
-/// writing chunks to a Redis stream.
+/// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
 pub struct LlmStreamWriter {
     redis: fred::prelude::Pool,
+    /// The key of the Redis stream.
+    key: String,
     /// The current chunk of data being processed.
     current_chunk: ChunkState,
     /// Accumulated text response from the assistant.
@@ -52,6 +55,7 @@ enum RedisStreamChunk {
     Text(String),
     ToolCall(String),
     Error(String),
+    Cancel,
     End,
 }
 impl From<RedisStreamChunk> for HashMap<String, String> {
@@ -63,9 +67,10 @@ impl From<RedisStreamChunk> for HashMap<String, String> {
 }
 
 impl LlmStreamWriter {
-    pub fn new(redis: &fred::prelude::Pool) -> Self {
+    pub fn new(redis: &fred::prelude::Pool, user_id: &Uuid, session_id: &Uuid) -> Self {
         LlmStreamWriter {
             redis: redis.clone(),
+            key: get_chat_stream_key(user_id, session_id),
             current_chunk: ChunkState::default(),
             complete_text: None,
             tool_calls: None,
@@ -74,11 +79,24 @@ impl LlmStreamWriter {
         }
     }
 
+    /// Check if the Redis stream already exists.
+    pub async fn exists(&self) -> Result<bool, fred::prelude::Error> {
+        self.redis.exists(&self.key).await
+    }
+
+    /// Create the Redis stream and write a `start` entry.
+    pub async fn start(&self) -> Result<(), fred::prelude::Error> {
+        let entry: HashMap<String, String> = RedisStreamChunk::Start.into();
+        let pipeline = self.redis.next().pipeline();
+        let _: () = pipeline.xadd(&self.key, false, None, "*", entry).await?;
+        let _: () = pipeline.expire(&self.key, STREAM_EXPIRE, None).await?;
+        pipeline.all().await
+    }
+
     /// Process the incoming stream from the LLM provider, intermittently
     /// flushing chunks to a Redis stream, and return the final accumulated response.
-    pub async fn process_stream(
-        mut self,
-        stream_key: &str,
+    pub async fn process(
+        &mut self,
         mut stream: LlmApiStream,
     ) -> (
         Option<String>,
@@ -86,10 +104,6 @@ impl LlmStreamWriter {
         Option<LlmUsage>,
         Option<Vec<LlmError>>,
     ) {
-        if let Err(e) = self.notify_start_of_redis_stream(&stream_key).await {
-            self.errors.get_or_insert_default().push(LlmError::Redis(e));
-        };
-
         let mut last_flush_time = Instant::now();
         while let Some(chunk) = stream.next().await {
             match chunk {
@@ -110,16 +124,41 @@ impl LlmStreamWriter {
             }
 
             if self.should_flush(&last_flush_time) {
-                self.flush_and_reset(&stream_key).await;
+                if let Err(err) = self.flush_chunk().await {
+                    if matches!(err, LlmError::StreamNotFound) {
+                        self.errors.get_or_insert_default().push(err);
+                        break; // stream was deleted/cancelled
+                    }
+                    self.process_error(err);
+                }
                 last_flush_time = Instant::now();
             }
         }
 
-        if let Err(e) = self.notify_end_of_redis_stream(&stream_key).await {
-            self.errors.get_or_insert_default().push(LlmError::Redis(e));
-        };
+        let complete_text = self.complete_text.take();
+        let tool_calls = self.tool_calls.take();
+        let usage = self.usage.take();
+        let errors = self.errors.take();
+        (complete_text, tool_calls, usage, errors)
+    }
 
-        (self.complete_text, self.tool_calls, self.usage, self.errors)
+    /// Cancel stream by adding a `cancel` event to the stream and then deleting it from Redis.
+    pub async fn cancel(&self) -> Result<(), fred::prelude::Error> {
+        let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
+        let pipeline = self.redis.next().pipeline();
+        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
+        let _: () = pipeline.del(&self.key).await?;
+        pipeline.all().await
+    }
+
+    /// Add an `end` event to notify clients that the stream has ended, and then
+    /// delete the stream from Redis.
+    pub async fn finish(&self) -> Result<(), fred::prelude::Error> {
+        let entry: HashMap<String, String> = RedisStreamChunk::End.into();
+        let pipeline = self.redis.next().pipeline();
+        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
+        let _: () = pipeline.del(&self.key).await?;
+        pipeline.all().await
     }
 
     fn process_text(&mut self, text: &str) {
@@ -168,7 +207,7 @@ impl LlmStreamWriter {
         return false;
     }
 
-    async fn flush_and_reset(&mut self, stream_key: &str) {
+    async fn flush_chunk(&mut self) -> Result<(), LlmError> {
         let chunk_state = std::mem::take(&mut self.current_chunk);
 
         let mut chunks: Vec<RedisStreamChunk> = Vec::with_capacity(2);
@@ -185,35 +224,25 @@ impl LlmStreamWriter {
         }
 
         let entries = chunks.into_iter().map(|chunk| chunk.into()).collect();
-        let _ = self.add_to_redis_stream(stream_key, entries).await;
-    }
-
-    async fn notify_start_of_redis_stream(
-        &mut self,
-        stream_key: &str,
-    ) -> Result<(), fred::prelude::Error> {
-        let entries = vec![RedisStreamChunk::Start.into()];
-        self.add_to_redis_stream(stream_key, entries).await
-    }
-
-    async fn notify_end_of_redis_stream(
-        &mut self,
-        stream_key: &str,
-    ) -> Result<(), fred::prelude::Error> {
-        let entries = vec![RedisStreamChunk::End.into()];
-        self.add_to_redis_stream(stream_key, entries).await
+        self.add_to_redis_stream(entries).await
     }
 
     async fn add_to_redis_stream(
-        &mut self,
-        stream_key: &str,
+        &self,
         entries: Vec<HashMap<String, String>>,
-    ) -> Result<(), fred::prelude::Error> {
+    ) -> Result<(), LlmError> {
         let pipeline = self.redis.next().pipeline();
         for entry in entries {
-            let _: () = pipeline.xadd(stream_key, false, None, "*", entry).await?;
+            let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
         }
-        let _: () = pipeline.expire(stream_key, STREAM_EXPIRE, None).await?;
-        pipeline.all().await
+        let _: () = pipeline.expire(&self.key, STREAM_EXPIRE, None).await?;
+        let res: Vec<fred::prelude::Value> = pipeline.all().await?;
+
+        // Check for `nil` responses indicating the stream has been deleted/cancelled
+        if res.iter().any(|r| matches!(r, fred::prelude::Value::Null)) {
+            Err(LlmError::StreamNotFound)
+        } else {
+            Ok(())
+        }
     }
 }

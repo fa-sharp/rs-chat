@@ -33,6 +33,11 @@ pub struct ChatRsSessionMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_config: Option<SendChatToolInput>,
 }
+impl ChatRsSessionMeta {
+    pub fn with_tool_config(tool_config: Option<SendChatToolInput>) -> Self {
+        Self { tool_config }
+    }
+}
 
 #[derive(Insertable)]
 #[diesel(table_name = super::schema::chat_sessions)]

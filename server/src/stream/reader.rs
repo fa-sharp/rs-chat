@@ -1,10 +1,17 @@
 use std::collections::HashMap;
 
-use fred::prelude::StreamsInterface;
+use fred::{
+    prelude::{KeysInterface, StreamsInterface},
+    types::scan::ScanType,
+};
 use rocket::response::stream::Event;
 use tokio::sync::mpsc;
+use uuid::Uuid;
 
-use crate::provider::LlmError;
+use crate::{
+    provider::LlmError,
+    stream::{get_chat_stream_key, get_chat_stream_prefix},
+};
 
 /// Timeout for the blocking `xread` command.
 const XREAD_BLOCK_TIMEOUT: u64 = 10_000; // 10 seconds
@@ -21,13 +28,28 @@ impl SseStreamReader {
         }
     }
 
+    /// Get the ongoing chat streams for a user.
+    pub async fn get_chat_streams(&self, user_id: &Uuid) -> Result<Vec<String>, LlmError> {
+        let pattern = format!("{}:*", get_chat_stream_prefix(user_id));
+        let keys = self
+            .redis
+            .scan_page("0", &pattern, Some(20), Some(ScanType::Stream))
+            .await?;
+        Ok(keys)
+    }
+
     /// Retrieve the previous events from the given Redis stream.
     /// Returns a tuple containing the previous events, the last event ID, and a boolean
     /// indicating if the stream has already ended.
-    pub async fn get_prev_events(&self, key: &str) -> Result<(Vec<Event>, String, bool), LlmError> {
+    pub async fn get_prev_events(
+        &self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Result<(Vec<Event>, String, bool), LlmError> {
+        let key = get_chat_stream_key(user_id, session_id);
         let (_, prev_events): (String, Vec<(String, HashMap<String, String>)>) = self
             .redis
-            .xread::<Option<Vec<_>>, _, _>(None, None, key, "0-0")
+            .xread::<Option<Vec<_>>, _, _>(None, None, &key, "0-0")
             .await?
             .and_then(|mut streams| streams.pop()) // should only be 1 stream since we're sending 1 key in the command
             .ok_or(LlmError::StreamNotFound)?;
@@ -44,10 +66,17 @@ impl SseStreamReader {
     }
 
     /// Stream the events from the given Redis stream using a blocking `xread` command.
-    pub async fn stream_events(&self, key: &str, last_event_id: &str, tx: &mpsc::Sender<Event>) {
+    pub async fn stream(
+        &self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+        last_event_id: &str,
+        tx: &mpsc::Sender<Event>,
+    ) {
+        let key = get_chat_stream_key(user_id, session_id);
         let mut last_event_id = last_event_id.to_owned();
         loop {
-            match self.get_next_event(key, &mut last_event_id, tx).await {
+            match self.get_next_event(&key, &mut last_event_id, tx).await {
                 Ok((id, data, is_end)) => {
                     let event = convert_redis_event_to_sse((id, data));
                     if let Err(_) = tx.send(event).await {

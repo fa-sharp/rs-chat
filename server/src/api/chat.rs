@@ -1,6 +1,5 @@
 use std::{borrow::Cow, pin::Pin};
 
-use fred::prelude::KeysInterface;
 use rocket::{
     futures::{stream, Stream, StreamExt},
     get, post,
@@ -34,7 +33,30 @@ use crate::{
 };
 
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings:  send_chat_stream_v2, connect_to_chat_stream]
+    openapi_get_routes_spec![
+        settings: get_chat_streams,
+        send_chat_stream,
+        connect_to_chat_stream,
+        cancel_chat_stream,
+    ]
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+pub struct GetChatStreamsResponse {
+    streams: Vec<String>,
+}
+
+/// # Get chat streams
+/// Get the ongoing chat response streams
+#[openapi(tag = "Chat")]
+#[get("/streams")]
+pub async fn get_chat_streams(
+    user_id: ChatRsUserId,
+    redis: &State<fred::prelude::Pool>,
+) -> Result<Json<GetChatStreamsResponse>, ApiError> {
+    let stream_reader = SseStreamReader::new(&redis);
+    let keys = stream_reader.get_chat_streams(&user_id).await?;
+    Ok(Json(GetChatStreamsResponse { streams: keys }))
 }
 
 #[derive(JsonSchema, serde::Deserialize)]
@@ -54,7 +76,7 @@ pub struct SendChatInput<'a> {
 /// has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
 #[openapi(tag = "Chat")]
 #[post("/<session_id>", data = "<input>")]
-pub async fn send_chat_stream_v2(
+pub async fn send_chat_stream(
     user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
@@ -64,13 +86,14 @@ pub async fn send_chat_stream_v2(
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
 ) -> Result<String, ApiError> {
+    let mut stream_writer = LlmStreamWriter::new(&redis, &user_id, &session_id);
+
     // Check that we aren't already streaming a response for this session
-    let stream_key = format!("user:{}:chat:{}", user_id.0, session_id);
-    if redis.exists(&stream_key).await? {
+    if stream_writer.exists().await? {
         return Err(LlmError::AlreadyStreaming)?;
     }
 
-    // Check session exists and user is owner, get message history
+    // Get session and message history
     let (session, mut current_messages) = ChatDbService::new(&mut db)
         .get_session_with_messages(&user_id, &session_id)
         .await?;
@@ -128,17 +151,13 @@ pub async fn send_chat_stream_v2(
             .tool_config
             .is_none_or(|config| config != tool_input)
         {
+            let meta = ChatRsSessionMeta::with_tool_config(Some(tool_input));
+            let data = UpdateChatRsSession {
+                meta: Some(&meta),
+                ..Default::default()
+            };
             ChatDbService::new(&mut db)
-                .update_session(
-                    &user_id,
-                    &session_id,
-                    UpdateChatRsSession {
-                        meta: Some(&ChatRsSessionMeta {
-                            tool_config: Some(tool_input),
-                        }),
-                        ..Default::default()
-                    },
-                )
+                .update_session(&user_id, &session_id, data)
                 .await?;
         }
     }
@@ -150,11 +169,11 @@ pub async fn send_chat_stream_v2(
     let provider_id = input.provider_id;
     let provider_options = input.provider_options.clone();
 
-    // Spawn a task to stream the response to Redis and save it to the database on completion
-    let stream_writer = LlmStreamWriter::new(&redis);
+    // Create the Redis stream, then spawn a task to stream the response
+    // and save it to the database on completion
+    stream_writer.start().await?;
     tokio::spawn(async move {
-        let (content, tool_calls, usage, _) =
-            stream_writer.process_stream(&stream_key, stream).await;
+        let (content, tool_calls, usage, _) = stream_writer.process(stream).await;
         if let Err(e) = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 session_id: &session_id,
@@ -175,8 +194,8 @@ pub async fn send_chat_stream_v2(
         {
             rocket::warn!("Failed to save assistant response: {}", e);
         }
-
-        // TODO delete stream in Redis
+        stream_writer.finish().await.ok();
+        drop(stream_writer);
     });
 
     Ok("Stream started".into())
@@ -191,21 +210,21 @@ pub async fn connect_to_chat_stream(
     redis: &State<fred::prelude::Pool>,
     session_id: Uuid,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
-    let stream_key = format!("user:{}:chat:{}", user_id.0, session_id);
     let stream_reader = SseStreamReader::new(&redis);
 
     // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
-    let (prev_events, last_event_id, is_end) = stream_reader.get_prev_events(&stream_key).await?;
+    let (prev_events, last_event_id, is_end) =
+        stream_reader.get_prev_events(&user_id, &session_id).await?;
     let prev_events_stream = stream::iter(prev_events);
     if is_end {
         return Ok(EventStream::from(prev_events_stream.boxed()));
     }
 
-    // Spawn a task to receive new events from Redis and add them to the channel
+    // Spawn a task to receive new events from Redis and add them to this channel
     let (tx, rx) = tokio::sync::mpsc::channel::<Event>(50);
     tokio::spawn(async move {
         stream_reader
-            .stream_events(&stream_key, &last_event_id, &tx)
+            .stream(&user_id, &session_id, &last_event_id, &tx)
             .await;
         drop(tx);
     });
@@ -213,4 +232,21 @@ pub async fn connect_to_chat_stream(
     // Send stream to client
     let stream = prev_events_stream.chain(ReceiverStream::new(rx)).boxed();
     Ok(EventStream::from(stream))
+}
+
+/// # Cancel chat stream
+/// Cancel an ongoing chat stream
+#[openapi(tag = "Chat")]
+#[post("/<session_id>/cancel")]
+pub async fn cancel_chat_stream(
+    user_id: ChatRsUserId,
+    redis: &State<fred::prelude::Pool>,
+    session_id: Uuid,
+) -> Result<(), ApiError> {
+    let stream_writer = LlmStreamWriter::new(&redis, &user_id, &session_id);
+    if !stream_writer.exists().await? {
+        return Err(LlmError::StreamNotFound)?;
+    }
+    stream_writer.cancel().await?;
+    Ok(())
 }
