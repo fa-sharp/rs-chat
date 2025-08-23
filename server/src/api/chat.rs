@@ -19,8 +19,8 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::{
-            ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta, NewChatRsMessage,
-            UpdateChatRsSession,
+            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta,
+            NewChatRsMessage, UpdateChatRsSession,
         },
         services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
@@ -169,12 +169,31 @@ pub async fn send_chat_stream(
     let provider_options = input.options.clone();
 
     // Create the Redis stream, then spawn a task to stream and save the response
-    stream_writer.create().await?;
+    stream_writer.start().await?;
     tokio::spawn(async move {
-        let mut chat_db_service = ChatDbService::new(&mut db);
-        stream_writer
-            .process(stream, &mut chat_db_service, provider_id, provider_options)
+        let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
+        let assistant_meta = AssistantMeta {
+            provider_id,
+            provider_options: Some(provider_options),
+            tool_calls,
+            usage,
+            errors,
+            partial: cancelled.then_some(true),
+        };
+        let db_result = ChatDbService::new(&mut db)
+            .save_message(NewChatRsMessage {
+                session_id: &session_id,
+                role: ChatRsMessageRole::Assistant,
+                content: &text.unwrap_or_default(),
+                meta: ChatRsMessageMeta::new_assistant(assistant_meta),
+            })
             .await;
+        if let Err(err) = db_result {
+            rocket::error!("Failed to save assistant message: {}", err);
+        }
+        if !cancelled {
+            stream_writer.end().await.ok();
+        }
     });
 
     Ok(format!("Stream started at /api/chat/{}/stream", session_id))

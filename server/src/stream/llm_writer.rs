@@ -9,13 +9,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
-    db::{
-        models::{
-            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsToolCall, NewChatRsMessage,
-        },
-        services::ChatDbService,
-    },
-    provider::{LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmUsage},
+    db::models::ChatRsToolCall,
+    provider::{LlmApiStream, LlmError, LlmUsage},
     stream::get_chat_stream_key,
 };
 
@@ -36,8 +31,6 @@ pub struct LlmStreamWriter {
     redis: fred::prelude::Pool,
     /// The key of the Redis stream.
     key: String,
-    /// The chat session ID associated with the stream.
-    session_id: Uuid,
     /// The current chunk of data being processed.
     current_chunk: ChunkState,
     /// Accumulated text response from the assistant.
@@ -83,7 +76,6 @@ impl LlmStreamWriter {
         LlmStreamWriter {
             redis: redis.clone(),
             key: get_chat_stream_key(user_id, session_id),
-            session_id: session_id.to_owned(),
             current_chunk: ChunkState::default(),
             complete_text: None,
             tool_calls: None,
@@ -99,7 +91,7 @@ impl LlmStreamWriter {
     }
 
     /// Create the Redis stream and write a `start` entry.
-    pub async fn create(&self) -> Result<(), fred::prelude::Error> {
+    pub async fn start(&self) -> Result<(), fred::prelude::Error> {
         let entry: HashMap<String, String> = RedisStreamChunk::Start.into();
         let pipeline = self.redis.next().pipeline();
         let _: () = pipeline.xadd(&self.key, false, None, "*", entry).await?;
@@ -115,14 +107,27 @@ impl LlmStreamWriter {
         self.redis.del(&self.key).await
     }
 
+    /// Add an `end` event to notify clients that the stream has ended, and then
+    /// delete the stream from Redis.
+    pub async fn end(&self) -> Result<(), fred::prelude::Error> {
+        let entry: HashMap<String, String> = RedisStreamChunk::End.into();
+        let pipeline = self.redis.next().pipeline();
+        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
+        let _: () = pipeline.del(&self.key).await?;
+        pipeline.all().await
+    }
+
     /// Process the incoming stream from the LLM provider, intermittently flushing
-    /// chunks to a Redis stream, and saving the final accumulated response to the database.
+    /// chunks to a Redis stream, and return the final accumulated response.
     pub async fn process(
         &mut self,
         mut stream: LlmApiStream,
-        db: &mut ChatDbService<'_>,
-        provider_id: i32,
-        provider_options: LlmApiProviderSharedOptions,
+    ) -> (
+        Option<String>,
+        Option<Vec<ChatRsToolCall>>,
+        Option<LlmUsage>,
+        Option<Vec<String>>,
+        bool,
     ) {
         let ping_handle = self.start_ping_task();
 
@@ -161,20 +166,17 @@ impl LlmStreamWriter {
                 last_flush_time = Instant::now();
             }
         }
-
         ping_handle.abort();
-        if let Err(e) = self
-            .save_to_db(db, provider_id, provider_options, cancelled)
-            .await
-        {
-            if !cancelled {
-                self.current_chunk.error = Some(e.to_string());
-                self.flush_chunk().await.ok();
-            }
-        }
-        if !cancelled {
-            self.finish().await.ok();
-        }
+
+        let complete_text = self.complete_text.take();
+        let tool_calls = self.tool_calls.take();
+        let usage = self.usage.take();
+        let errors = self.errors.take().map(|e| {
+            e.into_iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<String>>()
+        });
+        (complete_text, tool_calls, usage, errors, cancelled)
     }
 
     fn process_text(&mut self, text: &str) {
@@ -264,53 +266,6 @@ impl LlmStreamWriter {
         } else {
             Ok(())
         }
-    }
-
-    /// Add an `end` event to notify clients that the stream has ended, and then
-    /// delete the stream from Redis.
-    async fn finish(&self) -> Result<(), fred::prelude::Error> {
-        let entry: HashMap<String, String> = RedisStreamChunk::End.into();
-        let pipeline = self.redis.next().pipeline();
-        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
-        let _: () = pipeline.del(&self.key).await?;
-        pipeline.all().await
-    }
-
-    /// Saves the accumulated response to the database
-    async fn save_to_db(
-        &mut self,
-        db_service: &mut ChatDbService<'_>,
-        provider_id: i32,
-        provider_options: LlmApiProviderSharedOptions,
-        cancelled: bool,
-    ) -> Result<(), LlmError> {
-        let complete_text = self.complete_text.take();
-        let tool_calls = self.tool_calls.take();
-        let usage = self.usage.take();
-        let errors = self.errors.take().map(|e| {
-            e.into_iter()
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>()
-        });
-
-        let assistant_meta = AssistantMeta {
-            provider_id,
-            provider_options: Some(provider_options),
-            tool_calls,
-            usage,
-            errors,
-            partial: cancelled.then_some(true),
-        };
-        db_service
-            .save_message(NewChatRsMessage {
-                session_id: &self.session_id,
-                role: ChatRsMessageRole::Assistant,
-                content: &complete_text.unwrap_or_default(),
-                meta: ChatRsMessageMeta::new_assistant(assistant_meta),
-            })
-            .await?;
-
-        Ok(())
     }
 
     /// Start task that pings the Redis stream every `PING_INTERVAL` seconds
