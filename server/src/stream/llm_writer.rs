@@ -27,6 +27,8 @@ const MAX_CHUNK_SIZE: usize = 500;
 const STREAM_EXPIRE: i64 = 30;
 /// Timeout waiting for data from the LLM stream.
 const LLM_TIMEOUT: Duration = Duration::from_secs(20);
+/// Interval for sending ping messages to keep the Redis stream alive.
+const PING_INTERVAL: Duration = Duration::from_millis(1000);
 
 /// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
@@ -122,9 +124,10 @@ impl LlmStreamWriter {
         provider_id: i32,
         provider_options: LlmApiProviderSharedOptions,
     ) {
+        let ping_handle = self.start_ping_task();
+
         let mut last_flush_time = Instant::now();
         let mut cancelled = false;
-
         loop {
             match tokio::time::timeout(LLM_TIMEOUT, stream.next()).await {
                 Ok(Some(Ok(chunk))) => {
@@ -142,14 +145,13 @@ impl LlmStreamWriter {
                 Ok(None) => break,
                 Err(_) => {
                     self.process_error(LlmError::StreamTimeout);
-                    cancelled = true;
                     break;
                 }
             }
 
             if self.should_flush(&last_flush_time) {
                 if let Err(err) = self.flush_chunk().await {
-                    // Check if stream has been cancelled
+                    // Check if stream has been cancelled or deleted
                     if matches!(err, LlmError::StreamNotFound) {
                         self.errors.get_or_insert_default().push(err);
                         cancelled = true;
@@ -161,6 +163,7 @@ impl LlmStreamWriter {
             }
         }
 
+        ping_handle.abort();
         if let Err(e) = self
             .save_to_db(db, provider_id, provider_options, cancelled)
             .await
@@ -170,7 +173,6 @@ impl LlmStreamWriter {
                 self.flush_chunk().await.ok();
             }
         }
-
         if !cancelled {
             self.finish().await.ok();
         }
@@ -236,7 +238,7 @@ impl LlmStreamWriter {
             chunks.push(RedisStreamChunk::Error(error));
         }
         if chunks.is_empty() {
-            chunks.push(RedisStreamChunk::Ping);
+            return Ok(());
         }
 
         let entries = chunks.into_iter().map(|chunk| chunk.into()).collect();
@@ -308,5 +310,24 @@ impl LlmStreamWriter {
             .await?;
 
         Ok(())
+    }
+
+    /// Start task that pings the Redis stream every PING_INTERVAL seconds
+    fn start_ping_task(&self) -> tokio::task::JoinHandle<()> {
+        let redis = self.redis.clone();
+        let key = self.key.to_owned();
+        let ping_handle = tokio::spawn(async move {
+            let mut interval = tokio::time::interval(PING_INTERVAL);
+            loop {
+                interval.tick().await;
+                let entry: HashMap<String, String> = RedisStreamChunk::Ping.into();
+                let res: Result<(), fred::error::Error> =
+                    redis.xadd(&key, true, None, "*", entry).await;
+                if res.is_err() {
+                    break;
+                }
+            }
+        });
+        ping_handle
     }
 }
