@@ -25,6 +25,8 @@ const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 const MAX_CHUNK_SIZE: usize = 500;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
+/// Timeout waiting for data from the LLM stream.
+const LLM_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
@@ -122,9 +124,10 @@ impl LlmStreamWriter {
     ) {
         let mut last_flush_time = Instant::now();
         let mut cancelled = false;
-        while let Some(chunk) = stream.next().await {
-            match chunk {
-                Ok(chunk) => {
+
+        loop {
+            match tokio::time::timeout(LLM_TIMEOUT, stream.next()).await {
+                Ok(Some(Ok(chunk))) => {
                     if let Some(ref text) = chunk.text {
                         self.process_text(text);
                     }
@@ -135,13 +138,18 @@ impl LlmStreamWriter {
                         self.process_usage(usage_chunk);
                     }
                 }
-                Err(err) => {
-                    self.process_error(err);
+                Ok(Some(Err(err))) => self.process_error(err),
+                Ok(None) => break,
+                Err(_) => {
+                    self.process_error(LlmError::StreamTimeout);
+                    cancelled = true;
+                    break;
                 }
             }
 
             if self.should_flush(&last_flush_time) {
                 if let Err(err) = self.flush_chunk().await {
+                    // Check if stream has been cancelled
                     if matches!(err, LlmError::StreamNotFound) {
                         self.errors.get_or_insert_default().push(err);
                         cancelled = true;

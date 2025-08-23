@@ -45,6 +45,8 @@ pub enum LlmError {
     NoStreamEvent,
     #[error("Client disconnected")]
     ClientDisconnected,
+    #[error("Timeout waiting for provider")]
+    StreamTimeout,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]

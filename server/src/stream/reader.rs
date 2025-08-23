@@ -102,7 +102,7 @@ impl SseStreamReader {
     /// Get the next event from the given Redis stream using a blocking `xread` command.
     /// - Updates the last event ID
     /// - Cancels waiting for the next event if the client disconnects
-    /// - Returns the event ID, data, and a `bool` indicating whether it's the ending event
+    /// - Returns the event ID, data, and a `bool` indicating whether it's an ending event
     async fn get_next_event(
         &self,
         key: &str,
