@@ -51,7 +51,7 @@ pub fn build_redis_pool(
         })
         .set_policy(ReconnectPolicy::new_linear(0, 10_000, 1000))
         .with_performance_config(|config| {
-            config.default_command_timeout = Duration::from_secs(3);
+            config.default_command_timeout = Duration::from_secs(10);
         })
         .build_pool(pool_size)
 }

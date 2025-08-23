@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Timeout for the blocking `xread` command.
-const XREAD_BLOCK_TIMEOUT: u64 = 10_000; // 10 seconds
+const XREAD_BLOCK_TIMEOUT: u64 = 5_000; // 5 seconds
 
 /// Utility for reading SSE events from a Redis stream.
 pub struct SseStreamReader {

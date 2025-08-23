@@ -19,10 +19,10 @@ use crate::{
     stream::get_chat_stream_key,
 };
 
-/// Interval at which chunks are flushed to Redis.
+/// Interval at which chunks are flushed to the Redis stream.
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 /// Max accumulated size of the text chunk before it is automatically flushed to Redis.
-const MAX_CHUNK_SIZE: usize = 400;
+const MAX_CHUNK_SIZE: usize = 500;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
 
@@ -59,6 +59,7 @@ struct ChunkState {
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 enum RedisStreamChunk {
     Start,
+    Ping,
     Text(String),
     ToolCall(String),
     Error(String),
@@ -89,7 +90,9 @@ impl LlmStreamWriter {
 
     /// Check if the Redis stream already exists.
     pub async fn exists(&self) -> Result<bool, fred::prelude::Error> {
-        self.redis.exists(&self.key).await
+        let first_entry: Option<fred::prelude::Value> =
+            self.redis.xread(Some(1), None, &self.key, "0-0").await?;
+        Ok(first_entry.is_some())
     }
 
     /// Create the Redis stream and write a `start` entry.
@@ -168,10 +171,10 @@ impl LlmStreamWriter {
     fn process_text(&mut self, text: &str) {
         self.current_chunk
             .text
-            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE + 200))
+            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE))
             .push_str(text);
         self.complete_text
-            .get_or_insert_with(|| String::with_capacity(500))
+            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE))
             .push_str(text);
     }
 
@@ -205,10 +208,8 @@ impl LlmStreamWriter {
         if self.current_chunk.tool_calls.is_some() || self.current_chunk.error.is_some() {
             return true;
         }
-        if let Some(ref text) = self.current_chunk.text {
-            return text.len() > MAX_CHUNK_SIZE || last_flush_time.elapsed() > FLUSH_INTERVAL;
-        }
-        return false;
+        let text = self.current_chunk.text.as_ref();
+        text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE) || last_flush_time.elapsed() > FLUSH_INTERVAL
     }
 
     async fn flush_chunk(&mut self) -> Result<(), LlmError> {
@@ -225,6 +226,9 @@ impl LlmStreamWriter {
         }
         if let Some(error) = chunk_state.error {
             chunks.push(RedisStreamChunk::Error(error));
+        }
+        if chunks.is_empty() {
+            chunks.push(RedisStreamChunk::Ping);
         }
 
         let entries = chunks.into_iter().map(|chunk| chunk.into()).collect();
