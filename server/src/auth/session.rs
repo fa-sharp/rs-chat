@@ -1,11 +1,11 @@
-use std::{ops::Deref, time::Duration};
+use std::ops::Deref;
 
 use chrono::Utc;
 use rocket::fairing::AdHoc;
 use rocket_flex_session::{storage::redis::RedisFredStorage, RocketFlexSession};
 use uuid::Uuid;
 
-use crate::config::get_app_config;
+use crate::{config::get_app_config, redis::build_redis_pool};
 
 const USER_ID_KEY: &str = "user_id";
 const USER_ID_BYTES_KEY: &str = "user_id_bytes";
@@ -74,16 +74,7 @@ pub fn setup_session() -> AdHoc {
         let app_config = get_app_config(&rocket);
         let config = fred::prelude::Config::from_url(&app_config.redis_url)
             .expect("RS_CHAT_REDIS_URL should be valid Redis URL");
-        let session_redis_pool = fred::prelude::Builder::from_config(config)
-            .with_connection_config(|config| {
-                config.connection_timeout = Duration::from_secs(4);
-                config.tcp = fred::prelude::TcpConfig {
-                    nodelay: Some(true),
-                    ..Default::default()
-                };
-            })
-            .build_pool(app_config.redis_pool.unwrap_or(2))
-            .expect("Failed to build Redis session pool");
+        let session_redis_pool = build_redis_pool(config, 2).expect("Failed to build Redis pool");
         let session_fairing: RocketFlexSession<ChatRsAuthSession> = RocketFlexSession::builder()
             .with_options(|opt| {
                 opt.cookie_name = "auth_rs_chat".to_string();
