@@ -21,8 +21,8 @@ use crate::{
 
 /// Interval at which chunks are flushed to Redis.
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
-/// Max accumulated size of the text before it is automatically flushed to Redis.
-const MAX_CHUNK_SIZE: usize = 1000;
+/// Max accumulated size of the text chunk before it is automatically flushed to Redis.
+const MAX_CHUNK_SIZE: usize = 400;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
 
@@ -164,7 +164,7 @@ impl LlmStreamWriter {
             .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE + 200))
             .push_str(text);
         self.complete_text
-            .get_or_insert_with(|| String::with_capacity(2000))
+            .get_or_insert_with(|| String::with_capacity(500))
             .push_str(text);
     }
 
