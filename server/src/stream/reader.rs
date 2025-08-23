@@ -28,14 +28,18 @@ impl SseStreamReader {
         }
     }
 
-    /// Get the ongoing chat streams for a user.
+    /// Get the ongoing chat stream sessions for a user.
     pub async fn get_chat_streams(&self, user_id: &Uuid) -> Result<Vec<String>, LlmError> {
-        let pattern = format!("{}:*", get_chat_stream_prefix(user_id));
-        let keys = self
+        let prefix = get_chat_stream_prefix(user_id);
+        let pattern = format!("{}:*", prefix);
+        let (_, keys): (String, Vec<String>) = self
             .redis
             .scan_page("0", &pattern, Some(20), Some(ScanType::Stream))
             .await?;
-        Ok(keys)
+        Ok(keys
+            .into_iter()
+            .filter_map(|key| Some(key.strip_prefix(&format!("{}:", prefix))?.to_string()))
+            .collect())
     }
 
     /// Retrieve the previous events from the given Redis stream.

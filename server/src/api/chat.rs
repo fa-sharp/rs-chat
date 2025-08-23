@@ -43,7 +43,7 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 
 #[derive(Debug, JsonSchema, serde::Serialize)]
 pub struct GetChatStreamsResponse {
-    streams: Vec<String>,
+    sessions: Vec<String>,
 }
 
 /// # Get chat streams
@@ -55,8 +55,8 @@ pub async fn get_chat_streams(
     redis: &State<fred::prelude::Pool>,
 ) -> Result<Json<GetChatStreamsResponse>, ApiError> {
     let stream_reader = SseStreamReader::new(&redis);
-    let keys = stream_reader.get_chat_streams(&user_id).await?;
-    Ok(Json(GetChatStreamsResponse { streams: keys }))
+    let sessions = stream_reader.get_chat_streams(&user_id).await?;
+    Ok(Json(GetChatStreamsResponse { sessions }))
 }
 
 #[derive(JsonSchema, serde::Deserialize)]
