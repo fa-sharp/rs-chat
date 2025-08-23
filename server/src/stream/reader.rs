@@ -49,18 +49,20 @@ impl SseStreamReader {
         &self,
         user_id: &Uuid,
         session_id: &Uuid,
+        start_event_id: Option<&str>,
     ) -> Result<(Vec<Event>, String, bool), LlmError> {
         let key = get_chat_stream_key(user_id, session_id);
+        let start_event_id = start_event_id.unwrap_or("0-0");
         let (_, prev_events): (String, Vec<(String, HashMap<String, String>)>) = self
             .redis
-            .xread::<Option<Vec<_>>, _, _>(None, None, &key, "0-0")
+            .xread::<Option<Vec<_>>, _, _>(None, None, &key, start_event_id)
             .await?
             .and_then(|mut streams| streams.pop()) // should only be 1 stream since we're sending 1 key in the command
             .ok_or(LlmError::StreamNotFound)?;
         let (last_event_id, is_end) = prev_events
             .last()
             .map(|(id, data)| (id.to_owned(), data.get("type").is_some_and(|t| t == "end")))
-            .unwrap_or_else(|| ("0-0".into(), false));
+            .unwrap_or_else(|| (start_event_id.into(), false));
         let sse_events = prev_events
             .into_iter()
             .map(convert_redis_event_to_sse)

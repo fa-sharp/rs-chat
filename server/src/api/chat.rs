@@ -27,7 +27,7 @@ use crate::{
     },
     errors::ApiError,
     provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
-    stream::{LlmStreamWriter, SseStreamReader},
+    stream::{LastEventId, LlmStreamWriter, SseStreamReader},
     tools::{get_llm_tools_from_input, SendChatToolInput},
     utils::{generate_title, Encryptor},
 };
@@ -207,12 +207,14 @@ pub async fn connect_to_chat_stream(
     user_id: ChatRsUserId,
     redis: &State<fred::prelude::Pool>,
     session_id: Uuid,
+    start_event_id: Option<LastEventId>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
     let stream_reader = SseStreamReader::new(&redis);
 
     // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
-    let (prev_events, last_event_id, is_end) =
-        stream_reader.get_prev_events(&user_id, &session_id).await?;
+    let (prev_events, last_event_id, is_end) = stream_reader
+        .get_prev_events(&user_id, &session_id, start_event_id.as_deref())
+        .await?;
     let prev_events_stream = stream::iter(prev_events);
     if is_end {
         return Ok(EventStream::from(prev_events_stream.boxed()));
