@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useCreateChatSession } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
-import type { StreamedChat } from "@/lib/context/StreamingContext";
+import type { StreamedChat } from "@/lib/context";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {

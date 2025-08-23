@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import Markdown from "react-markdown";
 
 import useSmoothStreaming from "@/hooks/useSmoothStreaming";
-import type { StreamedChat } from "@/lib/context/StreamingContext";
+import type { StreamedChat } from "@/lib/context";
 import { cn } from "@/lib/utils";
 import {
   ChatBubble,

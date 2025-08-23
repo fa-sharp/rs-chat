@@ -19,10 +19,7 @@ import {
 } from "@/lib/api/session";
 import { useTools } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
-import {
-  useStreamingChats,
-  useStreamingTools,
-} from "@/lib/context/StreamingContext";
+import { useStreamingChats, useStreamingTools } from "@/lib/context";
 
 export const Route = createFileRoute("/app/_appLayout/session/$sessionId")({
   component: RouteComponent,
