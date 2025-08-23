@@ -1,77 +1,85 @@
-import { type ReadyStateEvent, SSE, type SSEvent } from "sse.js";
+import { useQuery } from "@tanstack/react-query";
+import { EventSourceParserStream } from "eventsource-parser/stream";
 
-import type { components } from "./types";
+import { client } from "./client";
 
-/** Stream a chat via SSE, using the `eventsource` library */
-export function streamChat(
+async function getCurrentStreams() {
+  const res = await client.GET("/chat/streams");
+  if (res.error) {
+    throw new Error(res.error.message);
+  }
+  return res.data;
+}
+
+export const useGetCurrentStreams = (enabled: boolean) =>
+  useQuery({
+    enabled,
+    queryKey: ["serverStreams"],
+    queryFn: getCurrentStreams,
+  });
+
+export async function createChatStream(
   sessionId: string,
-  input: components["schemas"]["SendChatInput"],
   {
-    onPart,
+    onText,
+    onToolCall,
     onError,
   }: {
-    onPart: (part: string) => void;
+    onText: (part: string) => void;
+    onToolCall: (toolCall: string) => void;
     onError: (error: string) => void;
   },
 ) {
-  const source = new SSE(`/api/chat/${sessionId}`, {
-    method: "POST",
-    payload: JSON.stringify(input),
-    headers: { "Content-Type": "application/json" },
+  const abortController = new AbortController();
+  const res = await client.GET("/chat/{session_id}/stream", {
+    params: { path: { session_id: sessionId } },
+    parseAs: "stream",
+    signal: abortController.signal,
   });
+  if (res.error) {
+    throw new Error(res.error.message);
+  }
+  if (!res.data) {
+    throw new Error("No data received");
+  }
 
   return {
-    get readyState() {
-      return source.readyState;
+    stream: async () => {
+      if (!res.data) return;
+      const eventStream = res.data
+        .pipeThrough(new TextDecoderStream())
+        .pipeThrough(new EventSourceParserStream())
+        .getReader();
+      loop: while (true) {
+        const { done, value } = await eventStream.read();
+        if (done) break;
+
+        switch (value.event) {
+          case "text":
+            onText(value.data);
+            break;
+          case "error":
+            onError(value.data);
+            break;
+          case "tool_call":
+            onToolCall(value.data);
+            break;
+          case "start":
+          case "ping":
+            break;
+          case "end":
+          case "cancel":
+            break loop;
+          default:
+            console.warn(`Unknown event type: ${value.event}`);
+            break;
+        }
+      }
+      try {
+        abortController.abort();
+      } catch (error) {
+        console.warn("Error closing event stream:", error);
+      }
     },
-    start: new Promise<void>((resolve, reject) => {
-      const chatListener = (event: SSEvent) => {
-        onPart(event.data);
-      };
-      const errorListener = (event: SSEvent & { responseCode?: number }) => {
-        console.error("Error while streaming:", event);
-        if (event.responseCode) {
-          let data: string | undefined;
-          try {
-            data = JSON.parse(event.data).message;
-          } catch {
-            data = event.data;
-          }
-          if (typeof data === "string") {
-            onError(data);
-          } else {
-            switch (event.responseCode) {
-              case 404:
-                onError("Not Found Error");
-                break;
-              case 500:
-                onError("Internal Server Error");
-                break;
-              default:
-                onError(`Error code ${event.responseCode}`);
-                break;
-            }
-          }
-          reject();
-        } else {
-          onError(
-            typeof event.data === "string" ? event.data : "Unknown error",
-          );
-        }
-      };
-
-      const endListener = (event: ReadyStateEvent) => {
-        if (event.readyState === SSE.CLOSED) {
-          source.removeEventListener("chat", chatListener);
-          source.removeEventListener("error", errorListener);
-          source.removeEventListener("readystatechange", endListener);
-          resolve();
-        }
-      };
-
-      source.addEventListener("chat", chatListener);
-      source.addEventListener("error", errorListener);
-      source.addEventListener("readystatechange", endListener);
-    }),
   };
 }

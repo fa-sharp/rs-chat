@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useCreateChatSession } from "@/lib/api/session";
 import type { components } from "@/lib/api/types";
-import type { StreamedChat } from "@/lib/context";
+import { useStreamingChats } from "@/lib/context";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
@@ -53,17 +53,17 @@ import {
 export function AppSidebar({
   sessions,
   user,
-  streamedChats,
   ...props
 }: {
   sessions?: components["schemas"]["ChatRsSession"][];
   user?: components["schemas"]["ChatRsUser"];
-  streamedChats?: Record<string, StreamedChat | undefined>;
 } & React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const { streamedChats } = useStreamingChats();
 
   const { mutate: createChatSession, isPending: createChatPending } =
     useCreateChatSession();

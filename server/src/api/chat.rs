@@ -71,6 +71,12 @@ pub struct SendChatInput<'a> {
     tools: Option<SendChatToolInput>,
 }
 
+#[derive(JsonSchema, serde::Serialize)]
+pub struct SendChatResponse {
+    message: &'static str,
+    url: String,
+}
+
 /// # Start chat stream
 /// Send a chat message and start the streamed assistant response. After the response
 /// has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
@@ -85,7 +91,7 @@ pub async fn send_chat_stream(
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
-) -> Result<String, ApiError> {
+) -> Result<Json<SendChatResponse>, ApiError> {
     let mut stream_writer = LlmStreamWriter::new(&redis, &user_id, &session_id);
 
     // Check that we aren't already streaming a response for this session
@@ -196,7 +202,10 @@ pub async fn send_chat_stream(
         }
     });
 
-    Ok(format!("Stream started at /api/chat/{}/stream", session_id))
+    Ok(Json(SendChatResponse {
+        message: "Stream started",
+        url: format!("/api/chat/{}/stream", session_id),
+    }))
 }
 
 /// # Connect to chat stream

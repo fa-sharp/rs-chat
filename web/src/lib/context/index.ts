@@ -1,10 +1,13 @@
 import { useStreamingChats } from "./chats";
-import type { StreamedChat, StreamedToolExecution } from "./streamManager";
+import type {
+  StreamedToolExecution,
+  StreamingChat,
+} from "./streamManagerState";
 import { useStreamingTools } from "./tools";
 
 export {
   useStreamingTools,
   useStreamingChats,
-  type StreamedChat,
+  type StreamingChat,
   type StreamedToolExecution,
 };

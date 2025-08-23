@@ -1,289 +1,106 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useState } from "react";
+import { createContext, useCallback, useEffect } from "react";
 
-import { streamChat } from "../api/chat";
-import { chatSessionQueryKey, recentSessionsQueryKey } from "../api/session";
-import { streamToolExecution } from "../api/tool";
-import type { components } from "../api/types";
+import { createChatStream } from "@/lib/api/chat";
+import { client } from "@/lib/api/client";
+import { streamToolExecution } from "@/lib/api/tool";
+import type { components } from "@/lib/api/types";
+import { useStreamManagerData } from "./streamManagerData";
+import { useStreamManagerState } from "./streamManagerState";
 
-export interface StreamedChat {
-  content: string;
-  error?: string;
-  status: "streaming" | "completed";
-}
+export function useStreamManager() {
+  const {
+    currentChatStreams,
+    initSession,
+    clearSession,
+    setSessionCompleted,
+    streamedTools,
+    addTextChunk,
+    addToolCallChunk,
+    addErrorChunk,
+    activeToolStreams,
+    addActiveToolStream,
+    addToolLog,
+    addToolDebug,
+    addToolResult,
+    addToolError,
+    clearTool,
+    setToolStatus,
+  } = useStreamManagerState();
 
-export interface StreamedToolExecution {
-  result: string;
-  logs: string[];
-  debugLogs: string[];
-  error?: string;
-  status: "streaming" | "completed" | "error";
-}
+  const {
+    refetchSessionForNewAssistantMessage,
+    refetchSessionForNewToolMessage,
+    serverStreams,
+  } = useStreamManagerData();
 
-const streamedToolExecutionInit = (): StreamedToolExecution => ({
-  result: "",
-  logs: [],
-  debugLogs: [],
-  status: "streaming",
-});
-
-/** Manage ongoing chat streams and tool executions */
-export const useStreamManager = () => {
-  const [streamedChats, setStreamedChats] = useState<{
-    [sessionId: string]: StreamedChat | undefined;
-  }>({});
-
-  const [streamedTools, setStreamedTools] = useState<{
-    [toolCallId: string]: StreamedToolExecution | undefined;
-  }>({});
-
-  const [activeToolStreams, setActiveToolStreams] = useState<{
-    [toolCallId: string]: { close: () => void } | undefined;
-  }>({});
-
-  const addChatPart = useCallback((sessionId: string, part: string) => {
-    setStreamedChats((prev) => ({
-      ...prev,
-      [sessionId]: {
-        content: (prev?.[sessionId]?.content || "") + part,
-        error: prev?.[sessionId]?.error,
-        status: "streaming",
-      },
-    }));
-  }, []);
-
-  const addChatError = useCallback((sessionId: string, error: string) => {
-    setStreamedChats((prev) => ({
-      ...prev,
-      [sessionId]: {
-        content: prev?.[sessionId]?.content || "",
-        status: "streaming",
-        error,
-      },
-    }));
-  }, []);
-
-  const setChatStatus = useCallback(
-    (sessionId: string, status: "streaming" | "completed") => {
-      setStreamedChats((prev) => ({
-        ...prev,
-        [sessionId]: {
-          status,
-          content: prev?.[sessionId]?.content || "",
-          error: prev?.[sessionId]?.error,
-        },
-      }));
-    },
-    [],
-  );
-
-  const clearChat = useCallback((sessionId: string) => {
-    setStreamedChats((prev) => ({
-      ...prev,
-      [sessionId]: undefined,
-    }));
-  }, []);
-
-  const queryClient = useQueryClient();
-
-  const invalidateSession = useCallback(
-    async (sessionId: string) => {
-      await Promise.allSettled([
-        queryClient.invalidateQueries({
-          queryKey: chatSessionQueryKey(sessionId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: recentSessionsQueryKey,
-        }),
-      ]);
-    },
-    [queryClient],
-  );
-
-  /** Refetch chat session for the new assistant message */
-  const refetchSessionForNewAssistantResponse = useCallback(
-    async (sessionId: string) => {
-      const retryDelay = 1000; // 1 second
-      try {
-        // Refetch chat session with retry loop
-        let hasNewAssistantMessage = false;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (!hasNewAssistantMessage && retryCount < maxRetries) {
-          await invalidateSession(sessionId);
-
-          // Check if the chat session has been updated with the new assistant response
-          const updatedData = queryClient.getQueryData<{
-            messages: components["schemas"]["ChatRsMessage"][];
-          }>(["chatSession", { sessionId }]);
-          hasNewAssistantMessage =
-            updatedData?.messages?.some(
-              (msg) =>
-                msg.role === "Assistant" &&
-                !msg.meta.assistant?.partial &&
-                new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
-            ) || false;
-
-          // Retry if no new assistant message
-          if (!hasNewAssistantMessage) {
-            retryCount++;
-            if (retryCount < maxRetries) {
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error refetching chat session:", error);
-        await invalidateSession(sessionId);
-      }
-    },
-    [invalidateSession, queryClient],
-  );
-
-  /** Refetch chat session for the new tool message */
-  const refetchSessionForNewToolMessage = useCallback(
-    async (sessionId: string, toolCallId: string) => {
-      const retryDelay = 1000; // 1 second
-      try {
-        let hasNewToolMessage = false;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (!hasNewToolMessage && retryCount < maxRetries) {
-          await invalidateSession(sessionId);
-
-          const updatedData = queryClient.getQueryData<{
-            messages: components["schemas"]["ChatRsMessage"][];
-          }>(["chatSession", { sessionId }]);
-          hasNewToolMessage =
-            updatedData?.messages?.some(
-              (msg) =>
-                msg.role === "Tool" && msg.meta.tool_call?.id === toolCallId,
-            ) || false;
-
-          if (!hasNewToolMessage) {
-            retryCount++;
-            if (retryCount < maxRetries) {
-              await new Promise((resolve) => setTimeout(resolve, retryDelay));
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error refetching chat session:", error);
-        await invalidateSession(sessionId);
-      }
-    },
-    [invalidateSession, queryClient],
-  );
-
-  /** Start a new chat stream */
   const startStream = useCallback(
-    (sessionId: string, input: components["schemas"]["SendChatInput"]) => {
-      clearChat(sessionId);
-      setChatStatus(sessionId, "streaming");
-      const stream = streamChat(sessionId, input, {
-        onPart: (part) => {
-          addChatPart(sessionId, part);
-        },
-        onError: (error) => {
-          addChatError(sessionId, error);
-        },
-      });
-      stream.start
-        .then(() => {
-          refetchSessionForNewAssistantResponse(sessionId).then(() =>
-            clearChat(sessionId),
-          );
+    async (sessionId: string) => {
+      clearSession(sessionId);
+      initSession(sessionId);
+
+      createChatStream(sessionId, {
+        onText: (text) => addTextChunk(sessionId, text),
+        onToolCall: (toolCall) => addToolCallChunk(sessionId, toolCall),
+        onError: (error) => addErrorChunk(sessionId, error),
+      })
+        .then((chatStream) => {
+          chatStream.stream().finally(() => {
+            setSessionCompleted(sessionId);
+            refetchSessionForNewAssistantMessage(sessionId)
+              .then(() => clearSession(sessionId))
+              .catch((err: unknown) => {
+                console.error("Error refetching messages:", err);
+                addErrorChunk(sessionId, "Error refetching chat session.");
+              });
+          });
         })
-        .catch(() => {
-          invalidateSession(sessionId).then(() =>
-            setChatStatus(sessionId, "completed"),
-          );
+        .catch((err: Error) => {
+          addErrorChunk(sessionId, `Error starting stream: ${err.message}`);
+          setSessionCompleted(sessionId);
+          console.error("Error starting stream:", err.message);
         });
     },
     [
-      clearChat,
-      addChatPart,
-      addChatError,
-      setChatStatus,
-      invalidateSession,
-      refetchSessionForNewAssistantResponse,
+      clearSession,
+      setSessionCompleted,
+      addToolCallChunk,
+      addTextChunk,
+      addErrorChunk,
+      initSession,
+      refetchSessionForNewAssistantMessage,
     ],
   );
 
-  /** Add tool execution result chunk */
-  const addToolResult = useCallback((toolCallId: string, result: string) => {
-    setStreamedTools((prev) => ({
-      ...prev,
-      [toolCallId]: {
-        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
-        result: (prev?.[toolCallId]?.result || "") + result,
-      },
-    }));
-  }, []);
+  // Automatically start any ongoing chat streams
+  useEffect(() => {
+    if (!serverStreams) return;
+    for (const sessionId of serverStreams.sessions) {
+      if (!currentChatStreams[sessionId]) {
+        startStream(sessionId);
+      }
+    }
+  }, [serverStreams, currentChatStreams, startStream]);
 
-  /** Add tool execution log */
-  const addToolLog = useCallback((toolCallId: string, log: string) => {
-    setStreamedTools((prev) => ({
-      ...prev,
-      [toolCallId]: {
-        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
-        logs: [...(prev?.[toolCallId]?.logs || []), log],
-      },
-    }));
-  }, []);
-
-  /** Add tool execution debug log */
-  const addToolDebug = useCallback((toolCallId: string, debug: string) => {
-    setStreamedTools((prev) => ({
-      ...prev,
-      [toolCallId]: {
-        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
-        debugLogs: [...(prev?.[toolCallId]?.debugLogs || []), debug],
-      },
-    }));
-  }, []);
-
-  /** Add tool execution error */
-  const addToolError = useCallback((toolCallId: string, error: string) => {
-    setStreamedTools((prev) => ({
-      ...prev,
-      [toolCallId]: {
-        ...(prev?.[toolCallId] || streamedToolExecutionInit()),
-        error,
-        status: "error",
-      },
-    }));
-  }, []);
-
-  /** Set tool execution status */
-  const setToolStatus = useCallback(
-    (toolCallId: string, status: "streaming" | "completed" | "error") => {
-      setStreamedTools((prev) => ({
-        ...prev,
-        [toolCallId]: {
-          ...(prev?.[toolCallId] || streamedToolExecutionInit()),
-          status,
-        },
-      }));
+  const startStreamWithInput = useCallback(
+    async (
+      sessionId: string,
+      input: components["schemas"]["SendChatInput"],
+    ) => {
+      initSession(sessionId);
+      const response = await client.POST("/chat/{session_id}", {
+        params: { path: { session_id: sessionId } },
+        body: input,
+      });
+      if (response.error) {
+        addErrorChunk(sessionId, response.error.message);
+        setSessionCompleted(sessionId);
+        return;
+      }
+      await startStream(sessionId);
     },
-    [],
+    [initSession, addErrorChunk, startStream, setSessionCompleted],
   );
 
-  /** Clear active tool execution */
-  const clearTool = useCallback((toolCallId: string) => {
-    setStreamedTools((prev) => ({
-      ...prev,
-      [toolCallId]: undefined,
-    }));
-    setActiveToolStreams((prev) => ({
-      ...prev,
-      [toolCallId]: undefined,
-    }));
-  }, []);
-
-  /** Start tool execution stream */
   const startToolExecution = useCallback(
     (messageId: string, sessionId: string, toolCallId: string) => {
       const stream = streamToolExecution(messageId, toolCallId, {
@@ -295,10 +112,7 @@ export const useStreamManager = () => {
 
       clearTool(toolCallId);
       setToolStatus(toolCallId, "streaming");
-      setActiveToolStreams((prev) => ({
-        ...prev,
-        [toolCallId]: { close: stream.close },
-      }));
+      addActiveToolStream(toolCallId, stream.close);
 
       stream.start
         .then(() => setToolStatus(toolCallId, "completed"))
@@ -315,6 +129,7 @@ export const useStreamManager = () => {
       addToolLog,
       addToolDebug,
       addToolError,
+      addActiveToolStream,
       clearTool,
       refetchSessionForNewToolMessage,
     ],
@@ -336,12 +151,13 @@ export const useStreamManager = () => {
 
   return {
     startStream,
-    streamedChats,
+    startStreamWithInput,
+    streamedChats: currentChatStreams,
     streamedTools,
     startToolExecution,
     cancelToolExecution,
   };
-};
+}
 
 export const ChatStreamContext = createContext<
   ReturnType<typeof useStreamManager>

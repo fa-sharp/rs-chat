@@ -137,7 +137,7 @@ export const useChatInputState = ({
     onSubmit({
       message: inputRef.current?.value,
       provider_id: providerId,
-      provider_options: {
+      options: {
         model: modelId,
         temperature,
         max_tokens: maxTokens,
@@ -162,7 +162,7 @@ export const useChatInputState = ({
     }
     onSubmit({
       provider_id: providerId,
-      provider_options: {
+      options: {
         model: modelId,
         temperature,
         max_tokens: maxTokens,

@@ -237,6 +237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get chat streams
+         * @description Get the ongoing chat response streams
+         */
+        get: operations["get_chat_streams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/{session_id}": {
         parameters: {
             query?: never;
@@ -246,8 +266,51 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Send a chat message and stream the response */
+        /**
+         * Start chat stream
+         * @description Send a chat message and start the streamed assistant response. After the response has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
+         */
         post: operations["send_chat_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/{session_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connect to chat stream
+         * @description Connect to an ongoing chat stream and stream the assistant response
+         */
+        get: operations["connect_to_chat_stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/{session_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel chat stream
+         * @description Cancel an ongoing chat stream
+         */
+        post: operations["cancel_chat_stream"];
         delete?: never;
         options?: never;
         head?: never;
@@ -598,6 +661,8 @@ export interface components {
             tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
             /** @description Provider usage information */
             usage?: components["schemas"]["LlmUsage"] | null;
+            /** @description Errors encountered during message generation */
+            errors?: string[] | null;
             /** @description Whether this is a partial and/or interrupted message */
             partial?: boolean | null;
         };
@@ -691,6 +756,9 @@ export interface components {
         UpdateSessionInput: {
             title: string;
         };
+        GetChatStreamsResponse: {
+            sessions: string[];
+        };
         SendChatInput: {
             /** @description The new chat message from the user */
             message?: string | null;
@@ -699,8 +767,8 @@ export interface components {
              * @description The ID of the provider to chat with
              */
             provider_id: number;
-            /** @description Provider options */
-            provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
+            /** @description Configuration for the provider */
+            options: components["schemas"]["LlmApiProviderSharedOptions"];
             /** @description Configuration of tools available to the assistant */
             tools?: components["schemas"]["SendChatToolInput"] | null;
         };
@@ -1945,6 +2013,70 @@ export interface operations {
             };
         };
     };
+    get_chat_streams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetChatStreamsResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
     send_chat_stream: {
         parameters: {
             query?: never;
@@ -1965,8 +2097,138 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    connect_to_chat_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "text/event-stream": number[];
                 };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    cancel_chat_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad request */
             400: {
