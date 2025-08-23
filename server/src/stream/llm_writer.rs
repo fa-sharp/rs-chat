@@ -22,7 +22,7 @@ use crate::{
 /// Interval at which chunks are flushed to the Redis stream.
 const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 /// Max accumulated size of the text chunk before it is automatically flushed to Redis.
-const MAX_CHUNK_SIZE: usize = 500;
+const MAX_CHUNK_SIZE: usize = 200;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
 /// Timeout waiting for data from the LLM stream.
@@ -184,7 +184,7 @@ impl LlmStreamWriter {
             .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE))
             .push_str(text);
         self.complete_text
-            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE))
+            .get_or_insert_with(|| String::with_capacity(1024))
             .push_str(text);
     }
 
@@ -252,7 +252,9 @@ impl LlmStreamWriter {
     ) -> Result<(), LlmError> {
         let pipeline = self.redis.next().pipeline();
         for entry in entries {
-            let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
+            let _: () = pipeline
+                .xadd(&self.key, true, ("MAXLEN", "~", 500), "*", entry)
+                .await?;
         }
         let _: () = pipeline.expire(&self.key, STREAM_EXPIRE, None).await?;
         let res: Vec<fred::prelude::Value> = pipeline.all().await?;
