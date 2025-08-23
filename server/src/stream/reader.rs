@@ -139,7 +139,7 @@ fn convert_redis_event_to_sse((id, event): (String, HashMap<String, String>)) ->
     for (key, value) in event {
         match key.as_str() {
             "type" => r#type = Some(value),
-            "data" => data = Some(value),
+            "data" => data = Some(format!(" {value}")), // SSE spec: add space before data
             _ => {}
         }
     }
