@@ -77,7 +77,7 @@ pub struct LlmUsage {
 pub type LlmApiStream = Pin<Box<dyn Stream<Item = Result<LlmStreamChunk, LlmError>> + Send>>;
 
 /// Shared configuration for LLM provider requests
-#[derive(Clone, Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LlmApiProviderSharedOptions {
     pub model: String,
     pub temperature: Option<f32>,

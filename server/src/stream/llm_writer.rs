@@ -287,3 +287,272 @@ impl LlmStreamWriter {
         ping_handle
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::{lorem::LoremProvider, LlmApiProvider, LlmApiProviderSharedOptions};
+    use fred::prelude::{Builder, ClientLike, Config, Pool};
+    use std::time::Duration;
+
+    async fn setup_redis_pool() -> Pool {
+        let config =
+            Config::from_url("redis://127.0.0.1:6379").unwrap_or_else(|_| Config::default());
+        let pool = Builder::from_config(config)
+            .build_pool(2)
+            .expect("Failed to build Redis pool");
+        pool.init().await.expect("Failed to connect to Redis");
+        pool
+    }
+
+    fn create_test_writer(redis: &Pool) -> LlmStreamWriter {
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        LlmStreamWriter::new(redis, &user_id, &session_id)
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_basic_functionality() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+
+        // Create stream
+        assert!(writer.start().await.is_ok());
+        assert!(writer.exists().await.unwrap());
+
+        // Create Lorem provider and get stream
+        let lorem = LoremProvider::new();
+        let stream = lorem
+            .chat_stream(vec![], None, &LlmApiProviderSharedOptions::default())
+            .await
+            .expect("Failed to create lorem stream");
+
+        // Process the stream
+        let (text, tool_calls, usage, errors, cancelled) = writer.process(stream).await;
+
+        // Verify results
+        assert!(text.is_some());
+        let text = text.unwrap();
+        assert!(!text.is_empty());
+        assert!(text.contains("Lorem ipsum"));
+        assert!(text.contains("dolor sit"));
+
+        assert!(tool_calls.is_none());
+        assert!(usage.is_none());
+        assert!(errors.is_some()); // Lorem provider generates some test errors
+        assert!(!cancelled);
+
+        // End stream
+        assert!(writer.end().await.is_ok());
+
+        // Stream should be deleted after end
+        assert!(!writer.exists().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_batching() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+
+        assert!(writer.start().await.is_ok());
+
+        // Create a custom stream with small chunks to test batching
+        let chunks = vec![
+            "Hello", " ", "world", "!", " ", "This", " ", "is", " ", "a", " ", "test",
+        ];
+        let chunk_stream = tokio_stream::iter(chunks.into_iter().map(|text| {
+            Ok(crate::provider::LlmStreamChunk {
+                text: Some(text.to_string()),
+                tool_calls: None,
+                usage: None,
+            })
+        }));
+
+        let stream: LlmApiStream = Box::pin(chunk_stream);
+        let (text, _, _, _, cancelled) = writer.process(stream).await;
+
+        assert!(text.is_some());
+        let text = text.unwrap();
+        assert_eq!(text, "Hello world! This is a test");
+        assert!(!cancelled);
+
+        writer.end().await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_error_handling() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+
+        assert!(writer.start().await.is_ok());
+
+        // Create a stream that produces an error
+        let error_stream = tokio_stream::iter(vec![
+            Ok(crate::provider::LlmStreamChunk {
+                text: Some("Hello".to_string()),
+                tool_calls: None,
+                usage: None,
+            }),
+            Err(crate::provider::LlmError::LoremError("Test error")),
+            Ok(crate::provider::LlmStreamChunk {
+                text: Some(" World".to_string()),
+                tool_calls: None,
+                usage: None,
+            }),
+        ]);
+
+        let stream: LlmApiStream = Box::pin(error_stream);
+        let (text, _, _, errors, cancelled) = writer.process(stream).await;
+
+        assert!(text.is_some());
+        let text = text.unwrap();
+        assert_eq!(text, "Hello World");
+
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        assert!(!errors.is_empty());
+        assert!(errors.iter().any(|e| e.contains("Test error")));
+
+        assert!(!cancelled);
+
+        writer.end().await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_timeout() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+
+        assert!(writer.start().await.is_ok());
+
+        // Create a stream that hangs (never yields anything)
+        let hanging_stream = tokio_stream::pending::<
+            Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>,
+        >();
+
+        let stream: LlmApiStream = Box::pin(hanging_stream);
+
+        // This should timeout due to LLM_TIMEOUT
+        let start = std::time::Instant::now();
+        let (text, _, _, errors, cancelled) = writer.process(stream).await;
+        let elapsed = start.elapsed();
+
+        // Should complete in roughly LLM_TIMEOUT duration
+        assert!(elapsed >= Duration::from_secs(19)); // Allow some margin
+        assert!(elapsed < Duration::from_secs(25));
+
+        assert!(text.is_none());
+        assert!(errors.is_some());
+        let errors = errors.unwrap();
+        assert!(errors.iter().any(|e| e.contains("Timeout")));
+        assert!(!cancelled); // Timeout is not considered a cancellation
+
+        writer.end().await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_cancel() {
+        let redis = setup_redis_pool().await;
+        let writer = create_test_writer(&redis);
+
+        assert!(writer.start().await.is_ok());
+        assert!(writer.exists().await.unwrap());
+
+        // Cancel the stream
+        assert!(writer.cancel().await.is_ok());
+
+        // Stream should be deleted after cancel
+        assert!(!writer.exists().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_stream_writer_usage_tracking() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+
+        assert!(writer.start().await.is_ok());
+
+        // Create a stream with usage information
+        let usage_stream = tokio_stream::iter(vec![
+            Ok(crate::provider::LlmStreamChunk {
+                text: Some("Hello".to_string()),
+                tool_calls: None,
+                usage: Some(crate::provider::LlmUsage {
+                    input_tokens: Some(10),
+                    output_tokens: Some(5),
+                    cost: Some(0.001),
+                }),
+            }),
+            Ok(crate::provider::LlmStreamChunk {
+                text: Some(" World".to_string()),
+                tool_calls: None,
+                usage: Some(crate::provider::LlmUsage {
+                    input_tokens: None,     // Should not override
+                    output_tokens: Some(7), // Should update
+                    cost: Some(0.002),      // Should update
+                }),
+            }),
+        ]);
+
+        let stream: LlmApiStream = Box::pin(usage_stream);
+        let (text, _, usage, _, cancelled) = writer.process(stream).await;
+
+        assert!(text.is_some());
+        assert_eq!(text.unwrap(), "Hello World");
+
+        assert!(usage.is_some());
+        let usage = usage.unwrap();
+        assert_eq!(usage.input_tokens, Some(10));
+        assert_eq!(usage.output_tokens, Some(7));
+        assert_eq!(usage.cost, Some(0.002));
+
+        assert!(!cancelled);
+
+        writer.end().await.ok();
+    }
+
+    #[tokio::test]
+    async fn test_redis_stream_entries() {
+        let redis = setup_redis_pool().await;
+        let mut writer = create_test_writer(&redis);
+        let key = writer.key.clone();
+
+        assert!(writer.start().await.is_ok());
+
+        // Verify start event was written
+        let entries: Vec<(String, HashMap<String, String>)> = redis
+            .xrange(&key, "-", "+", None)
+            .await
+            .expect("Failed to read stream");
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].1.get("type"), Some(&"start".to_string()));
+
+        // Create a simple stream
+        let simple_stream = tokio_stream::iter(vec![Ok(crate::provider::LlmStreamChunk {
+            text: Some("Test chunk".to_string()),
+            tool_calls: None,
+            usage: None,
+        })]);
+
+        let stream: LlmApiStream = Box::pin(simple_stream);
+        writer.process(stream).await;
+        writer.flush_chunk().await.ok();
+
+        // Should have start + text entries (ping task may add more)
+        let final_entries: Vec<(String, HashMap<String, String>)> = redis
+            .xrange(&key, "-", "+", None)
+            .await
+            .expect("Failed to read stream");
+
+        assert!(final_entries.len() >= 2);
+
+        // Check that we have at least a text entry
+        let has_text = final_entries
+            .iter()
+            .any(|(_, data)| data.get("type") == Some(&"text".to_string()));
+        assert!(has_text);
+
+        writer.end().await.ok();
+    }
+}
