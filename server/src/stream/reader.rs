@@ -117,7 +117,9 @@ impl SseStreamReader {
         match events.pop() {
             Some((id, data)) => {
                 *last_event_id = id.clone();
-                let is_end = data.get("type").is_some_and(|t| t == "end");
+                let is_end = data
+                    .get("type")
+                    .is_some_and(|t| t == "end" || t == "cancel");
                 Ok((id, data, is_end))
             }
             None => Err(LlmError::NoStreamEvent),

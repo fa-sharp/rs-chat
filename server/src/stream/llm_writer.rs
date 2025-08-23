@@ -101,6 +101,13 @@ impl LlmStreamWriter {
         pipeline.all().await
     }
 
+    /// Cancel stream by adding a `cancel` event to the stream and then deleting it from Redis.
+    pub async fn cancel(&self) -> Result<(), fred::prelude::Error> {
+        let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
+        let _: () = self.redis.xadd(&self.key, true, None, "*", entry).await?;
+        self.redis.del(&self.key).await
+    }
+
     /// Process the incoming stream from the LLM provider, intermittently flushing
     /// chunks to a Redis stream, and saving the final accumulated response to the database.
     pub async fn process(
@@ -224,7 +231,7 @@ impl LlmStreamWriter {
         self.add_to_redis_stream(entries).await
     }
 
-    /// Adds a new entry to the Redis stream. Returns an error if the stream has been deleted or cancelled.
+    /// Adds a new entry to the Redis stream. Returns a `LlmError::StreamNotFound` error if the stream has been deleted or cancelled.
     async fn add_to_redis_stream(
         &self,
         entries: Vec<HashMap<String, String>>,
@@ -248,15 +255,6 @@ impl LlmStreamWriter {
     /// delete the stream from Redis.
     async fn finish(&self) -> Result<(), fred::prelude::Error> {
         let entry: HashMap<String, String> = RedisStreamChunk::End.into();
-        let pipeline = self.redis.next().pipeline();
-        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
-        let _: () = pipeline.del(&self.key).await?;
-        pipeline.all().await
-    }
-
-    /// Cancel stream by adding a `cancel` event to the stream and then deleting it from Redis.
-    pub async fn cancel(&self) -> Result<(), fred::prelude::Error> {
-        let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
         let pipeline = self.redis.next().pipeline();
         let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
         let _: () = pipeline.del(&self.key).await?;
