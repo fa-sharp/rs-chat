@@ -13,7 +13,7 @@ use crate::{
     stream::{get_chat_stream_key, get_chat_stream_prefix},
 };
 
-/// Timeout for the blocking `xread` command.
+/// Timeout in milliseconds for the blocking `xread` command.
 const XREAD_BLOCK_TIMEOUT: u64 = 5_000; // 5 seconds
 
 /// Utility for reading SSE events from a Redis stream.
