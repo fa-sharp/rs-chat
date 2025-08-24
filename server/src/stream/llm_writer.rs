@@ -22,7 +22,7 @@ const MAX_CHUNK_SIZE: usize = 200;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
 const STREAM_EXPIRE: i64 = 30;
 /// Timeout waiting for data from the LLM stream.
-const LLM_TIMEOUT: Duration = Duration::from_secs(20);
+const LLM_TIMEOUT: Duration = Duration::from_secs(60);
 /// Interval for sending ping messages to the Redis stream.
 const PING_INTERVAL: Duration = Duration::from_secs(2);
 
@@ -453,8 +453,8 @@ mod tests {
         let elapsed = start.elapsed();
 
         // Should complete in roughly LLM_TIMEOUT duration
-        assert!(elapsed >= Duration::from_secs(19)); // Allow some margin
-        assert!(elapsed < Duration::from_secs(25));
+        assert!(elapsed >= Duration::from_secs(59)); // Allow some margin
+        assert!(elapsed < Duration::from_secs(65));
 
         assert!(text.is_none());
         assert!(errors.is_some());
