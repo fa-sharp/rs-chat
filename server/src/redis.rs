@@ -7,7 +7,7 @@ use rocket::{
     fairing::AdHoc,
     http::Status,
     request::{FromRequest, Outcome},
-    Request, State,
+    Request,
 };
 use rocket_okapi::OpenApiFromRequest;
 use tokio::sync::Mutex;
@@ -123,12 +123,13 @@ impl<'r> FromRequest<'r> for RedisClient {
     type Error = ();
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         use fred::clients::Pool;
-        let pool = req.rocket().state::<State<Pool>>().expect("Should exist");
+        let pool = req.rocket().state::<Pool>().expect("Exists");
         Outcome::Success(RedisClient(pool.next().clone()))
     }
 }
 
-/// A pool of Redis clients with exclusive connections for long-running operations.
+/// A pool of Redis clients with exclusive connections for long-running operations. Will
+/// be stored in Rocket's managed state.
 pub type ExclusiveClientPool = managed::Pool<ExclusiveClientManager>;
 
 /// Deadpool implementation for a pool of exclusive Redis clients.
@@ -155,6 +156,7 @@ impl managed::Manager for ExclusiveClientManager {
         self.clients.lock().await.push(client.clone());
         Ok(client)
     }
+
     async fn recycle(
         &self,
         client: &mut Client,
@@ -166,6 +168,7 @@ impl managed::Manager for ExclusiveClientManager {
         let _: () = client.ping(None).await?;
         Ok(())
     }
+
     fn detach(&self, client: &mut Self::Type) {
         let client = client.clone();
         let clients = self.clients.clone();
@@ -191,10 +194,7 @@ impl Deref for ExclusiveRedisClient {
 impl<'r> FromRequest<'r> for ExclusiveRedisClient {
     type Error = ();
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let pool = req
-            .rocket()
-            .state::<State<ExclusiveClientPool>>()
-            .expect("Should exist");
+        let pool = req.rocket().state::<ExclusiveClientPool>().expect("Exists");
         match pool.get().await {
             Ok(client) => Outcome::Success(ExclusiveRedisClient(client)),
             Err(err) => {
