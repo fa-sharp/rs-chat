@@ -12,7 +12,7 @@ export const client = createClient<paths>({
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000, // 30 seconds to stale data
+      staleTime: 1000 * 60, // 1 minute to stale data
     },
   },
 });

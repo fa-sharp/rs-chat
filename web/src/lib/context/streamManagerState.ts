@@ -15,14 +15,14 @@ const initialChatState = (): StreamingChat => ({
   status: "streaming",
 });
 
-export interface StreamedToolExecution {
+export interface StreamingToolExecution {
   result: string;
   logs: string[];
   debugLogs: string[];
   error?: string;
   status: "streaming" | "completed" | "error";
 }
-const initialToolState = (): StreamedToolExecution => ({
+const initialToolState = (): StreamingToolExecution => ({
   result: "",
   logs: [],
   debugLogs: [],
@@ -35,7 +35,7 @@ export function useStreamManagerState() {
   }>({});
 
   const [streamedTools, setStreamedTools] = useState<{
-    [toolCallId: string]: StreamedToolExecution | undefined;
+    [toolCallId: string]: StreamingToolExecution | undefined;
   }>({});
 
   const [activeToolStreams, setActiveToolStreams] = useState<{

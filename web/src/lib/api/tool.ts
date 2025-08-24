@@ -9,6 +9,7 @@ const queryKey = ["tools"];
 export const useTools = () =>
   useQuery({
     queryKey,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const response = await client.GET("/tool/");
       if (response.error) {

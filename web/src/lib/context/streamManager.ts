@@ -34,7 +34,7 @@ export function useStreamManager() {
   } = useStreamManagerData();
 
   const startStream = useCallback(
-    async (sessionId: string) => {
+    (sessionId: string) => {
       clearSession(sessionId);
       initSession(sessionId);
 
@@ -71,7 +71,7 @@ export function useStreamManager() {
     ],
   );
 
-  // Automatically start any ongoing chat streams
+  // Automatically start any ongoing chat streams (e.g. on browser refresh or switching tabs)
   useEffect(() => {
     if (!serverStreams) return;
     for (const sessionId of serverStreams.sessions) {
@@ -96,7 +96,7 @@ export function useStreamManager() {
         setSessionCompleted(sessionId);
         return;
       }
-      await startStream(sessionId);
+      startStream(sessionId);
     },
     [initSession, addErrorChunk, startStream, setSessionCompleted],
   );
