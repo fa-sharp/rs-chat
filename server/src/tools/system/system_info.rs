@@ -25,6 +25,7 @@ const SERVER_URL_DESC: &str = "Get the URL of the server that this chat applicat
 
 /// Tool to get system information.
 #[derive(Debug, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SystemInfo {}
 impl SystemInfo {
     pub fn new() -> Self {
