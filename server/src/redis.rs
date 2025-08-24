@@ -6,7 +6,6 @@ use rocket::{
     async_trait,
     fairing::AdHoc,
     http::Status,
-    outcome::try_outcome,
     request::{FromRequest, Outcome},
     Request, State,
 };
@@ -110,7 +109,26 @@ pub fn build_redis_pool(
         .build_pool(pool_size)
 }
 
-/// A pool of exclusive Redis connections for long-running tasks.
+/// Request guard for getting a Redis client from the shared static pool.
+#[derive(Debug, OpenApiFromRequest)]
+pub struct RedisClient(Client);
+impl Deref for RedisClient {
+    type Target = Client;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+#[async_trait]
+impl<'r> FromRequest<'r> for RedisClient {
+    type Error = ();
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        use fred::clients::Pool;
+        let pool = req.rocket().state::<State<Pool>>().expect("Should exist");
+        Outcome::Success(RedisClient(pool.next().clone()))
+    }
+}
+
+/// A pool of Redis clients with exclusive connections for long-running operations.
 pub type ExclusiveClientPool = managed::Pool<ExclusiveClientManager>;
 
 /// Deadpool implementation for a pool of exclusive Redis clients.
@@ -160,23 +178,23 @@ impl managed::Manager for ExclusiveClientManager {
     }
 }
 
-/// Request guard to get an exclusive Redis connection for long-running operations.
+/// Request guard to get a Redis client with an exclusive connection for long-running operations.
 #[derive(Debug, OpenApiFromRequest)]
 pub struct ExclusiveRedisClient(pub managed::Object<ExclusiveClientManager>);
-
 impl Deref for ExclusiveRedisClient {
     type Target = Client;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-
 #[async_trait]
 impl<'r> FromRequest<'r> for ExclusiveRedisClient {
     type Error = ();
-
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let pool = try_outcome!(req.guard::<&State<ExclusiveClientPool>>().await);
+        let pool = req
+            .rocket()
+            .state::<State<ExclusiveClientPool>>()
+            .expect("Should exist");
         match pool.get().await {
             Ok(client) => Outcome::Success(ExclusiveRedisClient(client)),
             Err(err) => {

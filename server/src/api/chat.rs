@@ -27,7 +27,7 @@ use crate::{
     },
     errors::ApiError,
     provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
-    redis::ExclusiveRedisClient,
+    redis::{ExclusiveRedisClient, RedisClient},
     stream::{
         cancel_current_chat_stream, check_chat_stream_exists, get_current_chat_streams,
         LastEventId, LlmStreamWriter, SseStreamReader,
@@ -56,9 +56,9 @@ pub struct GetChatStreamsResponse {
 #[get("/streams")]
 pub async fn get_chat_streams(
     user_id: ChatRsUserId,
-    redis_pool: &State<fred::clients::Pool>,
+    redis: RedisClient,
 ) -> Result<Json<GetChatStreamsResponse>, ApiError> {
-    let sessions = get_current_chat_streams(redis_pool.next(), &user_id).await?;
+    let sessions = get_current_chat_streams(&redis, &user_id).await?;
     Ok(Json(GetChatStreamsResponse { sessions }))
 }
 
@@ -89,15 +89,15 @@ pub async fn send_chat_stream(
     user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
-    redis_client: ExclusiveRedisClient,
-    redis_pool: &State<fred::prelude::Pool>,
+    redis: RedisClient,
+    redis_writer: ExclusiveRedisClient,
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
 ) -> Result<Json<SendChatResponse>, ApiError> {
     // Check that we aren't already streaming a response for this session
-    if check_chat_stream_exists(&redis_client, &user_id, &session_id).await? {
+    if check_chat_stream_exists(&redis, &user_id, &session_id).await? {
         return Err(LlmError::AlreadyStreaming)?;
     }
 
@@ -118,7 +118,7 @@ pub async fn send_chat_stream(
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
-        redis_pool.next(),
+        &redis,
     )?;
 
     // Get the user's chosen tools
@@ -177,7 +177,7 @@ pub async fn send_chat_stream(
     let provider_options = input.options.clone();
 
     // Create the Redis stream, then spawn a task to stream and save the response
-    let mut stream_writer = LlmStreamWriter::new(redis_client, &user_id, &session_id);
+    let mut stream_writer = LlmStreamWriter::new(redis_writer, &user_id, &session_id);
     stream_writer.start().await?;
     tokio::spawn(async move {
         let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
@@ -217,11 +217,11 @@ pub async fn send_chat_stream(
 #[get("/<session_id>/stream")]
 pub async fn connect_to_chat_stream(
     user_id: ChatRsUserId,
-    redis_client: ExclusiveRedisClient,
+    redis_reader: ExclusiveRedisClient,
     session_id: Uuid,
     start_event_id: Option<LastEventId>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
-    let stream_reader = SseStreamReader::new(redis_client);
+    let stream_reader = SseStreamReader::new(redis_reader);
 
     // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
     let (prev_events, last_event_id, is_end) = stream_reader
@@ -252,13 +252,12 @@ pub async fn connect_to_chat_stream(
 #[post("/<session_id>/cancel")]
 pub async fn cancel_chat_stream(
     user_id: ChatRsUserId,
-    redis_pool: &State<fred::clients::Pool>,
+    redis: RedisClient,
     session_id: Uuid,
 ) -> Result<(), ApiError> {
-    let client = redis_pool.next();
-    if !check_chat_stream_exists(&client, &user_id, &session_id).await? {
+    if !check_chat_stream_exists(&redis, &user_id, &session_id).await? {
         return Err(LlmError::StreamNotFound)?;
     }
-    cancel_current_chat_stream(&client, &user_id, &session_id).await?;
+    cancel_current_chat_stream(&redis, &user_id, &session_id).await?;
     Ok(())
 }
