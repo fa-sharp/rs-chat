@@ -20,7 +20,7 @@ pub struct AppConfig {
     pub database_url: String,
     /// Redis connection URL
     pub redis_url: String,
-    /// Redis pool size (default: 4)
+    /// Redis static pool size (default: 4)
     pub redis_pool: Option<usize>,
     /// Maximum number of concurrent Redis connections for streaming (default: 20)
     pub max_streams: Option<usize>,
