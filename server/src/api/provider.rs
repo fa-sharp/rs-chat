@@ -53,7 +53,7 @@ async fn get_all_providers(
 async fn list_models(
     user_id: ChatRsUserId,
     mut db: DbConnection,
-    redis: &State<fred::prelude::Pool>,
+    redis_pool: &State<fred::prelude::Pool>,
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     provider_id: i32,
@@ -70,7 +70,7 @@ async fn list_models(
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
-        &redis,
+        redis_pool.next(),
     )?;
 
     Ok(Json(provider_api.list_models().await?))

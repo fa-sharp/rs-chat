@@ -22,6 +22,8 @@ pub struct AppConfig {
     pub redis_url: String,
     /// Redis pool size (default: 4)
     pub redis_pool: Option<usize>,
+    /// Maximum number of concurrent Redis connections for streaming (default: 20)
+    pub max_streams: Option<usize>,
 }
 
 /// Get the server configuration variables from Rocket

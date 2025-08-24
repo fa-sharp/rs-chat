@@ -27,7 +27,11 @@ use crate::{
     },
     errors::ApiError,
     provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
-    stream::{LastEventId, LlmStreamWriter, SseStreamReader},
+    redis::ExclusiveRedisClient,
+    stream::{
+        cancel_current_chat_stream, check_chat_stream_exists, get_current_chat_streams,
+        LastEventId, LlmStreamWriter, SseStreamReader,
+    },
     tools::{get_llm_tools_from_input, SendChatToolInput},
     utils::{generate_title, Encryptor},
 };
@@ -52,10 +56,9 @@ pub struct GetChatStreamsResponse {
 #[get("/streams")]
 pub async fn get_chat_streams(
     user_id: ChatRsUserId,
-    redis: &State<fred::prelude::Pool>,
+    redis_pool: &State<fred::clients::Pool>,
 ) -> Result<Json<GetChatStreamsResponse>, ApiError> {
-    let stream_reader = SseStreamReader::new(&redis);
-    let sessions = stream_reader.get_chat_streams(&user_id).await?;
+    let sessions = get_current_chat_streams(redis_pool.next(), &user_id).await?;
     Ok(Json(GetChatStreamsResponse { sessions }))
 }
 
@@ -86,16 +89,15 @@ pub async fn send_chat_stream(
     user_id: ChatRsUserId,
     db_pool: &State<DbPool>,
     mut db: DbConnection,
-    redis: &State<fred::prelude::Pool>,
+    redis_client: ExclusiveRedisClient,
+    redis_pool: &State<fred::prelude::Pool>,
     encryptor: &State<Encryptor>,
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
 ) -> Result<Json<SendChatResponse>, ApiError> {
-    let mut stream_writer = LlmStreamWriter::new(&redis, &user_id, &session_id);
-
     // Check that we aren't already streaming a response for this session
-    if stream_writer.exists().await? {
+    if check_chat_stream_exists(&redis_client, &user_id, &session_id).await? {
         return Err(LlmError::AlreadyStreaming)?;
     }
 
@@ -116,7 +118,7 @@ pub async fn send_chat_stream(
         provider.base_url.as_deref(),
         api_key.as_deref(),
         &http_client,
-        redis,
+        redis_pool.next(),
     )?;
 
     // Get the user's chosen tools
@@ -175,6 +177,7 @@ pub async fn send_chat_stream(
     let provider_options = input.options.clone();
 
     // Create the Redis stream, then spawn a task to stream and save the response
+    let mut stream_writer = LlmStreamWriter::new(redis_client, &user_id, &session_id);
     stream_writer.start().await?;
     tokio::spawn(async move {
         let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
@@ -214,11 +217,11 @@ pub async fn send_chat_stream(
 #[get("/<session_id>/stream")]
 pub async fn connect_to_chat_stream(
     user_id: ChatRsUserId,
-    redis: &State<fred::prelude::Pool>,
+    redis_client: ExclusiveRedisClient,
     session_id: Uuid,
     start_event_id: Option<LastEventId>,
 ) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
-    let stream_reader = SseStreamReader::new(&redis);
+    let stream_reader = SseStreamReader::new(redis_client);
 
     // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
     let (prev_events, last_event_id, is_end) = stream_reader
@@ -249,13 +252,13 @@ pub async fn connect_to_chat_stream(
 #[post("/<session_id>/cancel")]
 pub async fn cancel_chat_stream(
     user_id: ChatRsUserId,
-    redis: &State<fred::prelude::Pool>,
+    redis_pool: &State<fred::clients::Pool>,
     session_id: Uuid,
 ) -> Result<(), ApiError> {
-    let stream_writer = LlmStreamWriter::new(&redis, &user_id, &session_id);
-    if !stream_writer.exists().await? {
+    let client = redis_pool.next();
+    if !check_chat_stream_exists(&client, &user_id, &session_id).await? {
         return Err(LlmError::StreamNotFound)?;
     }
-    stream_writer.cancel().await?;
+    cancel_current_chat_stream(&client, &user_id, &session_id).await?;
     Ok(())
 }

@@ -11,6 +11,7 @@ use uuid::Uuid;
 use crate::{
     db::models::ChatRsToolCall,
     provider::{LlmApiStream, LlmError, LlmUsage},
+    redis::ExclusiveRedisClient,
     stream::get_chat_stream_key,
 };
 
@@ -28,7 +29,8 @@ const PING_INTERVAL: Duration = Duration::from_secs(2);
 /// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
 pub struct LlmStreamWriter {
-    redis: fred::prelude::Pool,
+    /// Redis client with an exclusive connection.
+    redis: ExclusiveRedisClient,
     /// The key of the Redis stream.
     key: String,
     /// The current chunk of data being processed.
@@ -54,7 +56,7 @@ struct ChunkState {
 /// Chunk of the LLM response stored in the Redis stream.
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
-enum RedisStreamChunk {
+pub(super) enum RedisStreamChunk {
     Start,
     Ping,
     Text(String),
@@ -72,9 +74,9 @@ impl From<RedisStreamChunk> for HashMap<String, String> {
 }
 
 impl LlmStreamWriter {
-    pub fn new(redis: &fred::prelude::Pool, user_id: &Uuid, session_id: &Uuid) -> Self {
+    pub fn new(redis: ExclusiveRedisClient, user_id: &Uuid, session_id: &Uuid) -> Self {
         LlmStreamWriter {
-            redis: redis.clone(),
+            redis,
             key: get_chat_stream_key(user_id, session_id),
             current_chunk: ChunkState::default(),
             complete_text: None,
@@ -84,34 +86,20 @@ impl LlmStreamWriter {
         }
     }
 
-    /// Check if the Redis stream already exists.
-    pub async fn exists(&self) -> Result<bool, fred::prelude::Error> {
-        let first_entry: Option<()> = self.redis.xread(Some(1), None, &self.key, "0-0").await?;
-        Ok(first_entry.is_some())
-    }
-
     /// Create the Redis stream and write a `start` entry.
     pub async fn start(&self) -> Result<(), fred::prelude::Error> {
         let entry: HashMap<String, String> = RedisStreamChunk::Start.into();
-        let pipeline = self.redis.next().pipeline();
+        let pipeline = self.redis.pipeline();
         let _: () = pipeline.xadd(&self.key, false, None, "*", entry).await?;
         let _: () = pipeline.expire(&self.key, STREAM_EXPIRE, None).await?;
         pipeline.all().await
-    }
-
-    /// Cancel the current stream by adding a `cancel` event to the stream and then deleting it from Redis
-    /// (not using a pipeline since we need to ensure the `cancel` event is processed before deleting the stream).
-    pub async fn cancel(&self) -> Result<(), fred::prelude::Error> {
-        let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
-        let _: () = self.redis.xadd(&self.key, true, None, "*", entry).await?;
-        self.redis.del(&self.key).await
     }
 
     /// Add an `end` event to notify clients that the stream has ended, and then
     /// delete the stream from Redis.
     pub async fn end(&self) -> Result<(), fred::prelude::Error> {
         let entry: HashMap<String, String> = RedisStreamChunk::End.into();
-        let pipeline = self.redis.next().pipeline();
+        let pipeline = self.redis.pipeline();
         let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
         let _: () = pipeline.del(&self.key).await?;
         pipeline.all().await
@@ -251,7 +239,7 @@ impl LlmStreamWriter {
         &self,
         entries: Vec<HashMap<String, String>>,
     ) -> Result<(), LlmError> {
-        let pipeline = self.redis.next().pipeline();
+        let pipeline = self.redis.pipeline();
         for entry in entries {
             let _: () = pipeline
                 .xadd(&self.key, true, ("MAXLEN", "~", 500), "*", entry)
@@ -291,34 +279,53 @@ impl LlmStreamWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::provider::{lorem::LoremProvider, LlmApiProvider, LlmApiProviderSharedOptions};
-    use fred::prelude::{Builder, ClientLike, Config, Pool};
+    use crate::{
+        provider::{lorem::LoremProvider, LlmApiProvider, LlmApiProviderSharedOptions},
+        redis::{ExclusiveClientManager, ExclusiveClientPool},
+        stream::{cancel_current_chat_stream, check_chat_stream_exists},
+    };
+    use fred::prelude::{Builder, ClientLike, Config};
     use std::time::Duration;
 
-    async fn setup_redis_pool() -> Pool {
+    async fn setup_redis_pool() -> ExclusiveClientPool {
         let config =
             Config::from_url("redis://127.0.0.1:6379").unwrap_or_else(|_| Config::default());
         let pool = Builder::from_config(config)
-            .build_pool(2)
+            .build_pool(1)
             .expect("Failed to build Redis pool");
         pool.init().await.expect("Failed to connect to Redis");
-        pool
+
+        let manager = ExclusiveClientManager::new(pool.clone());
+        let deadpool: ExclusiveClientPool = deadpool::managed::Pool::builder(manager)
+            .max_size(3)
+            .build()
+            .unwrap();
+
+        deadpool
     }
 
-    fn create_test_writer(redis: &Pool) -> LlmStreamWriter {
-        let user_id = Uuid::new_v4();
-        let session_id = Uuid::new_v4();
-        LlmStreamWriter::new(redis, &user_id, &session_id)
+    async fn create_test_writer(
+        redis: &ExclusiveClientPool,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> LlmStreamWriter {
+        let client = redis.get().await.expect("Failed to get Redis client");
+        LlmStreamWriter::new(ExclusiveRedisClient(client), user_id, session_id)
     }
 
     #[tokio::test]
     async fn test_stream_writer_basic_functionality() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let client = redis.get().await.unwrap();
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         // Create stream
         assert!(writer.start().await.is_ok());
-        assert!(writer.exists().await.unwrap());
+        assert!(check_chat_stream_exists(&client, &user_id, &session_id)
+            .await
+            .unwrap());
 
         // Create Lorem provider and get stream
         let lorem = LoremProvider::new();
@@ -346,13 +353,17 @@ mod tests {
         assert!(writer.end().await.is_ok());
 
         // Stream should be deleted after end
-        assert!(!writer.exists().await.unwrap());
+        assert!(!check_chat_stream_exists(&client, &user_id, &session_id)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
     async fn test_stream_writer_batching() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         assert!(writer.start().await.is_ok());
 
@@ -382,7 +393,9 @@ mod tests {
     #[tokio::test]
     async fn test_stream_writer_error_handling() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         assert!(writer.start().await.is_ok());
 
@@ -421,7 +434,9 @@ mod tests {
     #[tokio::test]
     async fn test_stream_writer_timeout() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         assert!(writer.start().await.is_ok());
 
@@ -453,22 +468,33 @@ mod tests {
     #[tokio::test]
     async fn test_stream_writer_cancel() {
         let redis = setup_redis_pool().await;
-        let writer = create_test_writer(&redis);
+        let client = redis.get().await.unwrap();
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         assert!(writer.start().await.is_ok());
-        assert!(writer.exists().await.unwrap());
+        assert!(check_chat_stream_exists(&client, &user_id, &session_id)
+            .await
+            .unwrap());
 
         // Cancel the stream
-        assert!(writer.cancel().await.is_ok());
+        assert!(cancel_current_chat_stream(&client, &user_id, &session_id)
+            .await
+            .is_ok());
 
         // Stream should be deleted after cancel
-        assert!(!writer.exists().await.unwrap());
+        assert!(!check_chat_stream_exists(&client, &user_id, &session_id)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
     async fn test_stream_writer_usage_tracking() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
 
         assert!(writer.start().await.is_ok());
 
@@ -514,13 +540,18 @@ mod tests {
     #[tokio::test]
     async fn test_redis_stream_entries() {
         let redis = setup_redis_pool().await;
-        let mut writer = create_test_writer(&redis);
+        let user_id = Uuid::new_v4();
+        let session_id = Uuid::new_v4();
+        let mut writer = create_test_writer(&redis, &user_id, &session_id).await;
         let key = writer.key.clone();
 
         assert!(writer.start().await.is_ok());
 
         // Verify start event was written
         let entries: Vec<(String, HashMap<String, String>)> = redis
+            .get()
+            .await
+            .expect("Failed to get Redis connection")
             .xrange(&key, "-", "+", None)
             .await
             .expect("Failed to read stream");
@@ -541,6 +572,9 @@ mod tests {
 
         // Should have start + text entries (ping task may add more)
         let final_entries: Vec<(String, HashMap<String, String>)> = redis
+            .get()
+            .await
+            .expect("Failed to get Redis connection")
             .xrange(&key, "-", "+", None)
             .await
             .expect("Failed to read stream");

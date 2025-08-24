@@ -56,12 +56,12 @@ pub enum ModalityType {
 
 /// Service to fetch and cache LLM model list from https://models.dev
 pub struct ModelsDevService {
-    redis: fred::prelude::Pool,
+    redis: fred::clients::Client,
     http_client: reqwest::Client,
 }
 
 impl ModelsDevService {
-    pub fn new(redis: &fred::prelude::Pool, http_client: &reqwest::Client) -> Self {
+    pub fn new(redis: &fred::clients::Client, http_client: &reqwest::Client) -> Self {
         Self {
             redis: redis.clone(),
             http_client: http_client.clone(),
@@ -111,7 +111,7 @@ impl ModelsDevService {
                 cache.insert(provider_str.to_owned(), parsed_models_str);
             }
 
-            let pipeline = self.redis.next().pipeline();
+            let pipeline = self.redis.pipeline();
             let _: () = pipeline.hset(CACHE_KEY, cache).await?;
             let _: () = pipeline.expire(CACHE_KEY, CACHE_TTL, None).await?;
             let _: () = pipeline.all().await?;

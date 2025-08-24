@@ -22,6 +22,7 @@ async-stream = "0.3.6"
 bollard = { version = "0.19.1", features = ["ssl"] }
 chrono = { version = "0.4.41", features = ["serde"] }
 const_format = "0.2.34"
+deadpool = { version = "0.12.2", features = ["rt_tokio_1"] }
 diesel = { version = "2.2.10", features = [
     "postgres",
     "chrono",

@@ -1,45 +1,23 @@
 use std::collections::HashMap;
 
-use fred::{
-    prelude::{KeysInterface, StreamsInterface},
-    types::scan::ScanType,
-};
+use fred::prelude::StreamsInterface;
 use rocket::response::stream::Event;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{
-    provider::LlmError,
-    stream::{get_chat_stream_key, get_chat_stream_prefix},
-};
+use crate::{provider::LlmError, redis::ExclusiveRedisClient, stream::get_chat_stream_key};
 
 /// Timeout in milliseconds for the blocking `xread` command.
 const XREAD_BLOCK_TIMEOUT: u64 = 5_000; // 5 seconds
 
 /// Utility for reading SSE events from a Redis stream.
 pub struct SseStreamReader {
-    redis: fred::prelude::Pool,
+    redis: ExclusiveRedisClient,
 }
 
 impl SseStreamReader {
-    pub fn new(redis: &fred::prelude::Pool) -> Self {
-        Self {
-            redis: redis.clone(),
-        }
-    }
-
-    /// Get the ongoing chat stream sessions for a user.
-    pub async fn get_chat_streams(&self, user_id: &Uuid) -> Result<Vec<String>, LlmError> {
-        let prefix = get_chat_stream_prefix(user_id);
-        let pattern = format!("{}:*", prefix);
-        let (_, keys): (String, Vec<String>) = self
-            .redis
-            .scan_page("0", &pattern, Some(20), Some(ScanType::Stream))
-            .await?;
-        Ok(keys
-            .into_iter()
-            .filter_map(|key| Some(key.strip_prefix(&format!("{}:", prefix))?.to_string()))
-            .collect())
+    pub fn new(redis: ExclusiveRedisClient) -> Self {
+        Self { redis }
     }
 
     /// Retrieve the previous events from the given Redis stream.

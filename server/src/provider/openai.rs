@@ -19,7 +19,7 @@ const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 #[derive(Debug, Clone)]
 pub struct OpenAIProvider {
     client: reqwest::Client,
-    redis: fred::prelude::Pool,
+    redis: fred::clients::Client,
     api_key: String,
     base_url: String,
 }
@@ -27,7 +27,7 @@ pub struct OpenAIProvider {
 impl OpenAIProvider {
     pub fn new(
         http_client: &reqwest::Client,
-        redis: &fred::prelude::Pool,
+        redis: &fred::clients::Client,
         api_key: &str,
         base_url: Option<&str>,
     ) -> Self {
