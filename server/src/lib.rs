@@ -41,6 +41,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
     mount_endpoints_and_merged_docs! {
         server, "/api", openapi_settings,
         "/" => openapi_get_routes_spec![health],
+        "/info" => api::info_routes(&openapi_settings),
         "/auth" => api::auth_routes(&openapi_settings),
         "/provider" => api::provider_routes(&openapi_settings),
         "/session" => api::session_routes(&openapi_settings),
