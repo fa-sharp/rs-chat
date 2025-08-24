@@ -24,7 +24,7 @@ const STREAM_EXPIRE: i64 = 30;
 /// Timeout waiting for data from the LLM stream.
 const LLM_TIMEOUT: Duration = Duration::from_secs(60);
 /// Interval for sending ping messages to the Redis stream.
-const PING_INTERVAL: Duration = Duration::from_secs(2);
+const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
@@ -245,11 +245,10 @@ impl LlmStreamWriter {
                 .xadd(&self.key, true, ("MAXLEN", "~", 500), "*", entry)
                 .await?;
         }
-        let _: () = pipeline.expire(&self.key, STREAM_EXPIRE, None).await?;
         let res: Vec<fred::prelude::Value> = pipeline.all().await?;
 
         // Check for `nil` responses indicating the stream has been deleted/cancelled
-        if res.iter().any(|r| matches!(r, fred::prelude::Value::Null)) {
+        if res.iter().any(|r| r.is_null()) {
             Err(LlmError::StreamNotFound)
         } else {
             Ok(())
@@ -265,9 +264,15 @@ impl LlmStreamWriter {
             loop {
                 interval.tick().await;
                 let entry: HashMap<String, String> = RedisStreamChunk::Ping.into();
-                let res: Result<(), fred::error::Error> =
-                    redis.xadd(&key, true, None, "*", entry).await;
-                if res.is_err() {
+                let pipeline = redis.pipeline();
+                let _: Result<(), fred::error::Error> =
+                    pipeline.xadd(&key, true, None, "*", entry).await;
+                let _: Result<(), fred::error::Error> =
+                    pipeline.expire(&key, STREAM_EXPIRE, None).await;
+                let res: Result<Vec<fred::prelude::Value>, fred::error::Error> =
+                    pipeline.all().await;
+
+                if res.is_err() || res.is_ok_and(|r| r.iter().any(|v| v.is_null())) {
                     break;
                 }
             }
