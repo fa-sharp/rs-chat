@@ -122,11 +122,8 @@ impl OpenAIProvider {
                                     Ok(mut response) => {
                                         if let Some(choice) = response.choices.pop() {
                                             if let Some(delta) = choice.delta {
-                                                if delta.content.is_some() {
-                                                    yield Ok(LlmStreamChunk {
-                                                        text: delta.content,
-                                                        ..Default::default()
-                                                    });
+                                                if let Some(text) = delta.content {
+                                                    yield Ok(LlmStreamChunk::Text(text));
                                                 }
 
                                                 if let Some(tool_calls_delta) = delta.tool_calls {
@@ -145,10 +142,7 @@ impl OpenAIProvider {
 
                                         // Yield usage information if available
                                         if let Some(usage) = response.usage {
-                                            yield Ok(LlmStreamChunk {
-                                                usage: Some(usage.into()),
-                                                ..Default::default()
-                                            });
+                                            yield Ok(LlmStreamChunk::Usage(usage.into()));
                                         }
                                     }
                                     Err(e) => {
@@ -175,10 +169,7 @@ impl OpenAIProvider {
 
             if let Some(rs_chat_tools) = tools {
                 if !tool_calls.is_empty() {
-                    yield Ok(LlmStreamChunk {
-                        tool_calls: Some(tool_calls.into_iter().filter_map(|tc| tc.convert(&rs_chat_tools)).collect()),
-                        ..Default::default()
-                    });
+                    yield Ok(LlmStreamChunk::ToolCalls(tool_calls.into_iter().filter_map(|tc| tc.convert(&rs_chat_tools)).collect()));
                 }
             }
 

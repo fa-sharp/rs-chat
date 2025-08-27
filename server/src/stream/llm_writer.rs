@@ -3,14 +3,14 @@ use std::{
     time::{Duration, Instant},
 };
 
-use fred::prelude::{KeysInterface, StreamsInterface};
+use fred::prelude::{FredResult, KeysInterface, StreamsInterface};
 use rocket::futures::StreamExt;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
     db::models::ChatRsToolCall,
-    provider::{LlmApiStream, LlmError, LlmUsage},
+    provider::{LlmApiStream, LlmError, LlmPendingToolCall, LlmStreamChunk, LlmUsage},
     redis::ExclusiveRedisClient,
     stream::get_chat_stream_key,
 };
@@ -50,6 +50,7 @@ pub struct LlmStreamWriter {
 struct ChunkState {
     text: Option<String>,
     tool_calls: Option<Vec<ChatRsToolCall>>,
+    pending_tool_calls: Option<Vec<LlmPendingToolCall>>,
     error: Option<String>,
 }
 
@@ -61,6 +62,7 @@ pub(super) enum RedisStreamChunk {
     Ping,
     Text(String),
     ToolCall(String),
+    PendingToolCall(String),
     Error(String),
     Cancel,
     End,
@@ -87,7 +89,7 @@ impl LlmStreamWriter {
     }
 
     /// Create the Redis stream and write a `start` entry.
-    pub async fn start(&self) -> Result<(), fred::prelude::Error> {
+    pub async fn start(&self) -> FredResult<()> {
         let entry: HashMap<String, String> = RedisStreamChunk::Start.into();
         let pipeline = self.redis.pipeline();
         let _: () = pipeline.xadd(&self.key, false, None, "*", entry).await?;
@@ -97,7 +99,7 @@ impl LlmStreamWriter {
 
     /// Add an `end` event to notify clients that the stream has ended, and then
     /// delete the stream from Redis.
-    pub async fn end(&self) -> Result<(), fred::prelude::Error> {
+    pub async fn end(&self) -> FredResult<()> {
         let entry: HashMap<String, String> = RedisStreamChunk::End.into();
         let pipeline = self.redis.pipeline();
         let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
@@ -123,17 +125,14 @@ impl LlmStreamWriter {
         let mut cancelled = false;
         loop {
             match tokio::time::timeout(LLM_TIMEOUT, stream.next()).await {
-                Ok(Some(Ok(chunk))) => {
-                    if let Some(ref text) = chunk.text {
-                        self.process_text(text);
+                Ok(Some(Ok(chunk))) => match chunk {
+                    LlmStreamChunk::Text(text) => self.process_text(&text),
+                    LlmStreamChunk::ToolCalls(tool_calls) => self.process_tool_calls(tool_calls),
+                    LlmStreamChunk::PendingToolCall(pending_tool_call) => {
+                        self.process_pending_tool_call(pending_tool_call)
                     }
-                    if let Some(tool_calls) = chunk.tool_calls {
-                        self.process_tool_calls(tool_calls);
-                    }
-                    if let Some(usage_chunk) = chunk.usage {
-                        self.process_usage(usage_chunk);
-                    }
-                }
+                    LlmStreamChunk::Usage(usage) => self.process_usage(usage),
+                },
                 Ok(Some(Err(err))) => self.process_error(err),
                 Ok(None) => break,
                 Err(_) => {
@@ -185,6 +184,16 @@ impl LlmStreamWriter {
         self.tool_calls.get_or_insert_default().extend(tool_calls);
     }
 
+    fn process_pending_tool_call(&mut self, tool_call: LlmPendingToolCall) {
+        let current_chunk = self
+            .current_chunk
+            .pending_tool_calls
+            .get_or_insert_default();
+        if !current_chunk.iter().any(|tc| tc.index == tool_call.index) {
+            current_chunk.push(tool_call);
+        }
+    }
+
     fn process_usage(&mut self, usage_chunk: LlmUsage) {
         let usage = self.usage.get_or_insert_default();
         if let Some(input_tokens) = usage_chunk.input_tokens {
@@ -208,7 +217,7 @@ impl LlmStreamWriter {
             return true;
         }
         let text = self.current_chunk.text.as_ref();
-        text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE) || last_flush_time.elapsed() > FLUSH_INTERVAL
+        last_flush_time.elapsed() > FLUSH_INTERVAL || text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE)
     }
 
     async fn flush_chunk(&mut self) -> Result<(), LlmError> {
@@ -221,6 +230,11 @@ impl LlmStreamWriter {
         if let Some(tool_calls) = chunk_state.tool_calls {
             chunks.extend(tool_calls.into_iter().map(|tc| {
                 RedisStreamChunk::ToolCall(serde_json::to_string(&tc).unwrap_or_default())
+            }));
+        }
+        if let Some(pending_tool_calls) = chunk_state.pending_tool_calls {
+            chunks.extend(pending_tool_calls.into_iter().map(|tc| {
+                RedisStreamChunk::PendingToolCall(serde_json::to_string(&tc).unwrap_or_default())
             }));
         }
         if let Some(error) = chunk_state.error {
@@ -255,7 +269,7 @@ impl LlmStreamWriter {
         }
     }
 
-    /// Start task that pings the Redis stream every `PING_INTERVAL` seconds
+    /// Start task that pings the Redis stream every `PING_INTERVAL` seconds and extends the expiration time
     fn start_ping_task(&self) -> tokio::task::JoinHandle<()> {
         let redis = self.redis.clone();
         let key = self.key.to_owned();
@@ -265,13 +279,9 @@ impl LlmStreamWriter {
                 interval.tick().await;
                 let entry: HashMap<String, String> = RedisStreamChunk::Ping.into();
                 let pipeline = redis.pipeline();
-                let _: Result<(), fred::error::Error> =
-                    pipeline.xadd(&key, true, None, "*", entry).await;
-                let _: Result<(), fred::error::Error> =
-                    pipeline.expire(&key, STREAM_EXPIRE, None).await;
-                let res: Result<Vec<fred::prelude::Value>, fred::error::Error> =
-                    pipeline.all().await;
-
+                let _: FredResult<()> = pipeline.xadd(&key, true, None, "*", entry).await;
+                let _: FredResult<()> = pipeline.expire(&key, STREAM_EXPIRE, None).await;
+                let res: FredResult<Vec<fred::prelude::Value>> = pipeline.all().await;
                 if res.is_err() || res.is_ok_and(|r| r.iter().any(|v| v.is_null())) {
                     break;
                 }
@@ -376,13 +386,11 @@ mod tests {
         let chunks = vec![
             "Hello", " ", "world", "!", " ", "This", " ", "is", " ", "a", " ", "test",
         ];
-        let chunk_stream = tokio_stream::iter(chunks.into_iter().map(|text| {
-            Ok(crate::provider::LlmStreamChunk {
-                text: Some(text.to_string()),
-                tool_calls: None,
-                usage: None,
-            })
-        }));
+        let chunk_stream = tokio_stream::iter(
+            chunks
+                .into_iter()
+                .map(|text| Ok(LlmStreamChunk::Text(text.into()))),
+        );
 
         let stream: LlmApiStream = Box::pin(chunk_stream);
         let (text, _, _, _, cancelled) = writer.process(stream).await;
@@ -406,17 +414,9 @@ mod tests {
 
         // Create a stream that produces an error
         let error_stream = tokio_stream::iter(vec![
-            Ok(crate::provider::LlmStreamChunk {
-                text: Some("Hello".to_string()),
-                tool_calls: None,
-                usage: None,
-            }),
-            Err(crate::provider::LlmError::LoremError("Test error")),
-            Ok(crate::provider::LlmStreamChunk {
-                text: Some(" World".to_string()),
-                tool_calls: None,
-                usage: None,
-            }),
+            Ok(LlmStreamChunk::Text("Hello".to_string())),
+            Err(LlmError::LoremError("Test error")),
+            Ok(LlmStreamChunk::Text(" World".to_string())),
         ]);
 
         let stream: LlmApiStream = Box::pin(error_stream);
@@ -446,9 +446,7 @@ mod tests {
         assert!(writer.start().await.is_ok());
 
         // Create a stream that hangs (never yields anything)
-        let hanging_stream = tokio_stream::pending::<
-            Result<crate::provider::LlmStreamChunk, crate::provider::LlmError>,
-        >();
+        let hanging_stream = tokio_stream::pending::<Result<LlmStreamChunk, LlmError>>();
 
         let stream: LlmApiStream = Box::pin(hanging_stream);
 
@@ -505,24 +503,18 @@ mod tests {
 
         // Create a stream with usage information
         let usage_stream = tokio_stream::iter(vec![
-            Ok(crate::provider::LlmStreamChunk {
-                text: Some("Hello".to_string()),
-                tool_calls: None,
-                usage: Some(crate::provider::LlmUsage {
-                    input_tokens: Some(10),
-                    output_tokens: Some(5),
-                    cost: Some(0.001),
-                }),
-            }),
-            Ok(crate::provider::LlmStreamChunk {
-                text: Some(" World".to_string()),
-                tool_calls: None,
-                usage: Some(crate::provider::LlmUsage {
-                    input_tokens: None,     // Should not override
-                    output_tokens: Some(7), // Should update
-                    cost: Some(0.002),      // Should update
-                }),
-            }),
+            Ok(LlmStreamChunk::Text("Hello".into())),
+            Ok(LlmStreamChunk::Usage(LlmUsage {
+                input_tokens: Some(10),
+                output_tokens: Some(5),
+                cost: Some(0.001),
+            })),
+            Ok(LlmStreamChunk::Text(" World".into())),
+            Ok(LlmStreamChunk::Usage(LlmUsage {
+                input_tokens: None,     // Should not override
+                output_tokens: Some(7), // Should update
+                cost: Some(0.002),      // Should update
+            })),
         ]);
 
         let stream: LlmApiStream = Box::pin(usage_stream);
@@ -565,12 +557,7 @@ mod tests {
         assert_eq!(entries[0].1.get("type"), Some(&"start".to_string()));
 
         // Create a simple stream
-        let simple_stream = tokio_stream::iter(vec![Ok(crate::provider::LlmStreamChunk {
-            text: Some("Test chunk".to_string()),
-            tool_calls: None,
-            usage: None,
-        })]);
-
+        let simple_stream = tokio_stream::iter(vec![Ok(LlmStreamChunk::Text("Test chunk".into()))]);
         let stream: LlmApiStream = Box::pin(simple_stream);
         writer.process(stream).await;
         writer.flush_chunk().await.ok();

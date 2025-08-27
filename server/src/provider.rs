@@ -55,12 +55,19 @@ pub enum LlmError {
     Redis(#[from] fred::error::Error),
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LlmPendingToolCall {
+    pub id: String,
+    pub index: usize,
+    pub tool_name: String,
+}
+
 /// A streaming chunk of data from the LLM provider
-#[derive(Default)]
-pub struct LlmStreamChunk {
-    pub text: Option<String>,
-    pub tool_calls: Option<Vec<ChatRsToolCall>>,
-    pub usage: Option<LlmUsage>,
+pub enum LlmStreamChunk {
+    Text(String),
+    ToolCalls(Vec<ChatRsToolCall>),
+    PendingToolCall(LlmPendingToolCall),
+    Usage(LlmUsage),
 }
 
 /// Usage stats from the LLM provider

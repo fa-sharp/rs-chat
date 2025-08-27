@@ -146,21 +146,13 @@ impl AnthropicProvider {
                                         match event {
                                             AnthropicStreamEvent::MessageStart { message } => {
                                                 if let Some(usage) = message.usage {
-                                                    yield Ok(LlmStreamChunk {
-                                                        text: Some(String::new()),
-                                                        tool_calls: None,
-                                                        usage: Some(usage.into()),
-                                                    });
+                                                    yield Ok(LlmStreamChunk::Usage(usage.into()));
                                                 }
                                             }
                                             AnthropicStreamEvent::ContentBlockStart { content_block, index } => {
                                                 match content_block {
                                                     AnthropicResponseContentBlock::Text { text } => {
-                                                        yield Ok(LlmStreamChunk {
-                                                            text: Some(text),
-                                                            tool_calls: None,
-                                                            usage: None,
-                                                        });
+                                                        yield Ok(LlmStreamChunk::Text(text));
                                                     }
                                                     AnthropicResponseContentBlock::ToolUse { id,  name } => {
                                                         current_tool_calls.push(Some(AnthropicStreamToolCall {
@@ -175,11 +167,7 @@ impl AnthropicProvider {
                                             AnthropicStreamEvent::ContentBlockDelta { delta, index } => {
                                                 match delta {
                                                     AnthropicDelta::TextDelta { text } => {
-                                                        yield Ok(LlmStreamChunk {
-                                                            text: Some(text),
-                                                            tool_calls: None,
-                                                            usage: None,
-                                                        });
+                                                        yield Ok(LlmStreamChunk::Text(text));
                                                     }
                                                     AnthropicDelta::InputJsonDelta { partial_json } => {
                                                         if let Some(Some(tool_call)) = current_tool_calls.iter_mut().find(|tc| tc.as_ref().is_some_and(|tc| tc.index == index)) {
@@ -197,22 +185,14 @@ impl AnthropicProvider {
                                                             .and_then(|tc| tc.take())
                                                             .and_then(|tc| tc.convert(llm_tools));
                                                         if let Some(converted_call) = converted_call {
-                                                            yield Ok(LlmStreamChunk {
-                                                                text: None,
-                                                                tool_calls: Some(vec![converted_call]),
-                                                                usage: None,
-                                                            });
+                                                            yield Ok(LlmStreamChunk::ToolCalls(vec![converted_call]));
                                                         }
                                                     }
                                                 }
                                             }
                                             AnthropicStreamEvent::MessageDelta { usage } => {
                                                 if let Some(usage) = usage {
-                                                    yield Ok(LlmStreamChunk {
-                                                        text: Some(String::new()),
-                                                        tool_calls: None,
-                                                        usage: Some(usage.into()),
-                                                    });
+                                                    yield Ok(LlmStreamChunk::Usage(usage.into()));
                                                 }
                                             }
                                             AnthropicStreamEvent::Error { error } => {

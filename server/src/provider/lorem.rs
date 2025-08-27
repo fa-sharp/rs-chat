@@ -16,7 +16,7 @@ use crate::{
     provider_models::LlmModel,
 };
 
-/// A test/dummy provider that streams 'lorem ipsum...'
+/// A test/dummy provider that streams 'lorem ipsum...' and emits test errors during the stream
 #[derive(Debug, Clone)]
 pub struct LoremProvider {
     pub config: LoremConfig,
@@ -56,11 +56,7 @@ impl Stream for LoremStream {
                 let word = self.words[self.index];
                 self.index += 1;
                 if self.index == 0 || self.index % 10 != 0 {
-                    std::task::Poll::Ready(Some(Ok(LlmStreamChunk {
-                        text: Some(word.to_owned()),
-                        tool_calls: None,
-                        usage: None,
-                    })))
+                    std::task::Poll::Ready(Some(Ok(LlmStreamChunk::Text(word.to_owned()))))
                 } else {
                     std::task::Poll::Ready(Some(Err(LlmError::LoremError("Test error"))))
                 }

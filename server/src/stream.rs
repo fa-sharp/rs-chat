@@ -4,7 +4,7 @@ mod reader;
 use std::collections::HashMap;
 
 use fred::{
-    prelude::{KeysInterface, StreamsInterface},
+    prelude::{FredResult, KeysInterface, StreamsInterface},
     types::scan::ScanType,
 };
 
@@ -53,7 +53,7 @@ pub async fn check_chat_stream_exists(
     redis: &fred::clients::Client,
     user_id: &Uuid,
     session_id: &Uuid,
-) -> Result<bool, fred::prelude::Error> {
+) -> FredResult<bool> {
     let key = get_chat_stream_key(user_id, session_id);
     let first_entry: Option<()> = redis.xread(Some(1), None, &key, "0-0").await?;
     Ok(first_entry.is_some())
@@ -65,7 +65,7 @@ pub async fn cancel_current_chat_stream(
     redis: &fred::clients::Client,
     user_id: &Uuid,
     session_id: &Uuid,
-) -> Result<(), fred::prelude::Error> {
+) -> FredResult<()> {
     let key = get_chat_stream_key(user_id, session_id);
     let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
     let _: () = redis.xadd(&key, true, None, "*", entry).await?;
