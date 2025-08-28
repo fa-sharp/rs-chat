@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsToolCall},
     provider::{
-        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
-        LlmTool, LlmUsage, DEFAULT_MAX_TOKENS,
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmPendingToolCall,
+        LlmStreamChunk, LlmTool, LlmUsage, DEFAULT_MAX_TOKENS,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
@@ -172,6 +172,10 @@ impl AnthropicProvider {
                                                     AnthropicDelta::InputJsonDelta { partial_json } => {
                                                         if let Some(Some(tool_call)) = current_tool_calls.iter_mut().find(|tc| tc.as_ref().is_some_and(|tc| tc.index == index)) {
                                                             tool_call.input.push_str(&partial_json);
+                                                            yield Ok(LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
+                                                                index,
+                                                                tool_name: tool_call.name.clone()
+                                                            }));
                                                         }
                                                     }
                                                 }
@@ -493,8 +497,11 @@ struct AnthropicError {
 /// Helper struct for tracking streaming tool calls
 #[derive(Debug)]
 struct AnthropicStreamToolCall {
+    /// Anthropic tool call ID
     id: String,
+    /// Index of the tool call in the message
     index: usize,
+    /// Name of the tool
     name: String,
     /// Partial input parameters (JSON stringified)
     input: String,

@@ -57,7 +57,6 @@ pub enum LlmError {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct LlmPendingToolCall {
-    pub id: String,
     pub index: usize,
     pub tool_name: String,
 }

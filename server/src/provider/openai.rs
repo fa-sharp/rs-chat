@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::models::{ChatRsMessage, ChatRsMessageRole, ChatRsToolCall},
     provider::{
-        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmStreamChunk,
-        LlmTool, LlmUsage,
+        LlmApiProvider, LlmApiProviderSharedOptions, LlmApiStream, LlmError, LlmPendingToolCall,
+        LlmStreamChunk, LlmTool, LlmUsage,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
@@ -128,6 +128,10 @@ impl OpenAIProvider {
 
                                                 if let Some(tool_calls_delta) = delta.tool_calls {
                                                     for tool_call_delta in tool_calls_delta {
+                                                        yield Ok(LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
+                                                            index: tool_call_delta.index,
+                                                            tool_name: tool_call_delta.function.name.clone(),
+                                                        }));
                                                         if let Some(tc) = tool_calls.iter_mut().find(|tc| tc.index == tool_call_delta.index) {
                                                             if let Some(function_arguments) = tool_call_delta.function.arguments {
                                                                 *tc.function.arguments.get_or_insert_default() += &function_arguments;
@@ -403,7 +407,7 @@ struct OpenAIResponseDelta {
 #[derive(Debug, Deserialize)]
 struct OpenAIStreamToolCall {
     id: Option<String>,
-    index: u32,
+    index: usize,
     function: OpenAIStreamToolCallFunction,
 }
 
@@ -411,7 +415,7 @@ impl OpenAIStreamToolCall {
     /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
     fn convert(self, rs_chat_tools: &[LlmTool]) -> Option<ChatRsToolCall> {
         let id = self.id?;
-        let tool_name = self.function.name?;
+        let tool_name = self.function.name;
         let parameters = serde_json::from_str(&self.function.arguments?).ok()?;
         rs_chat_tools
             .iter()
@@ -429,7 +433,7 @@ impl OpenAIStreamToolCall {
 /// OpenAI streaming tool call function
 #[derive(Debug, Deserialize)]
 struct OpenAIStreamToolCallFunction {
-    name: Option<String>,
+    name: String,
     arguments: Option<String>,
 }
 
