@@ -373,7 +373,6 @@ version = "0.6.0"
 dependencies = [
  "aes-gcm",
  "astral-tokio-tar",
- "async-stream",
  "bollard",
  "chrono",
  "const_format",
@@ -399,7 +398,6 @@ dependencies = [
  "serde",
  "serde_json",
  "subst",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",

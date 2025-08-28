@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     db::models::{ChatRsExecutedToolCall, ChatRsToolCall, ChatRsUser},
-    provider::{LlmApiProviderSharedOptions, LlmUsage},
+    provider::{LlmProviderOptions, LlmUsage},
     tools::SendChatToolInput,
 };
 
@@ -99,7 +99,7 @@ pub struct AssistantMeta {
     pub provider_id: i32,
     /// Options passed to the LLM provider
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_options: Option<LlmApiProviderSharedOptions>,
+    pub provider_options: Option<LlmProviderOptions>,
     /// The tool calls requested by the assistant
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,

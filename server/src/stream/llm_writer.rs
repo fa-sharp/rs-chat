@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     db::models::ChatRsToolCall,
-    provider::{LlmApiStream, LlmError, LlmPendingToolCall, LlmStreamChunk, LlmUsage},
+    provider::{LlmPendingToolCall, LlmStream, LlmStreamChunk, LlmStreamError, LlmUsage},
     redis::ExclusiveRedisClient,
     stream::get_chat_stream_key,
 };
@@ -40,7 +40,7 @@ pub struct LlmStreamWriter {
     /// Accumulated tool calls from the assistant.
     tool_calls: Option<Vec<ChatRsToolCall>>,
     /// Accumulated errors during the stream from the LLM provider.
-    errors: Option<Vec<LlmError>>,
+    errors: Option<Vec<LlmStreamError>>,
     /// Accumulated usage information from the LLM provider.
     usage: Option<LlmUsage>,
 }
@@ -111,7 +111,7 @@ impl LlmStreamWriter {
     /// chunks to a Redis stream, and return the final accumulated response.
     pub async fn process(
         &mut self,
-        mut stream: LlmApiStream,
+        mut stream: LlmStream,
     ) -> (
         Option<String>,
         Option<Vec<ChatRsToolCall>>,
@@ -136,14 +136,14 @@ impl LlmStreamWriter {
                 Ok(Some(Err(err))) => self.process_error(err),
                 Ok(None) => break,
                 Err(_) => {
-                    self.process_error(LlmError::StreamTimeout);
+                    self.process_error(LlmStreamError::StreamTimeout);
                     break;
                 }
             }
 
             if self.should_flush(&last_flush_time) {
                 if let Err(err) = self.flush_chunk().await {
-                    if matches!(err, LlmError::StreamNotFound) {
+                    if matches!(err, LlmStreamError::StreamCancelled) {
                         self.errors.get_or_insert_default().push(err);
                         cancelled = true;
                         break;
@@ -207,7 +207,7 @@ impl LlmStreamWriter {
         }
     }
 
-    fn process_error(&mut self, err: LlmError) {
+    fn process_error(&mut self, err: LlmStreamError) {
         self.current_chunk.error = Some(err.to_string());
         self.errors.get_or_insert_default().push(err);
     }
@@ -220,7 +220,9 @@ impl LlmStreamWriter {
         last_flush_time.elapsed() > FLUSH_INTERVAL || text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE)
     }
 
-    async fn flush_chunk(&mut self) -> Result<(), LlmError> {
+    /// Flushes the current chunk to the Redis stream. Returns a `LlmStreamError::StreamCancelled` error
+    /// if the stream has been deleted or cancelled.
+    async fn flush_chunk(&mut self) -> Result<(), LlmStreamError> {
         let chunk_state = std::mem::take(&mut self.current_chunk);
 
         let mut chunks: Vec<RedisStreamChunk> = Vec::with_capacity(2);
@@ -248,11 +250,12 @@ impl LlmStreamWriter {
         self.add_to_redis_stream(entries).await
     }
 
-    /// Adds a new entry to the Redis stream. Returns a `LlmError::StreamNotFound` error if the stream has been deleted or cancelled.
+    /// Adds new entries to the Redis stream. Returns a `LlmStreamError::StreamCancelled` error if the
+    /// stream has been deleted or cancelled.
     async fn add_to_redis_stream(
         &self,
         entries: Vec<HashMap<String, String>>,
-    ) -> Result<(), LlmError> {
+    ) -> Result<(), LlmStreamError> {
         let pipeline = self.redis.pipeline();
         for entry in entries {
             let _: () = pipeline
@@ -263,7 +266,7 @@ impl LlmStreamWriter {
 
         // Check for `nil` responses indicating the stream has been deleted/cancelled
         if res.iter().any(|r| r.is_null()) {
-            Err(LlmError::StreamNotFound)
+            Err(LlmStreamError::StreamCancelled)
         } else {
             Ok(())
         }
@@ -295,7 +298,7 @@ impl LlmStreamWriter {
 mod tests {
     use super::*;
     use crate::{
-        provider::{lorem::LoremProvider, LlmApiProvider, LlmApiProviderSharedOptions},
+        provider::{lorem::LoremProvider, LlmApiProvider, LlmProviderOptions},
         redis::{ExclusiveClientManager, ExclusiveClientPool},
         stream::{cancel_current_chat_stream, check_chat_stream_exists},
     };
@@ -345,7 +348,7 @@ mod tests {
         // Create Lorem provider and get stream
         let lorem = LoremProvider::new();
         let stream = lorem
-            .chat_stream(vec![], None, &LlmApiProviderSharedOptions::default())
+            .chat_stream(vec![], None, &LlmProviderOptions::default())
             .await
             .expect("Failed to create lorem stream");
 
@@ -392,7 +395,7 @@ mod tests {
                 .map(|text| Ok(LlmStreamChunk::Text(text.into()))),
         );
 
-        let stream: LlmApiStream = Box::pin(chunk_stream);
+        let stream: LlmStream = Box::pin(chunk_stream);
         let (text, _, _, _, cancelled) = writer.process(stream).await;
 
         assert!(text.is_some());
@@ -415,11 +418,11 @@ mod tests {
         // Create a stream that produces an error
         let error_stream = tokio_stream::iter(vec![
             Ok(LlmStreamChunk::Text("Hello".to_string())),
-            Err(LlmError::LoremError("Test error")),
+            Err(LlmStreamError::ProviderError("Test error".into())),
             Ok(LlmStreamChunk::Text(" World".to_string())),
         ]);
 
-        let stream: LlmApiStream = Box::pin(error_stream);
+        let stream: LlmStream = Box::pin(error_stream);
         let (text, _, _, errors, cancelled) = writer.process(stream).await;
 
         assert!(text.is_some());
@@ -446,9 +449,9 @@ mod tests {
         assert!(writer.start().await.is_ok());
 
         // Create a stream that hangs (never yields anything)
-        let hanging_stream = tokio_stream::pending::<Result<LlmStreamChunk, LlmError>>();
+        let hanging_stream = tokio_stream::pending::<Result<LlmStreamChunk, LlmStreamError>>();
 
-        let stream: LlmApiStream = Box::pin(hanging_stream);
+        let stream: LlmStream = Box::pin(hanging_stream);
 
         // This should timeout due to LLM_TIMEOUT
         let start = std::time::Instant::now();
@@ -517,7 +520,7 @@ mod tests {
             })),
         ]);
 
-        let stream: LlmApiStream = Box::pin(usage_stream);
+        let stream: LlmStream = Box::pin(usage_stream);
         let (text, _, usage, _, cancelled) = writer.process(stream).await;
 
         assert!(text.is_some());
@@ -558,7 +561,7 @@ mod tests {
 
         // Create a simple stream
         let simple_stream = tokio_stream::iter(vec![Ok(LlmStreamChunk::Text("Test chunk".into()))]);
-        let stream: LlmApiStream = Box::pin(simple_stream);
+        let stream: LlmStream = Box::pin(simple_stream);
         writer.process(stream).await;
         writer.flush_chunk().await.ok();
 

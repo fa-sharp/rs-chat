@@ -26,7 +26,7 @@ use crate::{
         DbConnection, DbPool,
     },
     errors::ApiError,
-    provider::{build_llm_provider_api, LlmApiProviderSharedOptions, LlmError},
+    provider::{build_llm_provider_api, LlmError, LlmProviderOptions},
     redis::{ExclusiveRedisClient, RedisClient},
     stream::{
         cancel_current_chat_stream, check_chat_stream_exists, get_current_chat_streams,
@@ -69,7 +69,7 @@ pub struct SendChatInput<'a> {
     /// The ID of the provider to chat with
     provider_id: i32,
     /// Configuration for the provider
-    options: LlmApiProviderSharedOptions,
+    options: LlmProviderOptions,
     /// Configuration of tools available to the assistant
     tools: Option<SendChatToolInput>,
 }
@@ -176,9 +176,11 @@ pub async fn send_chat_stream(
     let provider_id = input.provider_id;
     let provider_options = input.options.clone();
 
-    // Create the Redis stream, then spawn a task to stream and save the response
+    // Create the Redis stream
     let mut stream_writer = LlmStreamWriter::new(redis_writer, &user_id, &session_id);
     stream_writer.start().await?;
+
+    // Spawn a task to stream and save the response
     tokio::spawn(async move {
         let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
         let assistant_meta = AssistantMeta {

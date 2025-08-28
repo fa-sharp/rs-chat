@@ -5,14 +5,14 @@ use uuid::Uuid;
 use crate::{
     db::{models::UpdateChatRsSession, services::ChatDbService, DbConnection, DbPool},
     errors::ApiError,
-    provider::{LlmApiProvider, LlmApiProviderSharedOptions, DEFAULT_TEMPERATURE},
+    provider::{LlmApiProvider, LlmProviderOptions, DEFAULT_TEMPERATURE},
 };
 
 const TITLE_TOKENS: u32 = 20;
 const TITLE_PROMPT: &str =
     "This is the first message sent by a human in a chat session with an AI chatbot. \
     Please generate a short title for the session (3-7 words) in plain text \
-    (no quotes or prefixes).";
+    (no quotes or prefixes)";
 
 /// Spawn a task to generate a title for the chat session
 pub fn generate_title(
@@ -45,7 +45,7 @@ async fn generate(
     model: String,
     pool: DbPool,
 ) -> Result<(), ApiError> {
-    let provider_options = LlmApiProviderSharedOptions {
+    let provider_options = LlmProviderOptions {
         model,
         temperature: Some(DEFAULT_TEMPERATURE),
         max_tokens: Some(TITLE_TOKENS),

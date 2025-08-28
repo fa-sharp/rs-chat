@@ -20,8 +20,6 @@ use rocket::{
 use rocket_okapi::OpenApiFromRequest;
 use uuid::Uuid;
 
-use crate::provider::LlmError;
-
 /// Get the key prefix for the user's chat streams in Redis
 fn get_chat_stream_prefix(user_id: &Uuid) -> String {
     format!("user:{}:chat:", user_id)
@@ -36,7 +34,7 @@ fn get_chat_stream_key(user_id: &Uuid, session_id: &Uuid) -> String {
 pub async fn get_current_chat_streams(
     redis: &fred::clients::Client,
     user_id: &Uuid,
-) -> Result<Vec<String>, LlmError> {
+) -> FredResult<Vec<String>> {
     let prefix = get_chat_stream_prefix(user_id);
     let pattern = format!("{}*", prefix);
     let (_, keys): (String, Vec<String>) = redis
@@ -75,14 +73,12 @@ pub async fn cancel_current_chat_stream(
 /// Request guard to extract the Last-Event-ID from the request headers
 #[derive(OpenApiFromRequest)]
 pub struct LastEventId(String);
-
 impl std::ops::Deref for LastEventId {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-
 #[async_trait]
 impl<'r> FromRequest<'r> for LastEventId {
     type Error = ();

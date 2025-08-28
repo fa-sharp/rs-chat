@@ -3,6 +3,7 @@
 pub mod anthropic;
 pub mod lorem;
 pub mod openai;
+mod utils;
 
 use std::pin::Pin;
 
@@ -25,12 +26,8 @@ pub const DEFAULT_TEMPERATURE: f32 = 0.7;
 pub enum LlmError {
     #[error("Missing API key")]
     MissingApiKey,
-    #[error("Lorem ipsum error: {0}")]
-    LoremError(&'static str),
-    #[error("Anthropic error: {0}")]
-    AnthropicError(String),
-    #[error("OpenAI error: {0}")]
-    OpenAIError(String),
+    #[error("Provider error: {0}")]
+    ProviderError(String),
     #[error("models.dev error: {0}")]
     ModelsDevError(String),
     #[error("No chat response")]
@@ -45,8 +42,6 @@ pub enum LlmError {
     NoStreamEvent,
     #[error("Client disconnected")]
     ClientDisconnected,
-    #[error("Timeout waiting for provider response")]
-    StreamTimeout,
     #[error("Encryption error")]
     EncryptionError,
     #[error("Decryption error")]
@@ -55,11 +50,28 @@ pub enum LlmError {
     Redis(#[from] fred::error::Error),
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct LlmPendingToolCall {
-    pub index: usize,
-    pub tool_name: String,
+/// LLM errors during streaming
+#[derive(Debug, thiserror::Error)]
+pub enum LlmStreamError {
+    #[error("Provider error: {0}")]
+    ProviderError(String),
+    #[error("Failed to parse event: {0}")]
+    Parsing(#[from] serde_json::Error),
+    #[error("Failed to decode response: {0}")]
+    Decoding(#[from] tokio_util::codec::LinesCodecError),
+    #[error("Timeout waiting for provider response")]
+    StreamTimeout,
+    #[error("Stream was cancelled")]
+    StreamCancelled,
+    #[error("Redis error: {0}")]
+    Redis(#[from] fred::error::Error),
 }
+
+/// Shared stream response type for LLM providers
+pub type LlmStream = Pin<Box<dyn Stream<Item = LlmStreamChunkResult> + Send>>;
+
+/// Shared stream chunk result type for LLM providers
+pub type LlmStreamChunkResult = Result<LlmStreamChunk, LlmStreamError>;
 
 /// A streaming chunk of data from the LLM provider
 pub enum LlmStreamChunk {
@@ -67,6 +79,12 @@ pub enum LlmStreamChunk {
     ToolCalls(Vec<ChatRsToolCall>),
     PendingToolCall(LlmPendingToolCall),
     Usage(LlmUsage),
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LlmPendingToolCall {
+    pub index: usize,
+    pub tool_name: String,
 }
 
 /// Usage stats from the LLM provider
@@ -79,12 +97,9 @@ pub struct LlmUsage {
     pub cost: Option<f32>,
 }
 
-/// Shared stream type for LLM providers
-pub type LlmApiStream = Pin<Box<dyn Stream<Item = Result<LlmStreamChunk, LlmError>> + Send>>;
-
 /// Shared configuration for LLM provider requests
 #[derive(Clone, Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize)]
-pub struct LlmApiProviderSharedOptions {
+pub struct LlmProviderOptions {
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
@@ -118,15 +133,12 @@ pub trait LlmApiProvider: Send + Sync + DynClone {
         &self,
         messages: Vec<ChatRsMessage>,
         tools: Option<Vec<LlmTool>>,
-        options: &LlmApiProviderSharedOptions,
-    ) -> Result<LlmApiStream, LlmError>;
+        options: &LlmProviderOptions,
+    ) -> Result<LlmStream, LlmError>;
 
     /// Submit a prompt to the provider (not streamed)
-    async fn prompt(
-        &self,
-        message: &str,
-        options: &LlmApiProviderSharedOptions,
-    ) -> Result<String, LlmError>;
+    async fn prompt(&self, message: &str, options: &LlmProviderOptions)
+        -> Result<String, LlmError>;
 
     /// List available models from the provider
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError>;
