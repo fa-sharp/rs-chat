@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// Interval at which chunks are flushed to the Redis stream.
-const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
+const FLUSH_INTERVAL: Duration = Duration::from_millis(300);
 /// Max accumulated size of the text chunk before it is automatically flushed to Redis.
 const MAX_CHUNK_SIZE: usize = 200;
 /// Expiration in seconds set on the Redis stream (normally, the Redis stream will be deleted before this)
