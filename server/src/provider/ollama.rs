@@ -8,19 +8,20 @@ use rocket::{async_stream, async_trait, futures::StreamExt};
 use crate::{
     db::models::ChatRsMessage,
     provider::{
-        ollama::{
-            request::{
-                build_ollama_messages, build_ollama_tools, OllamaChatRequest,
-                OllamaCompletionRequest, OllamaOptions,
-            },
-            response::{
-                parse_ollama_event, OllamaCompletionResponse, OllamaModelsResponse, OllamaToolCall,
-            },
-        },
-        utils::get_sse_events,
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
+        utils::get_json_events, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream,
+        LlmStreamChunk, LlmTool, LlmUsage,
     },
     provider_models::LlmModel,
+};
+
+use {
+    request::{
+        build_ollama_messages, build_ollama_tools, OllamaChatRequest, OllamaCompletionRequest,
+        OllamaOptions,
+    },
+    response::{
+        parse_ollama_event, OllamaCompletionResponse, OllamaModelsResponse, OllamaToolCall,
+    },
 };
 
 const CHAT_API_URL: &str = "/api/chat";
@@ -84,9 +85,9 @@ impl LlmApiProvider for OllamaProvider {
         }
 
         let stream = async_stream::stream! {
-            let mut sse_event_stream = get_sse_events(response);
+            let mut json_stream = get_json_events(response);
             let mut tool_calls: Vec<OllamaToolCall> = Vec::new();
-            while let Some(event) = sse_event_stream.next().await {
+            while let Some(event) = json_stream.next().await {
                 match event {
                     Ok(event) => {
                         for chunk in parse_ollama_event(event, &mut tool_calls) {

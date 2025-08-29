@@ -33,3 +33,15 @@ pub fn get_sse_events<T: DeserializeOwned + Send + 'static>(
         }
     })
 }
+
+/// Get a stream of deserialized events from a provider JSON stream, not SSE (e.g. Ollama uses this format).
+pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
+    response: reqwest::Response,
+) -> impl Stream<Item = Result<T, LlmStreamError>> {
+    let stream_reader = StreamReader::new(response.bytes_stream().map_err(std::io::Error::other));
+    let line_reader = FramedRead::new(stream_reader, LinesCodec::new());
+    line_reader.map(|line_result| match line_result {
+        Ok(line) => serde_json::from_str::<T>(&line).map_err(LlmStreamError::Parsing),
+        Err(e) => Err(LlmStreamError::Decoding(e)),
+    })
+}
