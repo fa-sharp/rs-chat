@@ -10,7 +10,7 @@ pub fn parse_openai_event(
     mut event: OpenAIStreamResponse,
     tool_calls: &mut Vec<OpenAIStreamToolCall>,
 ) -> Vec<LlmStreamChunkResult> {
-    let mut chunks = Vec::new();
+    let mut chunks = Vec::with_capacity(1);
     if let Some(delta) = event.choices.pop().and_then(|c| c.delta) {
         if let Some(text) = delta.content {
             chunks.push(Ok(LlmStreamChunk::Text(text)));
@@ -32,6 +32,13 @@ pub fn parse_openai_event(
                         chunks.push(Ok(chunk));
                     }
                 } else {
+                    if let Some(ref tool_name) = tool_call_delta.function.name {
+                        let chunk = LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
+                            index: tool_call_delta.index,
+                            tool_name: tool_name.clone(),
+                        });
+                        chunks.push(Ok(chunk));
+                    }
                     tool_calls.push(tool_call_delta);
                 }
             }

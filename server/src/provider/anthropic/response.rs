@@ -7,17 +7,16 @@ use crate::{
     },
 };
 
-/// Parse chunks from an Anthropic SSE event.
+/// Parse an Anthropic SSE event.
 pub fn parse_anthropic_event(
     event: AnthropicStreamEvent,
-    tools: &Option<Vec<LlmTool>>,
+    tools: Option<&Vec<LlmTool>>,
     tool_calls: &mut Vec<AnthropicStreamToolCall>,
-) -> Vec<LlmStreamChunkResult> {
-    let mut chunks: Vec<LlmStreamChunkResult> = Vec::new();
+) -> Option<LlmStreamChunkResult> {
     match event {
         AnthropicStreamEvent::MessageStart { message } => {
             if let Some(usage) = message.usage {
-                chunks.push(Ok(LlmStreamChunk::Usage(usage.into())));
+                return Some(Ok(LlmStreamChunk::Usage(usage.into())));
             }
         }
         AnthropicStreamEvent::ContentBlockStart {
@@ -25,7 +24,7 @@ pub fn parse_anthropic_event(
             index,
         } => match content_block {
             AnthropicResponseContentBlock::Text { text } => {
-                chunks.push(Ok(LlmStreamChunk::Text(text)));
+                return Some(Ok(LlmStreamChunk::Text(text)));
             }
             AnthropicResponseContentBlock::ToolUse { id, name } => {
                 tool_calls.push(AnthropicStreamToolCall {
@@ -38,7 +37,7 @@ pub fn parse_anthropic_event(
         },
         AnthropicStreamEvent::ContentBlockDelta { delta, index } => match delta {
             AnthropicDelta::TextDelta { text } => {
-                chunks.push(Ok(LlmStreamChunk::Text(text)));
+                return Some(Ok(LlmStreamChunk::Text(text)));
             }
             AnthropicDelta::InputJsonDelta { partial_json } => {
                 if let Some(tool_call) = tool_calls.iter_mut().find(|tc| tc.index == index) {
@@ -47,7 +46,7 @@ pub fn parse_anthropic_event(
                         index,
                         tool_name: tool_call.name.clone(),
                     });
-                    chunks.push(Ok(chunk));
+                    return Some(Ok(chunk));
                 }
             }
         },
@@ -60,23 +59,23 @@ pub fn parse_anthropic_event(
                 {
                     if let Some(tool_call) = tc.convert(llm_tools) {
                         let chunk = LlmStreamChunk::ToolCalls(vec![tool_call]);
-                        chunks.push(Ok(chunk));
+                        return Some(Ok(chunk));
                     }
                 }
             }
         }
         AnthropicStreamEvent::MessageDelta { usage } => {
             if let Some(usage) = usage {
-                chunks.push(Ok(LlmStreamChunk::Usage(usage.into())));
+                return Some(Ok(LlmStreamChunk::Usage(usage.into())));
             }
         }
         AnthropicStreamEvent::Error { error } => {
             let error_msg = format!("{}: {}", error.error_type, error.message);
-            chunks.push(Err(LlmStreamError::ProviderError(error_msg)));
+            return Some(Err(LlmStreamError::ProviderError(error_msg)));
         }
         _ => {} // Ignore other events (ping, message_stop)
     }
-    chunks
+    None
 }
 
 /// Anthropic API response content block

@@ -3,27 +3,23 @@
 mod request;
 mod response;
 
-use rocket::{async_trait, futures::StreamExt};
-use tokio_stream::wrappers::ReceiverStream;
+use rocket::{async_stream, async_trait, futures::StreamExt};
 
 use crate::{
     db::models::ChatRsMessage,
     provider::{
-        anthropic::{
-            request::{
-                build_anthropic_messages, build_anthropic_tools, AnthropicContentBlock,
-                AnthropicMessage, AnthropicRequest,
-            },
-            response::{
-                parse_anthropic_event, AnthropicResponse, AnthropicResponseContentBlock,
-                AnthropicStreamToolCall,
-            },
-        },
-        utils::get_sse_events,
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmTool, LlmUsage,
-        DEFAULT_MAX_TOKENS,
+        utils::get_sse_events, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmTool,
+        LlmUsage, DEFAULT_MAX_TOKENS,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
+};
+
+use {
+    request::{
+        build_anthropic_messages, build_anthropic_tools, AnthropicContentBlock, AnthropicMessage,
+        AnthropicRequest,
+    },
+    response::{parse_anthropic_event, AnthropicResponse, AnthropicResponseContentBlock},
 };
 
 const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -90,30 +86,22 @@ impl LlmApiProvider for AnthropicProvider {
             )));
         }
 
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        tokio::spawn(async move {
-            let mut tool_calls: Vec<AnthropicStreamToolCall> = Vec::new();
+        let stream = async_stream::stream! {
             let mut sse_event_stream = get_sse_events(response);
-            'outer: while let Some(event_result) = sse_event_stream.next().await {
+            let mut tool_calls = Vec::new();
+            while let Some(event_result) = sse_event_stream.next().await {
                 match event_result {
                     Ok(event) => {
-                        for chunk in parse_anthropic_event(event, &tools, &mut tool_calls) {
-                            if tx.send(chunk).await.is_err() {
-                                break 'outer; // receiver dropped, stop streaming
-                            }
+                        if let Some(chunk) = parse_anthropic_event(event, tools.as_ref(), &mut tool_calls) {
+                            yield chunk;
                         }
-                    }
-                    Err(e) => {
-                        if tx.send(Err(e)).await.is_err() {
-                            break 'outer;
-                        }
-                    }
+                    },
+                    Err(e) => yield Err(e),
                 }
             }
-            drop(tx);
-        });
+        };
 
-        Ok(ReceiverStream::new(rx).boxed())
+        Ok(stream.boxed())
     }
 
     async fn prompt(

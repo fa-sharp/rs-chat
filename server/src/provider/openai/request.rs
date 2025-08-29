@@ -70,6 +70,8 @@ pub struct OpenAIRequest<'a> {
     pub max_completion_tokens: Option<u32>,
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub store: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream_options: Option<OpenAIStreamOptions>,

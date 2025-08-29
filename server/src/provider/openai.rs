@@ -3,23 +3,23 @@
 mod request;
 mod response;
 
-use rocket::{async_trait, futures::StreamExt};
-use tokio_stream::wrappers::ReceiverStream;
+use rocket::{async_stream, async_trait, futures::StreamExt};
 
 use crate::{
     db::models::ChatRsMessage,
     provider::{
-        openai::{
-            request::{
-                build_openai_messages, build_openai_tools, OpenAIMessage, OpenAIRequest,
-                OpenAIStreamOptions,
-            },
-            response::{parse_openai_event, OpenAIResponse, OpenAIStreamToolCall},
-        },
-        utils::get_sse_events,
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
+        utils::get_sse_events, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream,
+        LlmStreamChunk, LlmTool, LlmUsage,
     },
     provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
+};
+
+use {
+    request::{
+        build_openai_messages, build_openai_tools, OpenAIMessage, OpenAIRequest,
+        OpenAIStreamOptions,
+    },
+    response::{parse_openai_event, OpenAIResponse, OpenAIStreamToolCall},
 };
 
 const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
@@ -71,6 +71,7 @@ impl LlmApiProvider for OpenAIProvider {
                 && self.base_url == OPENAI_API_BASE_URL)
                 .then(|| options.max_tokens.expect("already checked for Some value")),
             temperature: options.temperature,
+            store: (self.base_url == OPENAI_API_BASE_URL).then_some(false),
             stream: Some(true),
             stream_options: Some(OpenAIStreamOptions {
                 include_usage: true,
@@ -97,24 +98,17 @@ impl LlmApiProvider for OpenAIProvider {
             )));
         }
 
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        tokio::spawn(async move {
-            let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
+        let stream = async_stream::stream! {
             let mut sse_event_stream = get_sse_events(response);
-            'outer: while let Some(event) = sse_event_stream.next().await {
+            let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
+            while let Some(event) = sse_event_stream.next().await {
                 match event {
                     Ok(event) => {
                         for chunk in parse_openai_event(event, &mut tool_calls) {
-                            if tx.send(chunk).await.is_err() {
-                                break 'outer; // receiver dropped, stop streaming
-                            }
+                            yield chunk;
                         }
                     }
-                    Err(e) => {
-                        if tx.send(Err(e)).await.is_err() {
-                            break 'outer;
-                        }
-                    }
+                    Err(e) => yield Err(e),
                 }
             }
             if !tool_calls.is_empty() {
@@ -123,13 +117,12 @@ impl LlmApiProvider for OpenAIProvider {
                         .into_iter()
                         .filter_map(|tc| tc.convert(&llm_tools))
                         .collect();
-                    tx.send(Ok(LlmStreamChunk::ToolCalls(converted))).await.ok();
+                    yield Ok(LlmStreamChunk::ToolCalls(converted));
                 }
             }
-            drop(tx);
-        });
+        };
 
-        Ok(ReceiverStream::new(rx).boxed())
+        Ok(stream.boxed())
     }
 
     async fn prompt(
