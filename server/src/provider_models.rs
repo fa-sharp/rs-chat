@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use enum_iterator::{all, Sequence};
-use fred::prelude::*;
+use fred::prelude::{HashesInterface, KeysInterface};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -13,29 +13,29 @@ const CACHE_TTL: i64 = 86400; // 1 day in seconds
 /// A model supported by the LLM provider
 #[derive(Debug, Default, Clone, JsonSchema, Serialize, Deserialize)]
 pub struct LlmModel {
-    id: String,
-    name: String,
+    pub id: String,
+    pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    attachment: Option<bool>,
+    pub attachment: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reasoning: Option<bool>,
+    pub reasoning: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<bool>,
+    pub temperature: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call: Option<bool>,
+    pub tool_call: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    release_date: Option<String>,
+    pub release_date: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    knowledge: Option<String>,
+    pub knowledge: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    modalities: Option<Modalities>,
+    pub modalities: Option<Modalities>,
     // Ollama fields
     #[serde(skip_serializing_if = "Option::is_none")]
-    modified_at: Option<String>,
+    pub modified_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    format: Option<String>,
+    pub format: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    family: Option<String>,
+    pub family: Option<String>,
 }
 
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
@@ -56,13 +56,16 @@ pub enum ModalityType {
 
 /// Service to fetch and cache LLM model list from https://models.dev
 pub struct ModelsDevService {
-    redis: Client,
+    redis: fred::clients::Client,
     http_client: reqwest::Client,
 }
 
 impl ModelsDevService {
-    pub fn new(redis: Client, http_client: reqwest::Client) -> Self {
-        Self { redis, http_client }
+    pub fn new(redis: &fred::clients::Client, http_client: &reqwest::Client) -> Self {
+        Self {
+            redis: redis.clone(),
+            http_client: http_client.clone(),
+        }
     }
 
     pub async fn list_models(

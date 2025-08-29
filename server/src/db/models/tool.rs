@@ -55,7 +55,7 @@ pub struct NewChatRsExternalApiTool<'r> {
 }
 
 /// A tool call requested by the provider
-#[derive(Debug, JsonSchema, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct ChatRsToolCall {
     /// ID of the tool call
     pub id: String,
@@ -77,6 +77,9 @@ pub struct ChatRsExecutedToolCall {
     pub id: String,
     /// ID of the tool used
     pub tool_id: Uuid,
+    /// Name of the tool used
+    #[serde(default)]
+    pub tool_name: String,
     /// Type of the tool used
     #[serde(default)]
     pub tool_type: LlmToolType,

@@ -373,16 +373,17 @@ version = "0.6.0"
 dependencies = [
  "aes-gcm",
  "astral-tokio-tar",
- "async-stream",
  "bollard",
  "chrono",
  "const_format",
+ "deadpool",
  "diesel",
  "diesel-async",
  "diesel-derive-enum",
  "diesel_as_jsonb",
  "diesel_async_migrations",
  "dotenvy",
+ "dyn-clone",
  "enum-iterator",
  "fred",
  "hex",
@@ -397,7 +398,6 @@ dependencies = [
  "serde",
  "serde_json",
  "subst",
- "tempfile",
  "thiserror",
  "tokio",
  "tokio-stream",
@@ -623,6 +623,9 @@ name = "deadpool-runtime"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "092966b41edc516079bdf31ec78a2e0588d1d0c08f78b91d8307215928642b2b"
+dependencies = [
+ "tokio",
+]
 
 [[package]]
 name = "deranged"

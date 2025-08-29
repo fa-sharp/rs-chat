@@ -11,6 +11,10 @@ interface SmoothStreamingOptions {
   bufferSpeedUpThreshold?: number;
   /** Speed multiplier when buffer is full */
   speedUpMultiplier?: number;
+  /** Minimum characters per update for larger chunks */
+  minCharsPerUpdate?: number;
+  /** Maximum characters per update for larger chunks */
+  maxCharsPerUpdate?: number;
 }
 
 interface SmoothStreamingState {
@@ -35,8 +39,10 @@ export function useSmoothStreaming(
     baseCharsPerSecond = 50,
     minUpdateDelay = 8,
     maxUpdateDelay = 80,
-    bufferSpeedUpThreshold = 20,
-    speedUpMultiplier = 3.0,
+    bufferSpeedUpThreshold = 80,
+    speedUpMultiplier = 2.0,
+    minCharsPerUpdate = 1,
+    maxCharsPerUpdate = 15,
   } = options;
 
   // State
@@ -83,17 +89,33 @@ export function useSmoothStreaming(
 
       // Speed up reasonably when buffer grows
       if (bufferSize > bufferSpeedUpThreshold) {
-        const speedFactor = Math.min(speedUpMultiplier, 1 + bufferSize / 20);
+        const speedFactor = Math.min(speedUpMultiplier, 1 + bufferSize / 40);
         targetRate = targetRate * speedFactor;
       }
 
       // Cap at reasonable streaming speeds
-      targetRate = Math.min(targetRate, 400);
+      targetRate = Math.min(targetRate, 300);
       setCurrentRate(targetRate);
 
-      // Try to keep up with stream while still having the 'smooth' effect
-      const charsPerUpdate =
-        bufferSize < 20 ? 2 : bufferSize < 50 ? 3 : Math.floor(bufferSize / 3);
+      // Better handling for larger chunks - scale characters per update based on buffer size
+      let charsPerUpdate: number;
+      if (bufferSize < 10) {
+        charsPerUpdate = minCharsPerUpdate;
+      } else if (bufferSize < 50) {
+        charsPerUpdate = Math.min(3, maxCharsPerUpdate);
+      } else if (bufferSize < 150) {
+        // For medium buffers, use moderate chunk sizes
+        charsPerUpdate = Math.min(
+          Math.max(Math.floor(bufferSize / 25), 4),
+          maxCharsPerUpdate,
+        );
+      } else {
+        // For large buffers (sentences), use larger chunks but cap them
+        charsPerUpdate = Math.min(
+          Math.max(Math.floor(bufferSize / 20), 8),
+          maxCharsPerUpdate,
+        );
+      }
 
       const idealInterval = (1000 / targetRate) * charsPerUpdate;
       const interval = Math.max(
@@ -110,6 +132,8 @@ export function useSmoothStreaming(
       speedUpMultiplier,
       minUpdateDelay,
       maxUpdateDelay,
+      minCharsPerUpdate,
+      maxCharsPerUpdate,
     ],
   );
 
@@ -177,8 +201,8 @@ export function useSmoothStreaming(
       // If previous stream length was empty and newLength is big,
       // we might be switching to an ongoing stream. Skip ahead to the
       // current position instead of animating all of the characters so far.
-      if (prevLength === 0 && newLength > 100) {
-        positionRef.current = bufferRef.current.length - 2;
+      if (prevLength === 0 && newLength > 200) {
+        positionRef.current = Math.max(0, bufferRef.current.length - 50);
       }
 
       // Start or resume streaming

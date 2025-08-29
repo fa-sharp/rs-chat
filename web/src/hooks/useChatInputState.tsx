@@ -27,7 +27,7 @@ export const useChatInputState = ({
   sessionId?: string;
   providers?: components["schemas"]["ChatRsProvider"][];
   initialProviderId?: number | null;
-  initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+  initialOptions?: components["schemas"]["LlmProviderOptions"] | null;
   initialTools?: components["schemas"]["SendChatToolInput"] | null;
   isGenerating: boolean;
   canGetAgenticResponse: boolean;
@@ -137,7 +137,7 @@ export const useChatInputState = ({
     onSubmit({
       message: inputRef.current?.value,
       provider_id: providerId,
-      provider_options: {
+      options: {
         model: modelId,
         temperature,
         max_tokens: maxTokens,
@@ -162,7 +162,7 @@ export const useChatInputState = ({
     }
     onSubmit({
       provider_id: providerId,
-      provider_options: {
+      options: {
         model: modelId,
         temperature,
         max_tokens: maxTokens,
@@ -183,6 +183,7 @@ export const useChatInputState = ({
     () => ({
       providerId,
       modelId,
+      sessionId,
       toolInput,
       maxTokens,
       temperature,
@@ -202,6 +203,7 @@ export const useChatInputState = ({
     [
       providerId,
       modelId,
+      sessionId,
       toolInput,
       maxTokens,
       temperature,

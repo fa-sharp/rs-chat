@@ -16,14 +16,14 @@ import {
 } from "@/components/ui/collapsible";
 import useSmoothStreaming from "@/hooks/useSmoothStreaming";
 import type { components } from "@/lib/api/types";
-import type { StreamedToolExecution } from "@/lib/context/StreamingContext";
+import type { StreamingToolExecution } from "@/lib/context";
 import { getToolFromToolCall } from "@/lib/tools";
 import { cn, escapeBackticks } from "@/lib/utils";
 import { useAutoScroll } from "../ui/chat/hooks/useAutoScroll";
 import ChatMessageToolLogs from "./messages/ChatMessageToolLogs";
 
 interface Props {
-  streamedTools: Record<string, StreamedToolExecution | undefined>;
+  streamedTools: Record<string, StreamingToolExecution | undefined>;
   toolCalls?: components["schemas"]["ChatRsToolCall"][];
   tools?: components["schemas"]["GetAllToolsResponse"];
   sessionId: string;
@@ -73,7 +73,7 @@ function StreamingToolCall({
   onCancel,
 }: {
   toolCall: components["schemas"]["ChatRsToolCall"];
-  streamedTool: StreamedToolExecution;
+  streamedTool: StreamingToolExecution;
   tools?: components["schemas"]["GetAllToolsResponse"];
   onCancel: () => void;
 }) {

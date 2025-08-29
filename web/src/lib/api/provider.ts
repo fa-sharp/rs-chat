@@ -8,6 +8,7 @@ const queryKey = ["providerKeys"];
 export const useProviders = () =>
   useQuery({
     queryKey,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     queryFn: async () => {
       const response = await client.GET("/provider/");
       if (response.error) {
@@ -21,6 +22,7 @@ export const useProviderModels = (providerId?: number | null) =>
   useQuery({
     enabled: !!providerId,
     queryKey: ["providerModels", { providerId }],
+    staleTime: Infinity,
     queryFn: async () => {
       if (!providerId) return [];
       const response = await client.GET("/provider/{provider_id}/models", {

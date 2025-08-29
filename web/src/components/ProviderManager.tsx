@@ -1,5 +1,5 @@
 import { Bot, Plus, Trash2 } from "lucide-react";
-import { type FormEventHandler, useState } from "react";
+import { type FormEventHandler, useId, useState } from "react";
 
 import {
   AlertDialog,
@@ -39,13 +39,14 @@ import {
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
-type AIProvider = "anthropic" | "openai" | "openrouter" | "lorem";
+type AIProvider = "anthropic" | "openai" | "openrouter" | "ollama" | "lorem";
 
 interface ProviderInfo {
   name: string;
   description: string;
   apiType: components["schemas"]["ChatRsProvider"]["provider_type"];
   baseUrl?: string;
+  customBaseUrl?: boolean;
   keyFormat?: string;
   color: string;
   defaultModel: string;
@@ -79,6 +80,16 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     color: "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700",
     defaultModel: "openai/gpt-4o-mini",
   },
+  ollama: {
+    name: "Ollama",
+    description: "Run LLMs locally with Ollama",
+    apiType: "ollama",
+    baseUrl: "http://localhost:11434",
+    customBaseUrl: true,
+    color:
+      "bg-indigo-100 dark:bg-indigo-900 border-indigo-300 dark:border-indigo-700",
+    defaultModel: "llama3.2",
+  },
   lorem: {
     name: "Lorem Ipsum",
     description: "Generate placeholder text for testing",
@@ -103,14 +114,22 @@ export function ProviderManager({
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(
     null,
   );
+
   const [name, setName] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
+  const [newBaseUrl, setNewBaseUrl] = useState("");
+
+  const nameId = useId();
+  const apiKeyId = useId();
+  const baseUrlId = useId();
 
   const handleCreateKey: FormEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
     if (
       !selectedProvider ||
-      (PROVIDERS[selectedProvider].apiType !== "lorem" && !newApiKey.trim())
+      (PROVIDERS[selectedProvider].apiType !== "lorem" &&
+        PROVIDERS[selectedProvider].apiType !== "ollama" &&
+        !newApiKey.trim())
     )
       return;
 
@@ -118,7 +137,7 @@ export function ProviderManager({
       {
         name,
         type: PROVIDERS[selectedProvider].apiType,
-        base_url: PROVIDERS[selectedProvider].baseUrl,
+        base_url: newBaseUrl || PROVIDERS[selectedProvider].baseUrl,
         default_model: PROVIDERS[selectedProvider].defaultModel,
         api_key: newApiKey || null,
       },
@@ -127,6 +146,7 @@ export function ProviderManager({
           setSelectedProvider(null);
           setIsCreateDialogOpen(false);
           setNewApiKey("");
+          setNewBaseUrl("");
           setName("");
         },
       },
@@ -204,19 +224,21 @@ export function ProviderManager({
                               {PROVIDERS[provider].description}
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {PROVIDERS[provider].keyFormat}
-                          </div>
+                          {PROVIDERS[provider].keyFormat && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {PROVIDERS[provider].keyFormat}
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Name</Label>
+                  <Label htmlFor={nameId}>Name</Label>
                   <Input
                     required
-                    id="name"
+                    id={nameId}
                     type="text"
                     placeholder={
                       selectedProvider ? PROVIDERS[selectedProvider].name : ""
@@ -227,10 +249,10 @@ export function ProviderManager({
                 </div>
                 {selectedProvider && PROVIDERS[selectedProvider].keyFormat && (
                   <div className="grid gap-2">
-                    <Label htmlFor="api-key">API Key</Label>
+                    <Label htmlFor={apiKeyId}>API Key</Label>
                     <Input
                       required
-                      id="api-key"
+                      id={apiKeyId}
                       type="password"
                       placeholder={`Enter your ${PROVIDERS[selectedProvider].name} API key`}
                       value={newApiKey}
@@ -238,6 +260,19 @@ export function ProviderManager({
                     />
                   </div>
                 )}
+                {selectedProvider &&
+                  PROVIDERS[selectedProvider].customBaseUrl && (
+                    <div className="grid gap-2">
+                      <Label htmlFor={baseUrlId}>Base URL</Label>
+                      <Input
+                        id={baseUrlId}
+                        type="text"
+                        placeholder={`Enter your ${PROVIDERS[selectedProvider].name} base URL`}
+                        value={newBaseUrl}
+                        onChange={(e) => setNewBaseUrl(e.target.value)}
+                      />
+                    </div>
+                  )}
               </div>
               <DialogFooter>
                 <Button

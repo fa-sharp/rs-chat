@@ -51,6 +51,7 @@ pub struct UpdateChatRsProvider<'a> {
 pub enum ChatRsProviderType {
     Anthropic,
     Openai,
+    Ollama,
     Lorem,
 }
 
@@ -61,6 +62,7 @@ impl TryFrom<&str> for ChatRsProviderType {
         match value {
             "anthropic" => Ok(ChatRsProviderType::Anthropic),
             "openai" => Ok(ChatRsProviderType::Openai),
+            "ollama" => Ok(ChatRsProviderType::Ollama),
             "lorem" => Ok(ChatRsProviderType::Lorem),
             _ => Err(LlmError::UnsupportedProvider),
         }
@@ -72,6 +74,7 @@ impl From<&ChatRsProviderType> for &str {
         match value {
             ChatRsProviderType::Anthropic => "anthropic",
             ChatRsProviderType::Openai => "openai",
+            ChatRsProviderType::Ollama => "ollama",
             ChatRsProviderType::Lorem => "lorem",
         }
     }

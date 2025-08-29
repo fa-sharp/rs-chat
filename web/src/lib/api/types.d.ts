@@ -21,6 +21,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/info/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get info
+         * @description Get information about the server
+         */
+        get: operations["get_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/user": {
         parameters: {
             query?: never;
@@ -237,6 +257,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat/streams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get chat streams
+         * @description Get the ongoing chat response streams
+         */
+        get: operations["get_chat_streams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/chat/{session_id}": {
         parameters: {
             query?: never;
@@ -246,8 +286,51 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Send a chat message and stream the response */
+        /**
+         * Start chat stream
+         * @description Send a chat message and start the streamed assistant response. After the response has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
+         */
         post: operations["send_chat_stream"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/{session_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connect to chat stream
+         * @description Connect to an ongoing chat stream and stream the assistant response
+         */
+        get: operations["connect_to_chat_stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/chat/{session_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel chat stream
+         * @description Cancel an ongoing chat stream
+         */
+        post: operations["cancel_chat_stream"];
         delete?: never;
         options?: never;
         head?: never;
@@ -397,6 +480,36 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        InfoResponse: {
+            version: string;
+            url: string;
+            redis: components["schemas"]["RedisStats"];
+        };
+        RedisStats: {
+            /**
+             * Format: uint
+             * @description Number of static connections
+             */
+            static: number;
+            /**
+             * Format: uint
+             * @description Number of current streaming connections
+             */
+            streaming: number;
+            /**
+             * Format: uint
+             * @description Number of available streaming connections
+             */
+            streaming_available: number;
+            /**
+             * Format: uint
+             * @description Maximum number of streaming connections
+             */
+            streaming_max: number;
+        };
+        Message: {
+            message: string;
+        };
         ChatRsUser: {
             /** Format: uuid */
             id: string;
@@ -411,9 +524,6 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
-        };
-        Message: {
-            message: string;
         };
         /** @description The current auth configuration of the server */
         AuthConfig: {
@@ -462,7 +572,7 @@ export interface components {
          * @description The API type of the provider
          * @enum {string}
          */
-        ChatRsProviderType: "anthropic" | "openai" | "lorem";
+        ChatRsProviderType: "anthropic" | "openai" | "ollama" | "lorem";
         /** @description A model supported by the LLM provider */
         LlmModel: {
             id: string;
@@ -593,16 +703,18 @@ export interface components {
              */
             provider_id: number;
             /** @description Options passed to the LLM provider */
-            provider_options?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+            provider_options?: components["schemas"]["LlmProviderOptions"] | null;
             /** @description The tool calls requested by the assistant */
             tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
             /** @description Provider usage information */
             usage?: components["schemas"]["LlmUsage"] | null;
+            /** @description Errors encountered during message generation */
+            errors?: string[] | null;
             /** @description Whether this is a partial and/or interrupted message */
             partial?: boolean | null;
         };
         /** @description Shared configuration for LLM provider requests */
-        LlmApiProviderSharedOptions: {
+        LlmProviderOptions: {
             model: string;
             /** Format: float */
             temperature?: number | null;
@@ -654,6 +766,11 @@ export interface components {
              */
             tool_id: string;
             /**
+             * @description Name of the tool used
+             * @default
+             */
+            tool_name: string;
+            /**
              * @description Type of the tool used
              * @default system
              */
@@ -691,6 +808,13 @@ export interface components {
         UpdateSessionInput: {
             title: string;
         };
+        GetChatStreamsResponse: {
+            sessions: string[];
+        };
+        SendChatResponse: {
+            message: string;
+            url: string;
+        };
         SendChatInput: {
             /** @description The new chat message from the user */
             message?: string | null;
@@ -699,8 +823,8 @@ export interface components {
              * @description The ID of the provider to chat with
              */
             provider_id: number;
-            /** @description Provider options */
-            provider_options: components["schemas"]["LlmApiProviderSharedOptions"];
+            /** @description Configuration for the provider */
+            options: components["schemas"]["LlmProviderOptions"];
             /** @description Configuration of tools available to the assistant */
             tools?: components["schemas"]["SendChatToolInput"] | null;
         };
@@ -931,6 +1055,70 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+        };
+    };
+    get_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InfoResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
                 };
             };
         };
@@ -1945,6 +2133,70 @@ export interface operations {
             };
         };
     };
+    get_chat_streams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetChatStreamsResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
     send_chat_stream: {
         parameters: {
             query?: never;
@@ -1965,8 +2217,138 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["SendChatResponse"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    connect_to_chat_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "text/event-stream": number[];
                 };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    cancel_chat_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Bad request */
             400: {

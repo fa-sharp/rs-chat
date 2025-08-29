@@ -4,7 +4,7 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
 import { Button } from "@/components/ui/button";
 import type { components } from "@/lib/api/types";
-import { useStreamingTools } from "@/lib/context/StreamingContext";
+import { useStreamingTools } from "@/lib/context";
 import { getToolFromToolCall } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 

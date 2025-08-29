@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     db::models::{ChatRsExecutedToolCall, ChatRsToolCall, ChatRsUser},
-    provider::{LlmApiProviderSharedOptions, LlmUsage},
+    provider::{LlmProviderOptions, LlmUsage},
     tools::SendChatToolInput,
 };
 
@@ -32,6 +32,11 @@ pub struct ChatRsSessionMeta {
     /// User configuration of tools for this session
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_config: Option<SendChatToolInput>,
+}
+impl ChatRsSessionMeta {
+    pub fn new(tool_config: Option<SendChatToolInput>) -> Self {
+        Self { tool_config }
+    }
 }
 
 #[derive(Insertable)]
@@ -79,6 +84,14 @@ pub struct ChatRsMessageMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call: Option<ChatRsExecutedToolCall>,
 }
+impl ChatRsMessageMeta {
+    pub fn new_assistant(assistant: AssistantMeta) -> Self {
+        Self {
+            assistant: Some(assistant),
+            tool_call: None,
+        }
+    }
+}
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize)]
 pub struct AssistantMeta {
@@ -86,13 +99,16 @@ pub struct AssistantMeta {
     pub provider_id: i32,
     /// Options passed to the LLM provider
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_options: Option<LlmApiProviderSharedOptions>,
+    pub provider_options: Option<LlmProviderOptions>,
     /// The tool calls requested by the assistant
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
     /// Provider usage information
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<LlmUsage>,
+    /// Errors encountered during message generation
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub errors: Option<Vec<String>>,
     /// Whether this is a partial and/or interrupted message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
