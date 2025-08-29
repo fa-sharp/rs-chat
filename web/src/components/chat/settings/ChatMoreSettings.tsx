@@ -73,7 +73,7 @@ export default function ChatMoreSettings({
                   (temperature) => (
                     <SelectItem
                       key={temperature}
-                      value={temperature.toString()}
+                      value={temperature.toFixed(1)}
                     >
                       {temperature.toFixed(1)}
                     </SelectItem>
