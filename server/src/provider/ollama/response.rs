@@ -153,3 +153,34 @@ impl From<&OllamaStreamResponse> for Option<LlmUsage> {
         }
     }
 }
+
+/// Ollama models list response
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelsResponse {
+    pub models: Vec<OllamaModelInfo>,
+}
+
+/// Ollama model information
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelInfo {
+    pub name: String,
+    // pub model: String,
+    pub modified_at: String,
+    // pub size: u64,
+    // pub digest: String,
+    pub details: OllamaModelDetails,
+}
+
+/// Ollama model details
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelDetails {
+    // #[serde(default)]
+    // pub parent_model: String,
+    pub format: String,
+    pub family: String,
+    // #[serde(default)]
+    // pub families: Vec<String>,
+    // pub parameter_size: String,
+    // #[serde(default)]
+    // pub quantization_level: Option<String>,
+}

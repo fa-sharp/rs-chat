@@ -13,7 +13,9 @@ use crate::{
                 build_ollama_messages, build_ollama_tools, OllamaChatRequest,
                 OllamaCompletionRequest, OllamaOptions,
             },
-            response::{parse_ollama_event, OllamaCompletionResponse, OllamaToolCall},
+            response::{
+                parse_ollama_event, OllamaCompletionResponse, OllamaModelsResponse, OllamaToolCall,
+            },
         },
         utils::get_sse_events,
         LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
@@ -22,6 +24,8 @@ use crate::{
 };
 
 const CHAT_API_URL: &str = "/api/chat";
+const COMPLETION_API_URL: &str = "/api/generate";
+const MODELS_API_URL: &str = "/api/tags";
 
 /// Ollama chat provider
 #[derive(Debug, Clone)]
@@ -124,7 +128,7 @@ impl LlmApiProvider for OllamaProvider {
         };
         let response = self
             .client
-            .post(format!("{}{}", self.base_url, CHAT_API_URL))
+            .post(format!("{}{}", self.base_url, COMPLETION_API_URL))
             .header("content-type", "application/json")
             .json(&request)
             .send()
@@ -154,9 +158,39 @@ impl LlmApiProvider for OllamaProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
-        // For now, return an empty list since Ollama doesn't appear in models.dev
-        // In a real implementation, you might call Ollama's /api/tags endpoint
-        // or maintain a static list of supported models
-        Ok(Vec::new())
+        let response = self
+            .client
+            .get(format!("{}{}", self.base_url, MODELS_API_URL))
+            .send()
+            .await
+            .map_err(|e| LlmError::ProviderError(format!("Ollama models request failed: {}", e)))?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(LlmError::ProviderError(format!(
+                "Ollama models API error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let models_response: OllamaModelsResponse = response.json().await.map_err(|e| {
+            LlmError::ProviderError(format!("Failed to parse models response: {}", e))
+        })?;
+        let models = models_response
+            .models
+            .into_iter()
+            .map(|model| LlmModel {
+                id: model.name.clone(),
+                name: model.name,
+                temperature: Some(true),
+                tool_call: Some(true),
+                modified_at: Some(model.modified_at),
+                format: Some(model.details.format),
+                family: Some(model.details.family),
+                ..Default::default()
+            })
+            .collect();
+
+        Ok(models)
     }
 }
