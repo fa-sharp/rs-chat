@@ -27,7 +27,7 @@ export const useChatInputState = ({
   sessionId?: string;
   providers?: components["schemas"]["ChatRsProvider"][];
   initialProviderId?: number | null;
-  initialOptions?: components["schemas"]["LlmApiProviderSharedOptions"] | null;
+  initialOptions?: components["schemas"]["LlmProviderOptions"] | null;
   initialTools?: components["schemas"]["SendChatToolInput"] | null;
   isGenerating: boolean;
   canGetAgenticResponse: boolean;
