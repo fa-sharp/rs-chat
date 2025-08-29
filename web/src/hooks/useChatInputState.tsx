@@ -183,6 +183,7 @@ export const useChatInputState = ({
     () => ({
       providerId,
       modelId,
+      sessionId,
       toolInput,
       maxTokens,
       temperature,
@@ -202,6 +203,7 @@ export const useChatInputState = ({
     [
       providerId,
       modelId,
+      sessionId,
       toolInput,
       maxTokens,
       temperature,

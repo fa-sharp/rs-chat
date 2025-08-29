@@ -48,7 +48,6 @@ export function useStreamManagerData() {
             updatedData?.messages?.some(
               (msg) =>
                 msg.role === "Assistant" &&
-                !msg.meta.assistant?.partial &&
                 new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
             ) || false;
 

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { EventSourceParserStream } from "eventsource-parser/stream";
 
 import { client } from "./client";
@@ -65,6 +65,7 @@ export async function createChatStream(
             onToolCall(value.data);
             break;
           case "start":
+          case "pending_tool_call":
           case "ping":
             break;
           case "end":
@@ -83,3 +84,16 @@ export async function createChatStream(
     },
   };
 }
+
+export const useCancelChatStream = (sessionId?: string) =>
+  useMutation({
+    mutationFn: async () => {
+      if (!sessionId) return;
+      const res = await client.POST("/chat/{session_id}/cancel", {
+        params: { path: { session_id: sessionId } },
+      });
+      if (res.error) {
+        throw new Error(res.error.message);
+      }
+    },
+  });

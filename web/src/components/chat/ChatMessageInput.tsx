@@ -1,4 +1,4 @@
-import { CornerDownLeft } from "lucide-react";
+import { CornerDownLeft, X } from "lucide-react";
 import {
   type FormEventHandler,
   memo,
@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import type { useChatInputState } from "@/hooks/useChatInputState";
+import { useCancelChatStream } from "@/lib/api/chat";
 import { useProviders } from "@/lib/api/provider";
 import { useTools } from "@/lib/api/tool";
 import {
@@ -31,6 +32,7 @@ export default memo(function ChatMessageInput({
   const {
     providerId,
     modelId,
+    sessionId,
     toolInput,
     maxTokens,
     temperature,
@@ -78,6 +80,12 @@ export default memo(function ChatMessageInput({
     },
     [onSubmitUserMessage],
   );
+
+  const { mutate: onCancel, isPending: isCancelling } =
+    useCancelChatStream(sessionId);
+  const handleCancel = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
 
   return (
     <form
@@ -141,6 +149,19 @@ export default memo(function ChatMessageInput({
               onClick={onSubmitWithoutUserMessage}
             >
               Get Agent Response
+            </Button>
+          )}
+          {isGenerating && (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={handleCancel}
+              loading={isCancelling}
+              disabled={isCancelling}
+            >
+              {!isCancelling && <X className="size-4" />}
+              Stop
             </Button>
           )}
           <Button
