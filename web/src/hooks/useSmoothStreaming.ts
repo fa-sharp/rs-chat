@@ -35,7 +35,7 @@ export function useSmoothStreaming(
     baseCharsPerSecond = 50,
     minUpdateDelay = 8,
     maxUpdateDelay = 80,
-    bufferSpeedUpThreshold = 20,
+    bufferSpeedUpThreshold = 80,
     speedUpMultiplier = 3.0,
   } = options;
 
