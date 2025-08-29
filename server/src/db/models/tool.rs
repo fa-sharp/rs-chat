@@ -77,6 +77,9 @@ pub struct ChatRsExecutedToolCall {
     pub id: String,
     /// ID of the tool used
     pub tool_id: Uuid,
+    /// Name of the tool used
+    #[serde(default)]
+    pub tool_name: String,
     /// Type of the tool used
     #[serde(default)]
     pub tool_type: LlmToolType,

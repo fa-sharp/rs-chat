@@ -2,6 +2,7 @@
 
 pub mod anthropic;
 pub mod lorem;
+pub mod ollama;
 pub mod openai;
 mod utils;
 
@@ -14,7 +15,10 @@ use uuid::Uuid;
 
 use crate::{
     db::models::{ChatRsMessage, ChatRsProviderType, ChatRsToolCall},
-    provider::{anthropic::AnthropicProvider, lorem::LoremProvider, openai::OpenAIProvider},
+    provider::{
+        anthropic::AnthropicProvider, lorem::LoremProvider, ollama::OllamaProvider,
+        openai::OpenAIProvider,
+    },
     provider_models::LlmModel,
 };
 
@@ -163,6 +167,10 @@ pub fn build_llm_provider_api(
             http_client,
             redis,
             api_key.ok_or(LlmError::MissingApiKey)?,
+        ))),
+        ChatRsProviderType::Ollama => Ok(Box::new(OllamaProvider::new(
+            http_client,
+            base_url.unwrap_or("http://localhost:11434"),
         ))),
         ChatRsProviderType::Lorem => Ok(Box::new(LoremProvider::new())),
     }

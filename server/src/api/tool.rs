@@ -256,6 +256,7 @@ async fn execute_tool(
                     tool_call: Some(ChatRsExecutedToolCall {
                         id: tool_call.id,
                         tool_id: tool_call.tool_id,
+                        tool_name: tool_call.tool_name,
                         tool_type: tool_call.tool_type,
                         response_format: format,
                         is_error,
