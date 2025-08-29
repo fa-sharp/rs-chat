@@ -36,7 +36,6 @@ The core component that processes LLM provider streams and manages Redis stream 
 **Key Features:**
 - **Batching**: Accumulates chunks from the provider stream, up to a max length or timeout
 - **Background Pings**: Sends regular keepalive pings
-- **Timeout Detection**: 20-second timeout for idle LLM streams
 - **Database Integration**: Saves final responses to PostgreSQL
 
 #### 2. Redis and SSE Stream Structure

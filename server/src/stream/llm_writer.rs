@@ -134,9 +134,15 @@ impl LlmStreamWriter {
                     LlmStreamChunk::Usage(usage) => self.process_usage(usage),
                 },
                 Ok(Some(Err(err))) => self.process_error(err),
-                Ok(None) => break,
+                Ok(None) => {
+                    // stream ended
+                    self.flush_chunk().await.ok();
+                    break;
+                }
                 Err(_) => {
+                    // timed out waiting for provider response
                     self.process_error(LlmStreamError::StreamTimeout);
+                    self.flush_chunk().await.ok();
                     break;
                 }
             }
