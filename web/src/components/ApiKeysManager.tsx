@@ -1,5 +1,5 @@
 import { Bot, Check, Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import {
   AlertDialog,
@@ -80,6 +80,9 @@ export function ApiKeysManager({
     });
   };
 
+  const nameId = useId();
+  const valueId = useId();
+
   return (
     <div
       className={cn("flex flex-col gap-6 max-w-4xl mx-auto", className)}
@@ -125,10 +128,10 @@ export function ApiKeysManager({
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="api-key">Name</Label>
+                  <Label htmlFor={nameId}>Name</Label>
                   <Input
                     autoFocus
-                    id="api-key-name"
+                    id={nameId}
                     type="text"
                     placeholder="My API Key"
                     value={newApiKeyName}
@@ -143,12 +146,12 @@ export function ApiKeysManager({
                 </div>
                 {newApiKeyValue && (
                   <div className="grid gap-2">
-                    <Label htmlFor="api-key">
+                    <Label htmlFor={valueId}>
                       Key (copy and save this - won't be shown again!)
                     </Label>
                     <div className="flex gap-2">
                       <Input
-                        id="api-key-value"
+                        id={valueId}
                         type="text"
                         readOnly
                         value={newApiKeyValue}

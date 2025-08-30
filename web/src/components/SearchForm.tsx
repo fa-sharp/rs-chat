@@ -1,4 +1,5 @@
 import { Search } from "lucide-react";
+import { useId } from "react";
 
 import { Label } from "@/components/ui/label";
 import {
@@ -8,15 +9,17 @@ import {
 } from "@/components/ui/sidebar";
 
 export function SearchForm({ ...props }: React.ComponentProps<"form">) {
+  const searchId = useId();
+
   return (
     <form {...props}>
       <SidebarGroup className="py-0">
         <SidebarGroupContent className="relative">
-          <Label htmlFor="search" className="sr-only">
+          <Label htmlFor={searchId} className="sr-only">
             Search
           </Label>
           <SidebarInput
-            id="search"
+            id={searchId}
             placeholder="Search chats..."
             className="pl-8"
           />
