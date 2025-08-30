@@ -16,8 +16,7 @@ use crate::{
         DbConnection,
     },
     errors::ApiError,
-    provider::build_llm_provider_api,
-    provider_models::LlmModel,
+    provider::{build_llm_provider_api, models::LlmModel},
     redis::RedisClient,
     utils::Encryptor,
 };

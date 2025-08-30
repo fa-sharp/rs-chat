@@ -16,6 +16,8 @@ pub struct AppConfig {
     pub server_address: String,
     /// Static files directory (default: "../web/dist")
     pub static_path: Option<String>,
+    /// Local data directory (default: "/data")
+    pub data_dir: Option<String>,
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL

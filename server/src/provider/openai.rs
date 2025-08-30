@@ -8,10 +8,10 @@ use rocket::{async_stream, async_trait, futures::StreamExt};
 use crate::{
     db::models::ChatRsMessage,
     provider::{
-        utils::get_sse_events, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream,
-        LlmStreamChunk, LlmTool, LlmUsage,
+        models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
+        utils::get_sse_events,
+        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
     },
-    provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
 };
 
 use {

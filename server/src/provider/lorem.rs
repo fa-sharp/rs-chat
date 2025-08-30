@@ -10,10 +10,9 @@ use tokio::time::{interval, Interval};
 use crate::{
     db::models::ChatRsMessage,
     provider::{
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk,
+        models::LlmModel, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk,
         LlmStreamChunkResult, LlmStreamError, LlmTool,
     },
-    provider_models::LlmModel,
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...' and emits test errors during the stream

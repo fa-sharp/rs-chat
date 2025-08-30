@@ -1,4 +1,5 @@
 mod code_runner;
+mod files;
 mod system_info;
 
 use diesel_as_jsonb::AsJsonb;

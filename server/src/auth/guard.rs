@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// User ID request guard to ensure a logged-in user.
-pub struct ChatRsUserId(pub Uuid);
+pub struct ChatRsUserId(pub(super) Uuid);
 
 impl Deref for ChatRsUserId {
     type Target = Uuid;

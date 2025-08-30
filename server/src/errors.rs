@@ -24,6 +24,8 @@ pub enum ApiError {
     Chat(#[from] LlmError),
     #[error(transparent)]
     Tool(#[from] ToolError),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize)]
@@ -74,6 +76,10 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
             }
             ApiError::Tool(error) => {
                 ApiErrorResponse::BadRequest(Json(Message::new(&format!("Tool error: {}", error))))
+                    .respond_to(req)
+            }
+            ApiError::Io(error) => {
+                ApiErrorResponse::BadRequest(Json(Message::new(&format!("IO error: {}", error))))
                     .respond_to(req)
             }
             _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),

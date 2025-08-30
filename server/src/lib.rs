@@ -4,8 +4,8 @@ pub mod config;
 pub mod db;
 pub mod errors;
 pub mod provider;
-pub mod provider_models;
 pub mod redis;
+pub mod storage;
 pub mod stream;
 pub mod tools;
 pub mod utils;
@@ -47,6 +47,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
         "/tool" => api::tool_routes(&openapi_settings),
+        "/storage" => api::storage_routes(&openapi_settings),
         "/secret" => api::secret_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };

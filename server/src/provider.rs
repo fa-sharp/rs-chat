@@ -2,6 +2,7 @@
 
 pub mod anthropic;
 pub mod lorem;
+pub mod models;
 pub mod ollama;
 pub mod openai;
 mod utils;
@@ -16,10 +17,9 @@ use uuid::Uuid;
 use crate::{
     db::models::{ChatRsMessage, ChatRsProviderType, ChatRsToolCall},
     provider::{
-        anthropic::AnthropicProvider, lorem::LoremProvider, ollama::OllamaProvider,
-        openai::OpenAIProvider,
+        anthropic::AnthropicProvider, lorem::LoremProvider, models::LlmModel,
+        ollama::OllamaProvider, openai::OpenAIProvider,
     },
-    provider_models::LlmModel,
 };
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
