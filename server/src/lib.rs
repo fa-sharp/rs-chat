@@ -20,6 +20,7 @@ use crate::{
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    storage::setup_storage,
     utils::setup_encryption,
     web::setup_static_files,
 };
@@ -32,6 +33,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_encryption())
         .attach(setup_auth("/api/auth"))
+        .attach(setup_storage())
         .attach(setup_static_files())
         .manage(reqwest::Client::new())
         .register("/", get_catchers())

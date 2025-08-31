@@ -7,7 +7,6 @@ use rocket_okapi::{
 
 use crate::{
     auth::ChatRsUserId,
-    config::AppConfig,
     errors::ApiError,
     storage::{FileData, LocalStorage},
 };
@@ -16,23 +15,16 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
     openapi_get_routes_spec![settings: upload_file, download_file]
 }
 
-const DEFAULT_DATA_DIR: &str = "/data";
-fn get_storage_path(app_config: &AppConfig) -> PathBuf {
-    let data_dir = app_config.data_dir.as_deref().unwrap_or(DEFAULT_DATA_DIR);
-    PathBuf::from(data_dir).join("storage")
-}
-
 /// Upload a new file
 #[openapi(tag = "Files")]
 #[post("/?<path>", data = "<file>")]
 async fn upload_file(
     user_id: ChatRsUserId,
-    app_config: &State<AppConfig>,
+    storage: &State<LocalStorage>,
     path: &str,
     // mut db: DbConnection,
     file: FileData<'_>,
 ) -> Result<(), ApiError> {
-    let storage = LocalStorage::new(get_storage_path(app_config));
     let path = Path::new(path);
 
     let new_file = storage
@@ -48,10 +40,9 @@ async fn upload_file(
 #[get("/<path>")]
 async fn download_file(
     user_id: ChatRsUserId,
-    app_config: &State<AppConfig>,
+    storage: &State<LocalStorage>,
     path: PathBuf,
 ) -> Result<NamedFile, ApiError> {
-    let storage = LocalStorage::new(get_storage_path(app_config));
     let file_path = storage.get_file_path(&user_id, None, &path)?;
     let file = NamedFile::open(file_path).await?;
 
