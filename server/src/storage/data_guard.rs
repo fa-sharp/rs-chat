@@ -7,22 +7,16 @@ use rocket::{
 };
 use rocket_okapi::request::OpenApiFromData;
 
+use crate::db::models::ChatRsFileType;
+
 const MAX_FILE_SIZE: usize = 4 * 1024 * 1024; // 4 MB
 
 /// Data guard for file uploads
 pub struct FileData<'r> {
     pub data: rocket::data::DataStream<'r>,
     pub content_type: &'r ContentType,
-    pub file_type: FileType,
+    pub file_type: ChatRsFileType,
     pub content_length: usize,
-}
-
-/// File modality
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum FileType {
-    Text,
-    Image,
-    Pdf,
 }
 
 #[async_trait]
@@ -54,11 +48,11 @@ impl<'r> FromData<'r> for FileData<'r> {
                 || content_type.is_webp()
                 || content_type.is_bmp()
             {
-                FileType::Image
+                ChatRsFileType::Image
             } else if content_type.is_pdf() {
-                FileType::Pdf
+                ChatRsFileType::Pdf
             } else {
-                FileType::Text
+                ChatRsFileType::Text
             }
         };
 

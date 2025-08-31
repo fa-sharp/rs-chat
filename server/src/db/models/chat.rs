@@ -1,8 +1,5 @@
 use chrono::{DateTime, Utc};
-use diesel::{
-    prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
-    Selectable,
-};
+use diesel::prelude::*;
 use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

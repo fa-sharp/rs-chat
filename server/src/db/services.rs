@@ -1,5 +1,6 @@
 mod api_key;
 mod chat;
+mod file;
 mod provider;
 mod secret;
 mod tool;
@@ -7,6 +8,7 @@ mod user;
 
 pub use api_key::ApiKeyDbService;
 pub use chat::ChatDbService;
+pub use file::FileDbService;
 pub use provider::ProviderDbService;
 pub use secret::SecretDbService;
 pub use tool::ToolDbService;
