@@ -34,8 +34,9 @@ export const useUploadFile = () => {
   });
 };
 
-export const useSessionFiles = (sessionId: string) =>
+export const useSessionFiles = (sessionId: string, enabled?: boolean) =>
   useQuery({
+    enabled,
     queryKey: ["files", { sessionId }],
     queryFn: async () => {
       const res = await client.GET("/storage/{session_id}", {

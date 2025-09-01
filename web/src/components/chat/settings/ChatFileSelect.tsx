@@ -50,7 +50,7 @@ export default function ChatFileSelect({
   onRemoveAllFiles,
 }: FileSelectionDialogProps) {
   const [open, setOpen] = useState(false);
-  const { data: files, isLoading } = useSessionFiles(sessionId);
+  const { data: files, isLoading } = useSessionFiles(sessionId, open);
 
   const fileList = useMemo(() => files || [], [files]);
 
