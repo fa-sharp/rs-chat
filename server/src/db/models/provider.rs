@@ -14,7 +14,7 @@ pub struct ChatRsProvider {
     pub name: String,
     #[schemars(with = "ChatRsProviderType")]
     pub provider_type: String,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub user_id: Uuid,
     pub default_model: String,
     pub base_url: Option<String>,

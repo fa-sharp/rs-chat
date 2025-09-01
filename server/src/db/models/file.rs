@@ -10,9 +10,9 @@ use crate::db::models::ChatRsUser;
 #[diesel(table_name = super::schema::files)]
 pub struct ChatRsFile {
     pub id: Uuid,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub user_id: Uuid,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub session_id: Option<Uuid>,
     pub path: String,
     #[schemars(with = "ChatRsFileType")]
@@ -20,7 +20,7 @@ pub struct ChatRsFile {
     pub content_type: String,
     pub size: i32,
     pub created_at: DateTime<Utc>,
-    #[serde(skip_serializing)]
+    #[serde(skip)]
     pub updated_at: DateTime<Utc>,
 }
 

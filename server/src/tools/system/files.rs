@@ -58,8 +58,10 @@ enum StorageType {
 #[derive(Debug, Default, PartialEq, JsonSchema, Serialize, Deserialize)]
 pub struct FilesInput {
     /// Whether assistant has permission to read files
+    #[serde(default)]
     read: bool,
     /// Whether assistant has permission to write files
+    #[serde(default)]
     write: bool,
 }
 
