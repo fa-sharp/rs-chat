@@ -40,14 +40,6 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
     type Error = &'r str;
 
     async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
-        // Try authentication via proxy headers if configured
-        if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
-            if let Some(proxy_user) = get_sso_user_from_headers(config, req.headers()) {
-                let mut db = try_outcome!(req.guard::<DbConnection>().await);
-                return get_sso_auth_outcome(&proxy_user, config, &mut db).await;
-            }
-        };
-
         // Try authentication via API key
         if let Some(auth_header) = req.headers().get_one("Authorization") {
             let encryptor = req.rocket().state::<Encryptor>().expect("should exist");
@@ -57,10 +49,21 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
 
         // Try authentication via session
         let session = try_outcome!(req.guard::<Session<ChatRsAuthSession>>().await);
-        match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
-            Some(user_id) => Outcome::Success(ChatRsUserId(user_id)),
-            None => Outcome::Error((Status::Unauthorized, "Unauthorized")),
+        if let Some(user_id) =
+            session.tap(|data| data.and_then(|auth_session| auth_session.user_id()))
+        {
+            return Outcome::Success(ChatRsUserId(user_id));
         }
+
+        // Try authentication via proxy headers if configured
+        if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
+            if let Some(proxy_user) = get_sso_user_from_headers(config, req.headers()) {
+                let mut db = try_outcome!(req.guard::<DbConnection>().await);
+                return get_sso_auth_outcome(&proxy_user, config, &mut db).await;
+            }
+        };
+
+        Outcome::Error((Status::Unauthorized, "Unauthorized"))
     }
 }
 
