@@ -10,7 +10,7 @@ const DEFAULT_TOOL_INPUT: {
     components["schemas"]["SendChatToolInput"]["external_apis"]
   >;
 } = {
-  system: { code_runner: false, info: false },
+  system: { code_runner: false, info: false, files: null },
   external_apis: [],
 };
 
@@ -44,6 +44,7 @@ export const useChatInputState = ({
   const [toolInput, setToolInput] = useState<
     components["schemas"]["SendChatToolInput"] | null
   >(initialTools || DEFAULT_TOOL_INPUT);
+  const [files, setFiles] = useState<string[]>([]);
   const [maxTokens, setMaxTokens] = useState<number>(
     initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS,
   );
@@ -58,6 +59,7 @@ export const useChatInputState = ({
     setProviderId(initialProviderId || null);
     setModel(initialOptions?.model || "");
     setToolInput(initialTools || null);
+    setFiles([]);
     setMaxTokens(initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS);
     setTemperature(initialOptions?.temperature ?? DEFAULT_TEMPERATURE);
     setError("");
@@ -83,6 +85,16 @@ export const useChatInputState = ({
     },
     [providers],
   );
+
+  const onAddFile = useCallback((fileId: string) => {
+    setFiles((prevFiles) => [...prevFiles, fileId]);
+  }, []);
+  const onRemoveFile = useCallback((fileId: string) => {
+    setFiles((prevFiles) => prevFiles.filter((id) => id !== fileId));
+  }, []);
+  const onRemoveAllFiles = useCallback(() => {
+    setFiles([]);
+  }, []);
 
   type SystemToolInput = NonNullable<
     components["schemas"]["SendChatToolInput"]["system"]
@@ -185,6 +197,7 @@ export const useChatInputState = ({
       modelId,
       sessionId,
       toolInput,
+      files,
       maxTokens,
       temperature,
       error,
@@ -197,6 +210,9 @@ export const useChatInputState = ({
       onSelectModel,
       onSetSystemTool,
       onToggleExternalApiTool,
+      onAddFile,
+      onRemoveFile,
+      onRemoveAllFiles,
       onSubmitUserMessage,
       onSubmitWithoutUserMessage,
     }),
@@ -205,6 +221,7 @@ export const useChatInputState = ({
       modelId,
       sessionId,
       toolInput,
+      files,
       maxTokens,
       temperature,
       error,
@@ -213,6 +230,9 @@ export const useChatInputState = ({
       onSelectModel,
       onSetSystemTool,
       onToggleExternalApiTool,
+      onAddFile,
+      onRemoveFile,
+      onRemoveAllFiles,
       onSubmitUserMessage,
       onSubmitWithoutUserMessage,
     ],

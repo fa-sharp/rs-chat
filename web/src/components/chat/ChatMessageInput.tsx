@@ -1,17 +1,20 @@
-import { CornerDownLeft, X } from "lucide-react";
+import { CornerDownLeft, Paperclip, Upload, X } from "lucide-react";
 import {
   type FormEventHandler,
   memo,
   useCallback,
+  useId,
   useMemo,
   useState,
 } from "react";
+import { useDropzone } from "react-dropzone";
 
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import type { useChatInputState } from "@/hooks/useChatInputState";
 import { useCancelChatStream } from "@/lib/api/chat";
 import { useProviders } from "@/lib/api/provider";
+import { useUploadFile } from "@/lib/api/storage";
 import { useTools } from "@/lib/api/tool";
 import {
   ChatModelSelect,
@@ -87,95 +90,197 @@ export default memo(function ChatMessageInput({
     onCancel();
   }, [onCancel]);
 
-  return (
-    <form
-      ref={formRef}
-      onSubmit={handleFormSubmit}
-      className="flex flex-col gap-2 relative rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring"
-    >
-      <ChatInput
-        ref={inputRef}
-        onKeyDown={onKeyDown}
-        placeholder="Type your message..."
-        className="rounded-lg bg-background text-foreground border-0 shadow-none focus-visible:ring-0"
-      />
-      <div className="flex flex-wrap items-center gap-2 p-3 pt-0">
-        <ChatProviderSelect
-          onSelectModel={onSelectModel}
-          currentProvider={currentProvider}
-          providers={providers}
-        />
-        {currentProvider && currentProvider.provider_type !== "lorem" && (
-          <>
-            <ChatModelSelect
-              providerId={providerId}
-              currentModelId={modelId}
-              onSelect={setCurrentModel}
-            />
-            <ChatMoreSettings
-              currentMaxTokens={maxTokens}
-              currentTemperature={temperature}
-              onSelectMaxTokens={setMaxTokens}
-              onSelectTemperature={setTemperature}
-            />
-            <ChatToolSelect
-              tools={tools}
-              toolInput={toolInput}
-              onSetSystemTool={onSetSystemTool}
-              onToggleExternalApiTool={onToggleExternalApiTool}
-            />
-          </>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          title="Toggle Enter key behavior"
-          onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
-        >
-          <CornerDownLeft className="size-3.5" />
-          <span className="sr-only">Toggle Enter key</span>
-        </Button>
-        {error && (
-          <div className="text-sm text-destructive-foreground">{error}</div>
-        )}
+  const { mutate: uploadFile } = useUploadFile();
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
 
-        <div className="ml-auto flex gap-2 items-center">
-          {canGetAgenticResponse && (
-            <Button
-              type="button"
-              size="sm"
-              disabled={isGenerating}
-              onClick={onSubmitWithoutUserMessage}
-            >
-              Get Agent Response
-            </Button>
-          )}
-          {isGenerating && (
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={handleCancel}
-              loading={isCancelling}
-              disabled={isCancelling}
-            >
-              {!isCancelling && <X className="size-4" />}
-              Stop
-            </Button>
+  const handleFileUpload = useCallback(
+    (files: File[]) => {
+      if (!sessionId) return;
+
+      const fileNames = files.map((f) => f.name);
+      setUploadingFiles((prev) => [...prev, ...fileNames]);
+
+      files.forEach((file) => {
+        uploadFile(
+          {
+            sessionId,
+            path: file.name,
+            file,
+          },
+          {
+            onSettled: () => {
+              setUploadingFiles((prev) =>
+                prev.filter((name) => name !== file.name),
+              );
+            },
+            onError: (error) => {
+              console.error(`Failed to upload ${file.name}:`, error);
+            },
+          },
+        );
+      });
+    },
+    [sessionId, uploadFile],
+  );
+
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      handleFileUpload(acceptedFiles);
+    },
+    [handleFileUpload],
+  );
+
+  const onFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length > 0) {
+        handleFileUpload(files);
+      }
+      // Reset input value to allow uploading the same file again
+      e.target.value = "";
+    },
+    [handleFileUpload],
+  );
+
+  const fileInputId = useId();
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    noClick: true,
+    noKeyboard: true,
+  });
+
+  return (
+    <div
+      {...getRootProps()}
+      className={`relative ${
+        isDragActive ? "ring-2 ring-primary ring-offset-2 bg-primary/5" : ""
+      } transition-all duration-200 rounded-lg`}
+    >
+      <input {...getInputProps()} />
+      <form
+        ref={formRef}
+        onSubmit={handleFormSubmit}
+        className="flex flex-col gap-2 relative rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring"
+      >
+        {isDragActive && (
+          <div className="absolute inset-0 flex items-center justify-center bg-primary/10 backdrop-blur-sm rounded-lg z-10 border-2 border-dashed border-primary">
+            <div className="text-center">
+              <Upload className="mx-auto h-8 w-8 text-primary mb-2" />
+              <p className="text-sm font-medium text-primary">
+                Drop files here to upload
+              </p>
+            </div>
+          </div>
+        )}
+        <ChatInput
+          ref={inputRef}
+          onKeyDown={onKeyDown}
+          placeholder="Type your message..."
+          className="rounded-lg bg-background text-foreground border-0 shadow-none focus-visible:ring-0"
+        />
+        <div className="flex flex-wrap items-center gap-2 p-3 pt-0">
+          <ChatProviderSelect
+            onSelectModel={onSelectModel}
+            currentProvider={currentProvider}
+            providers={providers}
+          />
+          {currentProvider && currentProvider.provider_type !== "lorem" && (
+            <>
+              <ChatModelSelect
+                providerId={providerId}
+                currentModelId={modelId}
+                onSelect={setCurrentModel}
+              />
+              <ChatMoreSettings
+                currentMaxTokens={maxTokens}
+                currentTemperature={temperature}
+                onSelectMaxTokens={setMaxTokens}
+                onSelectTemperature={setTemperature}
+              />
+              <ChatToolSelect
+                tools={tools}
+                toolInput={toolInput}
+                onSetSystemTool={onSetSystemTool}
+                onToggleExternalApiTool={onToggleExternalApiTool}
+              />
+            </>
           )}
           <Button
-            disabled={isGenerating}
-            type="submit"
-            size="sm"
-            className="gap-1.5 flex items-center"
+            type="button"
+            variant="outline"
+            size="icon"
+            title="Upload files"
+            onClick={() => document.getElementById(fileInputId)?.click()}
+            disabled={!sessionId}
           >
-            Send Message
-            {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
-            <CornerDownLeft className="size-3.5" />
+            <Paperclip className="size-3.5" />
+            <span className="sr-only">Upload files</span>
           </Button>
+          <input
+            id={fileInputId}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={onFileInputChange}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            title="Toggle Enter key behavior"
+            onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
+          >
+            <CornerDownLeft className="size-3.5" />
+            <span className="sr-only">Toggle Enter key</span>
+          </Button>
+          {error && (
+            <div className="text-sm text-destructive-foreground">{error}</div>
+          )}
+
+          <div className="ml-auto flex gap-2 items-center">
+            {uploadingFiles.length > 0 && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <Upload className="size-3 animate-pulse" />
+                Uploading {uploadingFiles.length} file
+                {uploadingFiles.length > 1 ? "s" : ""}...
+              </div>
+            )}
+            {canGetAgenticResponse && (
+              <Button
+                type="button"
+                size="sm"
+                disabled={isGenerating}
+                onClick={onSubmitWithoutUserMessage}
+              >
+                Get Agent Response
+              </Button>
+            )}
+            {isGenerating && (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={handleCancel}
+                loading={isCancelling}
+                disabled={isCancelling}
+              >
+                {!isCancelling && <X className="size-4" />}
+                Stop
+              </Button>
+            )}
+            <Button
+              disabled={isGenerating}
+              type="submit"
+              size="sm"
+              className="gap-1.5 flex items-center"
+            >
+              Send Message
+              {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
+              <CornerDownLeft className="size-3.5" />
+            </Button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 });
