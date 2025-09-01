@@ -44,7 +44,7 @@ export const useChatInputState = ({
   const [toolInput, setToolInput] = useState<
     components["schemas"]["SendChatToolInput"] | null
   >(initialTools || DEFAULT_TOOL_INPUT);
-  const [files, setFiles] = useState<string[]>([]);
+  const [files, setFiles] = useState<components["schemas"]["ChatRsFile"][]>([]);
   const [maxTokens, setMaxTokens] = useState<number>(
     initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS,
   );
@@ -86,11 +86,11 @@ export const useChatInputState = ({
     [providers],
   );
 
-  const onAddFile = useCallback((fileId: string) => {
-    setFiles((prevFiles) => [...prevFiles, fileId]);
+  const onAddFile = useCallback((file: components["schemas"]["ChatRsFile"]) => {
+    setFiles((prev) => [...prev, file]);
   }, []);
   const onRemoveFile = useCallback((fileId: string) => {
-    setFiles((prevFiles) => prevFiles.filter((id) => id !== fileId));
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
   }, []);
   const onRemoveAllFiles = useCallback(() => {
     setFiles([]);

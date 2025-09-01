@@ -3,7 +3,6 @@ import {
   type FormEventHandler,
   memo,
   useCallback,
-  useId,
   useMemo,
   useState,
 } from "react";
@@ -11,12 +10,14 @@ import { useDropzone } from "react-dropzone";
 
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/ui/chat/chat-input";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { useChatInputState } from "@/hooks/useChatInputState";
 import { useCancelChatStream } from "@/lib/api/chat";
 import { useProviders } from "@/lib/api/provider";
 import { useUploadFile } from "@/lib/api/storage";
 import { useTools } from "@/lib/api/tool";
 import {
+  ChatFileSelect,
   ChatModelSelect,
   ChatMoreSettings,
   ChatProviderSelect,
@@ -31,12 +32,14 @@ export default memo(function ChatMessageInput({
 }) {
   const { data: providers } = useProviders();
   const { data: tools } = useTools();
+  const isMobile = useIsMobile();
 
   const {
     providerId,
     modelId,
     sessionId,
     toolInput,
+    files,
     maxTokens,
     temperature,
     error,
@@ -46,6 +49,9 @@ export default memo(function ChatMessageInput({
     onSelectModel,
     onSetSystemTool,
     onToggleExternalApiTool,
+    onAddFile,
+    onRemoveFile,
+    onRemoveAllFiles,
     setMaxTokens,
     setTemperature,
     canGetAgenticResponse,
@@ -113,6 +119,7 @@ export default memo(function ChatMessageInput({
                 prev.filter((name) => name !== file.name),
               );
             },
+            onSuccess: (file) => onAddFile(file),
             onError: (error) => {
               console.error(`Failed to upload ${file.name}:`, error);
             },
@@ -120,7 +127,7 @@ export default memo(function ChatMessageInput({
         );
       });
     },
-    [sessionId, uploadFile],
+    [sessionId, uploadFile, onAddFile],
   );
 
   const onDrop = useCallback(
@@ -130,19 +137,6 @@ export default memo(function ChatMessageInput({
     [handleFileUpload],
   );
 
-  const onFileInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length > 0) {
-        handleFileUpload(files);
-      }
-      // Reset input value to allow uploading the same file again
-      e.target.value = "";
-    },
-    [handleFileUpload],
-  );
-
-  const fileInputId = useId();
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     noClick: true,
@@ -184,67 +178,54 @@ export default memo(function ChatMessageInput({
             currentProvider={currentProvider}
             providers={providers}
           />
-          {currentProvider && currentProvider.provider_type !== "lorem" && (
-            <>
-              <ChatModelSelect
-                providerId={providerId}
-                currentModelId={modelId}
-                onSelect={setCurrentModel}
-              />
-              <ChatMoreSettings
-                currentMaxTokens={maxTokens}
-                currentTemperature={temperature}
-                onSelectMaxTokens={setMaxTokens}
-                onSelectTemperature={setTemperature}
-              />
-              <ChatToolSelect
-                tools={tools}
-                toolInput={toolInput}
-                onSetSystemTool={onSetSystemTool}
-                onToggleExternalApiTool={onToggleExternalApiTool}
-              />
-            </>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            title="Upload files"
-            onClick={() => document.getElementById(fileInputId)?.click()}
-            disabled={!sessionId}
-          >
-            <Paperclip className="size-3.5" />
-            <span className="sr-only">Upload files</span>
-          </Button>
-          <input
-            id={fileInputId}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={onFileInputChange}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            title="Toggle Enter key behavior"
-            onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
-          >
-            <CornerDownLeft className="size-3.5" />
-            <span className="sr-only">Toggle Enter key</span>
-          </Button>
+          {sessionId &&
+            currentProvider &&
+            currentProvider.provider_type !== "lorem" && (
+              <>
+                <ChatModelSelect
+                  providerId={providerId}
+                  currentModelId={modelId}
+                  onSelect={setCurrentModel}
+                />
+                <ChatMoreSettings
+                  currentMaxTokens={maxTokens}
+                  currentTemperature={temperature}
+                  onSelectMaxTokens={setMaxTokens}
+                  onSelectTemperature={setTemperature}
+                />
+                <ChatToolSelect
+                  tools={tools}
+                  toolInput={toolInput}
+                  onSetSystemTool={onSetSystemTool}
+                  onToggleExternalApiTool={onToggleExternalApiTool}
+                />
+                <ChatFileSelect
+                  sessionId={sessionId}
+                  selectedFiles={files}
+                  onAddFile={onAddFile}
+                  onRemoveFile={onRemoveFile}
+                  onRemoveAllFiles={onRemoveAllFiles}
+                />
+                {files.length > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                    <Paperclip className="size-3" />
+                    <span>{files.map((file) => file.path).join(", ")}</span>
+                  </div>
+                )}
+                {uploadingFiles.length > 0 && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Upload className="size-3 animate-pulse" />
+                    Uploading...
+                  </div>
+                )}
+              </>
+            )}
+
           {error && (
             <div className="text-sm text-destructive-foreground">{error}</div>
           )}
 
           <div className="ml-auto flex gap-2 items-center">
-            {uploadingFiles.length > 0 && (
-              <div className="text-xs text-muted-foreground flex items-center gap-1">
-                <Upload className="size-3 animate-pulse" />
-                Uploading {uploadingFiles.length} file
-                {uploadingFiles.length > 1 ? "s" : ""}...
-              </div>
-            )}
             {canGetAgenticResponse && (
               <Button
                 type="button"
@@ -269,7 +250,7 @@ export default memo(function ChatMessageInput({
               </Button>
             )}
             <Button
-              disabled={isGenerating}
+              disabled={isGenerating || uploadingFiles.length > 0}
               type="submit"
               size="sm"
               className="gap-1.5 flex items-center"
@@ -278,6 +259,18 @@ export default memo(function ChatMessageInput({
               {!enterKeyShouldSubmit && <kbd> Shift + </kbd>}
               <CornerDownLeft className="size-3.5" />
             </Button>
+            {!isMobile && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                title="Toggle Enter key behavior"
+                onClick={() => setEnterKeyShouldSubmit((prev) => !prev)}
+              >
+                <CornerDownLeft className="size-3.5" />
+                <span className="sr-only">Toggle Enter key</span>
+              </Button>
+            )}
           </div>
         </div>
       </form>

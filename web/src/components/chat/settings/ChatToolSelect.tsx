@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 
 import PopoverDrawer from "@/components/PopoverDrawer";
 import { getToolIcon } from "@/components/ToolsManager";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/command";
 import type { useChatInputState } from "@/hooks/useChatInputState";
 import type { components } from "@/lib/api/types";
+import ChatSettingsBadge from "./ChatSettingsBadge";
 
 export default function ChatToolSelect({
   toolInput,
@@ -88,11 +88,10 @@ export default function ChatToolSelect({
       trigger={
         <Button aria-label="Tools" size="icon" variant="outline">
           {numToolsSelected > 0 && (
-            <Badge className="absolute top-[-4px] right-[-4px] h-4 min-w-4 rounded-full px-1 font-mono tabular-nums">
-              {numToolsSelected}
-            </Badge>
+            <ChatSettingsBadge>{numToolsSelected}</ChatSettingsBadge>
           )}
           <Wrench />
+          <span className="sr-only">Select tools</span>
         </Button>
       }
     >
