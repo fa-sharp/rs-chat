@@ -64,6 +64,8 @@ pub enum ToolError {
     Cancelled(String),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Database error: {0}")]
+    Database(#[from] diesel::result::Error),
 }
 
 /// JSON schema for tool input parameters

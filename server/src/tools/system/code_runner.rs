@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     provider::{LlmTool, LlmToolType},
     tools::{
-        core::{ToolLog, ToolParameters, ToolResponseFormat, ToolResult},
+        core::{ToolLog, ToolResponseFormat, ToolResult},
         system::{SystemTool, SystemToolConfig},
         utils::get_json_schema,
         ToolError,
@@ -105,7 +105,7 @@ impl SystemToolConfig for CodeRunnerConfig {
             .map_err(|e| ToolError::InvalidConfiguration(e.to_string()))
     }
 
-    fn get_llm_tools(&self, tool_id: Uuid, _input_config: Option<()>) -> Vec<LlmTool> {
+    fn get_llm_tools(&self, tool_id: Uuid, _input_config: Option<&()>) -> Vec<LlmTool> {
         vec![LlmTool {
             name: CODE_RUNNER_NAME.into(),
             description: CODE_RUNNER_DESCRIPTION.into(),
@@ -118,18 +118,17 @@ impl SystemToolConfig for CodeRunnerConfig {
 
 #[async_trait]
 impl SystemTool for CodeRunner<'_> {
-    fn input_schema(&self, _tool_name: &str) -> &serde_json::Value {
-        &CODE_RUNNER_INPUT_SCHEMA
+    fn input_schema(&self, _tool_name: &str) -> ToolResult<&serde_json::Value> {
+        Ok(&CODE_RUNNER_INPUT_SCHEMA)
     }
 
     async fn execute(
-        &self,
+        &mut self,
         _tool_name: &str,
-        params: &ToolParameters,
+        params: serde_json::Value,
         sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<(String, ToolResponseFormat)> {
-        let input = serde_json::from_value::<CodeRunnerInput>(serde_json::to_value(params)?)
-            .map_err(|e| ToolError::InvalidParameters(e.to_string()))?;
+        let input = serde_json::from_value::<CodeRunnerInput>(params)?;
         let executor = DockerExecutor::new(
             input.language,
             DockerExecutorOptions {

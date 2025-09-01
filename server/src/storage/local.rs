@@ -4,7 +4,7 @@ use std::{
 };
 use tokio::{
     fs::File,
-    io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufWriter},
+    io::{AsyncRead, AsyncReadExt, AsyncWriteExt, BufReader, BufWriter},
 };
 use uuid::Uuid;
 
@@ -22,23 +22,15 @@ impl LocalStorage {
         user_id: &Uuid,
         session_id: Option<&Uuid>,
         path: &Path,
-        range: Option<(u64, u64)>,
     ) -> IoResult<Vec<u8>> {
         let path = self.get_file_path(user_id, session_id, path)?;
-
         let mut file = File::open(path).await?;
-        let buffer = if let Some((start, end)) = range {
-            let len = (end - start) as usize;
-            let mut buffer = vec![0; len];
-            file.seek(std::io::SeekFrom::Start(start)).await?;
-            file.read(&mut buffer[..len]).await?;
-            buffer
-        } else {
-            let metadata = file.metadata().await?;
-            let mut buffer = Vec::with_capacity(metadata.len() as usize);
-            file.read_to_end(&mut buffer).await?;
-            buffer
-        };
+        let metadata = file.metadata().await?;
+
+        let mut buffer = Vec::with_capacity(metadata.len() as usize);
+        let mut file_reader = BufReader::new(&mut file);
+        file_reader.read_to_end(&mut buffer).await?;
+
         Ok(buffer)
     }
 

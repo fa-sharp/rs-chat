@@ -11,7 +11,7 @@ use rocket::fairing::AdHoc;
 use crate::config::get_app_config;
 
 /// Default data directory path.
-const DEFAULT_DATA_DIR: &str = "/data";
+pub const DEFAULT_DATA_DIR: &str = "/data";
 
 /// Setup file reading and writing for the Rocket application.
 pub fn setup_storage() -> AdHoc {

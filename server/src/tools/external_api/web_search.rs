@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     provider::{LlmTool, LlmToolType},
+    tools::utils::get_json_schema,
     utils::SenderWithLogging,
 };
 
@@ -37,12 +38,10 @@ struct ContentInputSchema {
     url: String,
 }
 
-static WEB_SEARCH_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
-    serde_json::to_value(schema_for!(QueryInputSchema)).expect("Should be valid JSON")
-});
-static EXTRACT_INPUT_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| {
-    serde_json::to_value(schema_for!(ContentInputSchema)).expect("Should be valid JSON")
-});
+static WEB_SEARCH_INPUT_SCHEMA: LazyLock<serde_json::Value> =
+    LazyLock::new(|| get_json_schema::<QueryInputSchema>());
+static EXTRACT_INPUT_SCHEMA: LazyLock<serde_json::Value> =
+    LazyLock::new(|| get_json_schema::<ContentInputSchema>());
 
 /// A web search tool that can support multiple providers.
 pub struct WebSearchTool {

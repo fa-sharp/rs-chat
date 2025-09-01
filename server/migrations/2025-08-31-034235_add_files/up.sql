@@ -12,3 +12,7 @@ CREATE TABLE files (
 
 SELECT
   diesel_manage_updated_at ('files');
+
+CREATE INDEX idx_files_user_id ON files (user_id);
+
+CREATE INDEX idx_files_session_id ON files (session_id);

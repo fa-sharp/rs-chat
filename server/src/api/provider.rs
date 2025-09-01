@@ -8,10 +8,7 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{
-            ChatRsProvider, ChatRsProviderType, NewChatRsProvider, NewChatRsSecret,
-            UpdateChatRsProvider, UpdateChatRsSecret,
-        },
+        models::*,
         services::{ProviderDbService, SecretDbService},
         DbConnection,
     },

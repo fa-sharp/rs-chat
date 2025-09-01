@@ -12,6 +12,7 @@ pub struct ChatRsFile {
     pub id: Uuid,
     #[serde(skip_serializing)]
     pub user_id: Uuid,
+    #[serde(skip_serializing)]
     pub session_id: Option<Uuid>,
     pub path: String,
     #[schemars(with = "ChatRsFileType")]
@@ -19,6 +20,7 @@ pub struct ChatRsFile {
     pub content_type: String,
     pub size: i32,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing)]
     pub updated_at: DateTime<Utc>,
 }
 

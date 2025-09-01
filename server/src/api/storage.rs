@@ -47,7 +47,7 @@ async fn upload_file(
     storage: &State<LocalStorage>,
     mut db: DbConnection,
 ) -> Result<Json<ChatRsFile>, ApiError> {
-    let total_bytes = storage
+    let size = storage
         .create_file(&user_id, Some(&session_id), &path, file.data)
         .await?;
     let db_file = FileDbService::new(&mut db)
@@ -57,7 +57,7 @@ async fn upload_file(
             path: &path.to_string_lossy(),
             file_type: file.file_type.into(),
             content_type: &file.content_type.to_string(),
-            size: total_bytes.try_into().unwrap_or_default(),
+            size: size.try_into().unwrap_or_default(),
         })
         .await?;
 
@@ -74,8 +74,7 @@ async fn download_file(
     storage: &State<LocalStorage>,
     mut db: DbConnection,
 ) -> Result<NamedFile, ApiError> {
-    let mut db_service = FileDbService::new(&mut db);
-    let file = db_service
+    let file = FileDbService::new(&mut db)
         .find_session_file(&user_id, &session_id, &file_id)
         .await?;
     let file_path = storage.get_file_path(&user_id, Some(&session_id), &file.path)?;

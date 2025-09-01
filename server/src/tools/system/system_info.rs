@@ -4,16 +4,18 @@ use rocket::async_trait;
 use schemars::JsonSchema;
 
 use crate::{
-    provider::{LlmTool, LlmToolType},
+    config::AppConfig,
+    provider::LlmToolType,
     tools::{system::SystemToolConfig, utils::get_json_schema},
     utils::SenderWithLogging,
 };
 
-use super::{SystemTool, ToolError, ToolLog, ToolParameters, ToolResponseFormat, ToolResult};
+use super::*;
 
 const TOOL_PREFIX: &str = "system_";
 
-static JSON_SCHEMA: LazyLock<serde_json::Value> = LazyLock::new(|| get_json_schema::<SystemInfo>());
+static JSON_SCHEMA: LazyLock<serde_json::Value> =
+    LazyLock::new(|| get_json_schema::<SystemInfoConfig>());
 
 const DATE_TIME_NAME: &str = "datetime_now";
 const DATE_TIME_DESC: &str = "Get the current date and time in RFC3339 format. \
@@ -24,23 +26,26 @@ const SERVER_URL_DESC: &str = "Get the URL of the server that this chat applicat
     This may be useful to help direct the user to files or other resources that are hosted on the server.";
 
 /// Tool to get system information.
-#[derive(Debug, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct SystemInfo {}
-impl SystemInfo {
-    pub fn new() -> Self {
-        SystemInfo {}
+pub struct SystemInfo<'a> {
+    app_config: &'a AppConfig,
+}
+impl<'a> SystemInfo<'a> {
+    pub fn new(app_config: &'a AppConfig) -> Self {
+        SystemInfo { app_config }
     }
 }
 
+#[derive(Debug, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SystemInfoConfig {}
+
 impl SystemToolConfig for SystemInfoConfig {
     type DynamicConfig = ();
 
     fn get_llm_tools(
         &self,
         tool_id: uuid::Uuid,
-        _input_config: Option<Self::DynamicConfig>,
+        _input_config: Option<&Self::DynamicConfig>,
     ) -> Vec<LlmTool> {
         vec![
             LlmTool {
@@ -66,15 +71,15 @@ impl SystemToolConfig for SystemInfoConfig {
 }
 
 #[async_trait]
-impl SystemTool for SystemInfo {
-    fn input_schema(&self, _tool_name: &str) -> &serde_json::Value {
-        &JSON_SCHEMA
+impl SystemTool for SystemInfo<'_> {
+    fn input_schema(&self, _tool_name: &str) -> ToolResult<&serde_json::Value> {
+        Ok(&JSON_SCHEMA)
     }
 
     async fn execute(
-        &self,
+        &mut self,
         tool_name: &str,
-        _params: &ToolParameters,
+        _params: serde_json::Value,
         _tx: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<(String, ToolResponseFormat)> {
         match tool_name.strip_prefix(TOOL_PREFIX) {
@@ -82,12 +87,10 @@ impl SystemTool for SystemInfo {
                 let now = chrono::Utc::now();
                 Ok((now.to_rfc3339(), ToolResponseFormat::Text))
             }
-            Some(SERVER_URL_NAME) => {
-                let server_url = std::env::var("RS_CHAT_SERVER_ADDRESS").map_err(|_| {
-                    ToolError::ToolExecutionError("Could not determine Server URL".into())
-                })?;
-                Ok((server_url, ToolResponseFormat::Text))
-            }
+            Some(SERVER_URL_NAME) => Ok((
+                self.app_config.server_address.clone(),
+                ToolResponseFormat::Text,
+            )),
             _ => Err(ToolError::ToolNotFound),
         }
     }
