@@ -155,6 +155,7 @@ export const useChatInputState = ({
         max_tokens: maxTokens,
       },
       tools: toolInput,
+      files: files.length > 0 ? files.map((file) => file.id) : undefined,
     });
     formRef.current?.reset();
   }, [
@@ -162,6 +163,7 @@ export const useChatInputState = ({
     selectedProvider,
     modelId,
     toolInput,
+    files,
     temperature,
     maxTokens,
     onSubmit,

@@ -755,10 +755,16 @@ export interface components {
         /** @enum {string} */
         ChatRsMessageRole: "User" | "Assistant" | "System" | "Tool";
         ChatRsMessageMeta: {
+            /** @description User messages: metadata associated with the user message */
+            user?: components["schemas"]["UserMeta"] | null;
             /** @description Assistant messages: metadata associated with the assistant message */
             assistant?: components["schemas"]["AssistantMeta"] | null;
             /** @description Tool messages: metadata of the executed tool call */
             tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
+        };
+        UserMeta: {
+            /** @description The IDs of the files attached to this message */
+            files?: string[] | null;
         };
         AssistantMeta: {
             /**
@@ -777,7 +783,7 @@ export interface components {
             /** @description Whether this is a partial and/or interrupted message */
             partial?: boolean | null;
         };
-        /** @description Shared configuration for LLM provider requests */
+        /** @description Configuration for LLM provider requests */
         LlmProviderOptions: {
             model: string;
             /** Format: float */
@@ -891,6 +897,8 @@ export interface components {
             options: components["schemas"]["LlmProviderOptions"];
             /** @description Configuration of tools available to the assistant */
             tools?: components["schemas"]["SendChatToolInput"] | null;
+            /** @description IDs of the file(s) to attach to this message */
+            files?: string[] | null;
         };
         GetAllToolsResponse: {
             /** @description System tools */
