@@ -130,7 +130,7 @@ pub struct OpenAIMessage<'a> {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "type", rename = "snakes_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum OpenAIContent<'a> {
     Text {
         text: &'a str,
