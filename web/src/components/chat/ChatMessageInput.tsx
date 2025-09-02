@@ -68,6 +68,8 @@ export default memo(function ChatMessageInput({
     [providerId, onSelectModel],
   );
 
+  const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
+
   const [enterKeyShouldSubmit, setEnterKeyShouldSubmit] = useState(true);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -132,13 +134,16 @@ export default memo(function ChatMessageInput({
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
-      handleFileUpload(acceptedFiles);
+      if (!isFileDialogOpen) {
+        handleFileUpload(acceptedFiles);
+      }
     },
-    [handleFileUpload],
+    [handleFileUpload, isFileDialogOpen],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    disabled: isFileDialogOpen,
     noClick: true,
     noKeyboard: true,
   });
@@ -205,6 +210,7 @@ export default memo(function ChatMessageInput({
                   onAddFile={onAddFile}
                   onRemoveFile={onRemoveFile}
                   onRemoveAllFiles={onRemoveAllFiles}
+                  onOpenChange={setIsFileDialogOpen}
                 />
                 {files.length > 0 && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
