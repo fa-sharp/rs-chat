@@ -44,7 +44,7 @@ RUN apt-get update -qq && \
     apt-get install -y -qq ca-certificates libpq5 && \
     apt-get clean
 
-# Use non-root user
+# Create non-root user and data directory
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -53,6 +53,9 @@ RUN adduser \
     --shell "/sbin/nologin" \
     --uid "${UID}" \
     appuser
+RUN mkdir -p /data
+RUN chown -R appuser:appuser /data
+
 USER appuser
 
 # Copy app files
@@ -61,6 +64,7 @@ COPY --from=backend-build /app/run-server /usr/local/bin/
 
 # Run
 ENV RS_CHAT_STATIC_PATH=/var/www
+ENV RS_CHAT_DATA_DIR=/data
 ENV RS_CHAT_ADDRESS=0.0.0.0
 ENV RS_CHAT_PORT=8080
 EXPOSE 8080
