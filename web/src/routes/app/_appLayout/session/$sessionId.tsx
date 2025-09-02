@@ -17,6 +17,7 @@ import {
   getChatSession,
   useGetChatSession,
 } from "@/lib/api/session";
+import { useSessionFiles } from "@/lib/api/storage";
 import { useTools } from "@/lib/api/tool";
 import type { components } from "@/lib/api/types";
 import { useStreamingChats, useStreamingTools } from "@/lib/context";
@@ -48,6 +49,7 @@ function RouteComponent() {
   const { data: session } = useGetChatSession(sessionId);
   const { data: providers } = useProviders();
   const { data: tools } = useTools();
+  const { data: files } = useSessionFiles(sessionId);
   const { streamedChats, onUserSubmit } = useStreamingChats();
   const { streamedTools, onToolExecute, onToolCancel } = useStreamingTools();
 
@@ -113,6 +115,7 @@ function RouteComponent() {
           messages={session?.messages || []}
           providers={providers}
           tools={tools}
+          files={files}
           sessionId={sessionId}
           onToolExecute={onToolExecute}
           isStreaming={currentStream?.status === "streaming"}
