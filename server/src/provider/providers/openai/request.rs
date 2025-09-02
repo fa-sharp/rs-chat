@@ -21,10 +21,14 @@ pub fn build_openai_messages<'a>(messages: &'a [LlmMessage]) -> Vec<OpenAIMessag
                         ChatRsFileType::Text => OpenAIContent::Text {
                             text: &file.content,
                         },
-                        ChatRsFileType::Image => OpenAIContent::ImageUrl { url: &file.content },
+                        ChatRsFileType::Image => OpenAIContent::ImageUrl {
+                            image_url: OpenAIImageUrl { url: &file.content },
+                        },
                         ChatRsFileType::Pdf => OpenAIContent::File {
-                            file_data: &file.content,
-                            filename: &file.name,
+                            file: OpenAIFile {
+                                file_data: &file.content,
+                                filename: &file.name,
+                            },
                         },
                     }));
                 }
@@ -132,16 +136,20 @@ pub struct OpenAIMessage<'a> {
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OpenAIContent<'a> {
-    Text {
-        text: &'a str,
-    },
-    ImageUrl {
-        url: &'a str,
-    },
-    File {
-        file_data: &'a str,
-        filename: &'a str,
-    },
+    Text { text: &'a str },
+    ImageUrl { image_url: OpenAIImageUrl<'a> },
+    File { file: OpenAIFile<'a> },
+}
+
+#[derive(Debug, Serialize)]
+pub struct OpenAIImageUrl<'a> {
+    url: &'a str,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OpenAIFile<'a> {
+    file_data: &'a str,
+    filename: &'a str,
 }
 
 /// OpenAI tool definition

@@ -30,7 +30,7 @@ pub fn setup_storage() -> AdHoc {
 }
 
 impl ChatRsFile {
-    /// Get the file type and contents for LLM input. Uses base64 encoding for image and PDF files.
+    /// Get the file type and contents for LLM input. Uses base64 URLs for image and PDF files.
     pub async fn read_to_string(
         &self,
         session_id: Option<&Uuid>,
@@ -45,9 +45,10 @@ impl ChatRsFile {
                 String::from_utf8_lossy(&bytes).into()
             }
             ChatRsFileType::Image | ChatRsFileType::Pdf => {
-                storage
+                let b64_content = storage
                     .read_file_as_base64(&self.user_id, session_id, Path::new(&self.path))
-                    .await?
+                    .await?;
+                format!("data:{};base64,{}", self.content_type, b64_content)
             }
         };
         Ok((file_type, content))
