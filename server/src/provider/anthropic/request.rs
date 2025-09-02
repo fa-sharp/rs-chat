@@ -2,71 +2,91 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::LlmTool,
-};
+use crate::provider::*;
 
 pub fn build_anthropic_messages<'a>(
-    messages: &'a [ChatRsMessage],
+    messages: &'a [LlmMessage],
 ) -> (Vec<AnthropicMessage<'a>>, Option<&'a str>) {
-    let system_prompt = messages
-        .iter()
-        .rfind(|message| message.role == ChatRsMessageRole::System)
-        .map(|message| message.content.as_str());
+    let system_prompt = messages.iter().rev().find_map(|message| {
+        let LlmMessage::System(msg) = message else {
+            return None;
+        };
+        Some(msg.as_str())
+    });
 
     let anthropic_messages: Vec<AnthropicMessage> = messages
         .iter()
         .filter_map(|message| {
-            let role = match message.role {
-                ChatRsMessageRole::User => "user",
-                ChatRsMessageRole::Tool => "user",
-                ChatRsMessageRole::Assistant => "assistant",
-                ChatRsMessageRole::System => return None,
-            };
-
             let mut content_blocks = Vec::new();
-
-            // Handle tool result messages
-            if message.role == ChatRsMessageRole::Tool {
-                if let Some(executed_call) = &message.meta.tool_call {
-                    content_blocks.push(AnthropicContentBlock::ToolResult {
-                        tool_use_id: &executed_call.id,
-                        content: &message.content,
-                    });
-                }
-            } else {
-                // Handle regular text content
-                if !message.content.is_empty() {
-                    content_blocks.push(AnthropicContentBlock::Text {
-                        text: &message.content,
-                    });
-                }
-                // Handle tool calls in assistant messages
-                if let Some(tool_calls) = message
-                    .meta
-                    .assistant
-                    .as_ref()
-                    .and_then(|a| a.tool_calls.as_ref())
-                {
-                    for tool_call in tool_calls {
-                        content_blocks.push(AnthropicContentBlock::ToolUse {
-                            id: &tool_call.id,
-                            name: &tool_call.tool_name,
-                            input: &tool_call.parameters,
+            match message {
+                LlmMessage::User(user_message) => {
+                    if !user_message.text.is_empty() {
+                        content_blocks.push(AnthropicContentBlock::Text {
+                            text: &user_message.text,
                         });
                     }
+                    if let Some(ref files) = user_message.files {
+                        content_blocks.extend(files.iter().map(|file| match file.file_type {
+                            ChatRsFileType::Text => AnthropicContentBlock::Document {
+                                title: &file.name,
+                                source: AnthropicSource::Text {
+                                    data: &file.content,
+                                    media_type: "text/plain",
+                                },
+                            },
+                            ChatRsFileType::Image => AnthropicContentBlock::Image {
+                                title: &file.name,
+                                source: AnthropicSource::Base64 {
+                                    data: &file.content,
+                                    media_type: &file.content_type,
+                                },
+                            },
+                            ChatRsFileType::Pdf => AnthropicContentBlock::Document {
+                                title: &file.name,
+                                source: AnthropicSource::Base64 {
+                                    data: &file.content,
+                                    media_type: "application/pdf",
+                                },
+                            },
+                        }));
+                    }
+                    Some(AnthropicMessage {
+                        role: "user",
+                        content: content_blocks,
+                    })
                 }
+                LlmMessage::Assistant(assistant_message) => {
+                    if !assistant_message.text.is_empty() {
+                        content_blocks.push(AnthropicContentBlock::Text {
+                            text: &assistant_message.text,
+                        });
+                    }
+                    if let Some(ref tool_calls) = assistant_message.tool_calls {
+                        content_blocks.extend(tool_calls.iter().map(|tc| {
+                            AnthropicContentBlock::ToolUse {
+                                id: &tc.id,
+                                name: &tc.tool_name,
+                                input: &tc.parameters,
+                            }
+                        }));
+                    }
+                    Some(AnthropicMessage {
+                        role: "assistant",
+                        content: content_blocks,
+                    })
+                }
+                LlmMessage::Tool(result) => {
+                    content_blocks.push(AnthropicContentBlock::ToolResult {
+                        tool_use_id: &result.tool_call_id,
+                        content: &result.content,
+                    });
+                    Some(AnthropicMessage {
+                        role: "user",
+                        content: content_blocks,
+                    })
+                }
+                _ => None,
             }
-
-            if content_blocks.is_empty() {
-                return None;
-            }
-
-            Some(AnthropicMessage {
-                role,
-                content: content_blocks,
-            })
         })
         .collect();
 
@@ -122,6 +142,14 @@ pub enum AnthropicContentBlock<'a> {
     Text {
         text: &'a str,
     },
+    Image {
+        title: &'a str,
+        source: AnthropicSource<'a>,
+    },
+    Document {
+        title: &'a str,
+        source: AnthropicSource<'a>,
+    },
     ToolUse {
         id: &'a str,
         name: &'a str,
@@ -131,4 +159,11 @@ pub enum AnthropicContentBlock<'a> {
         tool_use_id: &'a str,
         content: &'a str,
     },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum AnthropicSource<'a> {
+    Base64 { data: &'a str, media_type: &'a str },
+    Text { data: &'a str, media_type: &'a str },
 }

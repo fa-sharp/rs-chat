@@ -9,8 +9,8 @@ use crate::{
 
 /// Parse Ollama streaming event into LlmStreamChunks, and track tool calls
 pub fn parse_ollama_event(
-    event: OllamaStreamResponse,
-    tool_calls: &mut Vec<OllamaToolCall>,
+    event: OllamaStreamEvent,
+    tool_calls: &mut Vec<OllamaToolCallResponse>,
 ) -> Vec<Result<LlmStreamChunk, LlmStreamError>> {
     let mut chunks = Vec::with_capacity(1);
     // Handle final message with usage stats
@@ -42,10 +42,10 @@ pub fn parse_ollama_event(
 
 /// Ollama chat response (streaming)
 #[derive(Debug, Deserialize)]
-pub struct OllamaStreamResponse {
+pub struct OllamaStreamEvent {
     pub model: String,
     pub created_at: String,
-    pub message: OllamaMessage,
+    pub message: OllamaMessageResponse,
     pub done: bool,
     #[serde(default)]
     pub done_reason: Option<String>,
@@ -88,28 +88,28 @@ pub struct OllamaCompletionResponse {
 
 /// Ollama message in response
 #[derive(Debug, Deserialize)]
-pub struct OllamaMessage {
+pub struct OllamaMessageResponse {
     pub role: String,
     #[serde(default)]
     pub content: String,
     #[serde(default)]
-    pub tool_calls: Vec<OllamaToolCall>,
+    pub tool_calls: Vec<OllamaToolCallResponse>,
 }
 
 /// Ollama tool call in response
 #[derive(Debug, Deserialize)]
-pub struct OllamaToolCall {
-    pub function: OllamaToolFunction,
+pub struct OllamaToolCallResponse {
+    pub function: OllamaFunctionResponse,
 }
 
 /// Ollama tool function in response
 #[derive(Debug, Deserialize)]
-pub struct OllamaToolFunction {
+pub struct OllamaFunctionResponse {
     pub name: String,
     pub arguments: serde_json::Value,
 }
 
-impl OllamaToolFunction {
+impl OllamaFunctionResponse {
     /// Convert to ChatRsToolCall if the tool exists in the provided tools
     pub fn convert(self, tools: &[LlmTool]) -> Option<ChatRsToolCall> {
         let tool = tools.iter().find(|t| t.name == self.name)?;
@@ -140,8 +140,8 @@ impl From<&OllamaCompletionResponse> for Option<LlmUsage> {
     }
 }
 
-impl From<&OllamaStreamResponse> for Option<LlmUsage> {
-    fn from(response: &OllamaStreamResponse) -> Self {
+impl From<&OllamaStreamEvent> for Option<LlmUsage> {
+    fn from(response: &OllamaStreamEvent) -> Self {
         if response.prompt_eval_count.is_some() || response.eval_count.is_some() {
             Some(LlmUsage {
                 input_tokens: response.prompt_eval_count,

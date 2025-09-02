@@ -1,45 +1,77 @@
 use serde::Serialize;
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::LlmTool,
+    db::models::ChatRsFileType,
+    provider::{LlmMessage, LlmTool},
 };
 
-pub fn build_openai_messages<'a>(messages: &'a [ChatRsMessage]) -> Vec<OpenAIMessage<'a>> {
+pub fn build_openai_messages<'a>(messages: &'a [LlmMessage]) -> Vec<OpenAIMessage<'a>> {
     messages
         .iter()
-        .map(|message| {
-            let role = match message.role {
-                ChatRsMessageRole::User => "user",
-                ChatRsMessageRole::Assistant => "assistant",
-                ChatRsMessageRole::System => "system",
-                ChatRsMessageRole::Tool => "tool",
-            };
-            let openai_message = OpenAIMessage {
-                role,
-                content: Some(&message.content),
-                tool_call_id: message.meta.tool_call.as_ref().map(|tc| tc.id.as_str()),
-                tool_calls: message
-                    .meta
-                    .assistant
-                    .as_ref()
-                    .and_then(|meta| meta.tool_calls.as_ref())
-                    .map(|tc| {
-                        tc.iter()
-                            .map(|tc| OpenAIToolCall {
-                                id: &tc.id,
-                                tool_type: "function",
-                                function: OpenAIToolCallFunction {
-                                    name: &tc.tool_name,
-                                    arguments: serde_json::to_string(&tc.parameters)
-                                        .unwrap_or_default(),
-                                },
-                            })
-                            .collect()
+        .map(|message| match message {
+            LlmMessage::User(user_message) => {
+                let mut content = Vec::new();
+                if !user_message.text.is_empty() {
+                    content.push(OpenAIContent::Text {
+                        text: &user_message.text,
+                    });
+                }
+                if let Some(ref files) = user_message.files {
+                    content.extend(files.iter().map(|file| match file.file_type {
+                        ChatRsFileType::Text => OpenAIContent::Text {
+                            text: &file.content,
+                        },
+                        ChatRsFileType::Image => OpenAIContent::ImageUrl { url: &file.content },
+                        ChatRsFileType::Pdf => OpenAIContent::File {
+                            file_data: &file.content,
+                            filename: &file.name,
+                        },
+                    }));
+                }
+                OpenAIMessage {
+                    role: "user",
+                    content: Some(content),
+                    ..Default::default()
+                }
+            }
+            LlmMessage::Assistant(assistant_message) => {
+                let tool_calls = assistant_message.tool_calls.as_ref().map(|tc| {
+                    tc.iter()
+                        .map(|tc| OpenAIToolCall {
+                            id: &tc.id,
+                            tool_type: "function",
+                            function: OpenAIToolCallFunction {
+                                name: &tc.tool_name,
+                                arguments: serde_json::to_string(&tc.parameters)
+                                    .unwrap_or_default(),
+                            },
+                        })
+                        .collect()
+                });
+                OpenAIMessage {
+                    role: "assistant",
+                    content: (!assistant_message.text.is_empty()).then(|| {
+                        vec![OpenAIContent::Text {
+                            text: &assistant_message.text,
+                        }]
                     }),
-            };
-
-            openai_message
+                    tool_calls,
+                    ..Default::default()
+                }
+            }
+            LlmMessage::System(text) => OpenAIMessage {
+                role: "system",
+                content: Some(vec![OpenAIContent::Text { text }]),
+                ..Default::default()
+            },
+            LlmMessage::Tool(tool_result) => OpenAIMessage {
+                role: "tool",
+                content: Some(vec![OpenAIContent::Text {
+                    text: &tool_result.content,
+                }]),
+                tool_call_id: Some(&tool_result.tool_call_id),
+                ..Default::default()
+            },
         })
         .collect()
 }
@@ -90,11 +122,26 @@ pub struct OpenAIStreamOptions {
 pub struct OpenAIMessage<'a> {
     pub role: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<&'a str>,
+    pub content: Option<Vec<OpenAIContent<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<OpenAIToolCall<'a>>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename = "snakes_case")]
+pub enum OpenAIContent<'a> {
+    Text {
+        text: &'a str,
+    },
+    ImageUrl {
+        url: &'a str,
+    },
+    File {
+        file_data: &'a str,
+        filename: &'a str,
+    },
 }
 
 /// OpenAI tool definition
@@ -110,8 +157,8 @@ pub struct OpenAITool<'a> {
 pub struct OpenAIToolFunction<'a> {
     name: &'a str,
     description: &'a str,
-    parameters: &'a serde_json::Value,
     strict: bool,
+    parameters: &'a serde_json::Value,
 }
 
 /// OpenAI tool call in messages

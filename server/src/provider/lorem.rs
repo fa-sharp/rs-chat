@@ -7,13 +7,7 @@ use rocket::futures::Stream;
 use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
-use crate::{
-    db::models::ChatRsMessage,
-    provider::{
-        models::LlmModel, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk,
-        LlmStreamChunkResult, LlmStreamError, LlmTool,
-    },
-};
+use crate::provider::*;
 
 /// A test/dummy provider that streams 'lorem ipsum...' and emits test errors during the stream
 #[derive(Debug, Clone)]
@@ -71,7 +65,7 @@ impl Stream for LoremStream {
 impl LlmApiProvider for LoremProvider {
     async fn chat_stream(
         &self,
-        _messages: Vec<ChatRsMessage>,
+        _messages: Vec<LlmMessage>,
         _tools: Option<Vec<LlmTool>>,
         _options: &LlmProviderOptions,
     ) -> Result<LlmStream, LlmError> {

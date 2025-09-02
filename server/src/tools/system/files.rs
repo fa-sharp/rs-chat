@@ -189,7 +189,7 @@ impl SystemTool for Files<'_> {
                 let input: ReadFileInput = serde_json::from_value(parameters)?;
                 let path = Path::new(&input.path);
                 let content_bytes = storage
-                    .read_file(self.user_id, Some(self.session_id), path)
+                    .read_file_as_bytes(self.user_id, Some(self.session_id), path)
                     .await?;
                 let content = String::from_utf8_lossy(&content_bytes);
                 Ok((content.into(), ToolResponseFormat::Text))

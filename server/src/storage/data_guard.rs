@@ -46,7 +46,7 @@ impl<'r> FromData<'r> for FileData<'r> {
             if content_type.is_jpeg()
                 || content_type.is_png()
                 || content_type.is_webp()
-                || content_type.is_bmp()
+                || content_type.is_gif()
             {
                 ChatRsFileType::Image
             } else if content_type.is_pdf() {

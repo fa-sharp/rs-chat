@@ -3,7 +3,7 @@ use diesel::prelude::*;
 use schemars::JsonSchema;
 use uuid::Uuid;
 
-use crate::db::models::ChatRsUser;
+use crate::{db::models::ChatRsUser, provider::LlmError};
 
 #[derive(Identifiable, Associations, Queryable, Selectable, JsonSchema, serde::Serialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
@@ -44,15 +44,15 @@ pub enum ChatRsFileType {
     Pdf,
 }
 
-impl TryFrom<&'static str> for ChatRsFileType {
-    type Error = &'static str;
+impl TryFrom<&str> for ChatRsFileType {
+    type Error = LlmError;
 
-    fn try_from(file_type: &'static str) -> Result<Self, Self::Error> {
+    fn try_from(file_type: &str) -> Result<Self, Self::Error> {
         match file_type {
             "text" => Ok(ChatRsFileType::Text),
             "image" => Ok(ChatRsFileType::Image),
             "pdf" => Ok(ChatRsFileType::Pdf),
-            _ => Err("Invalid file type"),
+            _ => Err(LlmError::InvalidFileType(file_type.to_owned())),
         }
     }
 }

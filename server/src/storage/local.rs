@@ -17,7 +17,7 @@ impl LocalStorage {
         LocalStorage { base_path }
     }
 
-    pub async fn read_file(
+    pub async fn read_file_as_bytes(
         &self,
         user_id: &Uuid,
         session_id: Option<&Uuid>,
@@ -26,12 +26,21 @@ impl LocalStorage {
         let path = self.get_file_path(user_id, session_id, path)?;
         let mut file = File::open(path).await?;
         let metadata = file.metadata().await?;
+        let mut file_reader = BufReader::new(&mut file);
 
         let mut buffer = Vec::with_capacity(metadata.len() as usize);
-        let mut file_reader = BufReader::new(&mut file);
         file_reader.read_to_end(&mut buffer).await?;
-
         Ok(buffer)
+    }
+
+    pub async fn read_file_as_base64(
+        &self,
+        user_id: &Uuid,
+        session_id: Option<&Uuid>,
+        path: &Path,
+    ) -> IoResult<String> {
+        let path = self.get_file_path(user_id, session_id, path)?;
+        tokio::task::spawn_blocking(move || read_base64(&path)).await?
     }
 
     pub async fn create_file(
@@ -102,4 +111,23 @@ impl LocalStorage {
         }
         Ok(self.get_user_directory(user_id, session_id).join(path))
     }
+}
+
+/// Reads a file as a base64 encoded string (synchronous because `base64` crate writer is synchronous).
+fn read_base64(path: &Path) -> IoResult<String> {
+    let mut file = std::fs::File::open(path)?;
+    let file_size = file.metadata()?.len();
+    let estimated_size = (file_size + 2) / 3 * 4;
+    let mut file_reader = std::io::BufReader::new(&mut file);
+
+    let mut result = Vec::with_capacity(estimated_size as usize);
+    {
+        let mut encoder = base64::write::EncoderWriter::new(
+            &mut result,
+            &base64::engine::general_purpose::STANDARD,
+        );
+        std::io::copy(&mut file_reader, &mut encoder)?;
+        encoder.finish()?;
+    }
+    Ok(String::from_utf8(result).expect("base64 is valid UTF8"))
 }

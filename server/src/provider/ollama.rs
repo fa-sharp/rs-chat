@@ -5,23 +5,8 @@ mod response;
 
 use rocket::{async_stream, async_trait, futures::StreamExt};
 
-use crate::{
-    db::models::ChatRsMessage,
-    provider::{
-        models::LlmModel, utils::get_json_events, LlmApiProvider, LlmError, LlmProviderOptions,
-        LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
-    },
-};
-
-use {
-    request::{
-        build_ollama_messages, build_ollama_tools, OllamaChatRequest, OllamaCompletionRequest,
-        OllamaOptions,
-    },
-    response::{
-        parse_ollama_event, OllamaCompletionResponse, OllamaModelsResponse, OllamaToolCall,
-    },
-};
+use crate::provider::*;
+use {request::*, response::*};
 
 const CHAT_API_URL: &str = "/api/chat";
 const COMPLETION_API_URL: &str = "/api/generate";
@@ -47,7 +32,7 @@ impl OllamaProvider {
 impl LlmApiProvider for OllamaProvider {
     async fn chat_stream(
         &self,
-        messages: Vec<ChatRsMessage>,
+        messages: Vec<LlmMessage>,
         tools: Option<Vec<LlmTool>>,
         options: &LlmProviderOptions,
     ) -> Result<LlmStream, LlmError> {
@@ -84,8 +69,8 @@ impl LlmApiProvider for OllamaProvider {
         }
 
         let stream = async_stream::stream! {
-            let mut json_stream = get_json_events(response);
-            let mut tool_calls: Vec<OllamaToolCall> = Vec::new();
+            let mut json_stream = utils::get_json_events(response);
+            let mut tool_calls: Vec<OllamaToolCallResponse> = Vec::new();
             while let Some(event) = json_stream.next().await {
                 match event {
                     Ok(event) => {

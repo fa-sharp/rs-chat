@@ -5,22 +5,8 @@ mod response;
 
 use rocket::{async_stream, async_trait, futures::StreamExt};
 
-use crate::{
-    db::models::ChatRsMessage,
-    provider::{
-        models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
-        utils::get_sse_events,
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk, LlmTool, LlmUsage,
-    },
-};
-
-use {
-    request::{
-        build_openai_messages, build_openai_tools, OpenAIMessage, OpenAIRequest,
-        OpenAIStreamOptions,
-    },
-    response::{parse_openai_event, OpenAIResponse, OpenAIStreamToolCall},
-};
+use crate::provider::*;
+use {request::*, response::*};
 
 const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
@@ -54,7 +40,7 @@ impl OpenAIProvider {
 impl LlmApiProvider for OpenAIProvider {
     async fn chat_stream(
         &self,
-        messages: Vec<ChatRsMessage>,
+        messages: Vec<LlmMessage>,
         tools: Option<Vec<LlmTool>>,
         options: &LlmProviderOptions,
     ) -> Result<LlmStream, LlmError> {
@@ -99,7 +85,7 @@ impl LlmApiProvider for OpenAIProvider {
         }
 
         let stream = async_stream::stream! {
-            let mut sse_event_stream = get_sse_events(response);
+            let mut sse_event_stream =utils:: get_sse_events(response);
             let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
             while let Some(event) = sse_event_stream.next().await {
                 match event {
@@ -134,7 +120,7 @@ impl LlmApiProvider for OpenAIProvider {
             model: &options.model,
             messages: vec![OpenAIMessage {
                 role: "user",
-                content: Some(message),
+                content: Some(vec![OpenAIContent::Text { text: message }]),
                 ..Default::default()
             }],
             max_tokens: options.max_tokens,
@@ -182,12 +168,11 @@ impl LlmApiProvider for OpenAIProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
-        let models_service = ModelsDevService::new(&self.redis, &self.client);
-        let models = models_service
+        let models = models::ModelsDevService::new(&self.redis, &self.client)
             .list_models({
                 match self.base_url.as_str() {
-                    OPENROUTER_API_BASE_URL => ModelsDevServiceProvider::OpenRouter,
-                    _ => ModelsDevServiceProvider::OpenAI,
+                    OPENROUTER_API_BASE_URL => models::ModelsDevServiceProvider::OpenRouter,
+                    _ => models::ModelsDevServiceProvider::OpenAI,
                 }
             })
             .await?;
