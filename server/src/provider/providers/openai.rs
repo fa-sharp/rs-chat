@@ -125,6 +125,7 @@ impl LlmApiProvider for OpenAIProvider {
             }],
             max_tokens: options.max_tokens,
             temperature: options.temperature,
+            store: (self.base_url == OPENAI_API_BASE_URL).then_some(false),
             ..Default::default()
         };
 
