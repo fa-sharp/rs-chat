@@ -38,7 +38,6 @@ pub fn build_anthropic_messages<'a>(
                                 },
                             },
                             ChatRsFileType::Image => AnthropicContentBlock::Image {
-                                title: &file.name,
                                 source: AnthropicSource::Base64 {
                                     data: &file.content,
                                     media_type: &file.content_type,
@@ -146,7 +145,6 @@ pub enum AnthropicContentBlock<'a> {
         text: &'a str,
     },
     Image {
-        title: &'a str,
         source: AnthropicSource<'a>,
     },
     Document {

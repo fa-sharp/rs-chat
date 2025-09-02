@@ -45,10 +45,9 @@ impl ChatRsFile {
                 String::from_utf8_lossy(&bytes).into()
             }
             ChatRsFileType::Image | ChatRsFileType::Pdf => {
-                let b64_content = storage
+                storage
                     .read_file_as_base64(&self.user_id, session_id, Path::new(&self.path))
-                    .await?;
-                format!("data:{};base64,{}", self.content_type, b64_content)
+                    .await?
             }
         };
         Ok((file_type, content))

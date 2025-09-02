@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::{
     db::models::ChatRsFileType,
-    provider::{LlmMessage, LlmTool},
+    provider::{utils::create_data_uri, LlmMessage, LlmTool},
 };
 
 pub fn build_openai_messages<'a>(messages: &'a [LlmMessage]) -> Vec<OpenAIMessage<'a>> {
@@ -22,11 +22,13 @@ pub fn build_openai_messages<'a>(messages: &'a [LlmMessage]) -> Vec<OpenAIMessag
                             text: &file.content,
                         },
                         ChatRsFileType::Image => OpenAIContent::ImageUrl {
-                            image_url: OpenAIImageUrl { url: &file.content },
+                            image_url: OpenAIImageUrl {
+                                url: create_data_uri(&file.content_type, &file.content),
+                            },
                         },
                         ChatRsFileType::Pdf => OpenAIContent::File {
                             file: OpenAIFile {
-                                file_data: &file.content,
+                                file_data: create_data_uri(&file.content_type, &file.content),
                                 filename: &file.name,
                             },
                         },
@@ -137,18 +139,18 @@ pub struct OpenAIMessage<'a> {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum OpenAIContent<'a> {
     Text { text: &'a str },
-    ImageUrl { image_url: OpenAIImageUrl<'a> },
+    ImageUrl { image_url: OpenAIImageUrl },
     File { file: OpenAIFile<'a> },
 }
 
 #[derive(Debug, Serialize)]
-pub struct OpenAIImageUrl<'a> {
-    url: &'a str,
+pub struct OpenAIImageUrl {
+    url: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct OpenAIFile<'a> {
-    file_data: &'a str,
+    file_data: String,
     filename: &'a str,
 }
 
