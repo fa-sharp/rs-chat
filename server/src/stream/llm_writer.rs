@@ -304,7 +304,7 @@ impl LlmStreamWriter {
 mod tests {
     use super::*;
     use crate::{
-        provider::{lorem::LoremProvider, LlmApiProvider, LlmProviderOptions},
+        provider::{providers::LoremProvider, LlmApiProvider, LlmProviderOptions},
         redis::{ExclusiveClientManager, ExclusiveClientPool},
         stream::{cancel_current_chat_stream, check_chat_stream_exists},
     };

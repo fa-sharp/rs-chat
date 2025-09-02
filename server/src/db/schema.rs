@@ -60,6 +60,20 @@ diesel::table! {
 }
 
 diesel::table! {
+    files (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        session_id -> Nullable<Uuid>,
+        path -> Text,
+        file_type -> Text,
+        content_type -> Text,
+        size -> Int4,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     providers (id) {
         id -> Int4,
         name -> Text,
@@ -124,6 +138,8 @@ diesel::joinable!(app_api_keys -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
 diesel::joinable!(external_api_tools -> users (user_id));
+diesel::joinable!(files -> chat_sessions (session_id));
+diesel::joinable!(files -> users (user_id));
 diesel::joinable!(providers -> secrets (api_key_id));
 diesel::joinable!(providers -> users (user_id));
 diesel::joinable!(secrets -> users (user_id));
@@ -135,6 +151,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     chat_messages,
     chat_sessions,
     external_api_tools,
+    files,
     providers,
     secrets,
     system_tools,

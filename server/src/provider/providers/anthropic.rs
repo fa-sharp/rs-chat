@@ -5,22 +5,8 @@ mod response;
 
 use rocket::{async_stream, async_trait, futures::StreamExt};
 
-use crate::{
-    db::models::ChatRsMessage,
-    provider::{
-        utils::get_sse_events, LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmTool,
-        LlmUsage, DEFAULT_MAX_TOKENS,
-    },
-    provider_models::{LlmModel, ModelsDevService, ModelsDevServiceProvider},
-};
-
-use {
-    request::{
-        build_anthropic_messages, build_anthropic_tools, AnthropicContentBlock, AnthropicMessage,
-        AnthropicRequest,
-    },
-    response::{parse_anthropic_event, AnthropicResponse, AnthropicResponseContentBlock},
-};
+use crate::provider::*;
+use {request::*, response::*};
 
 const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
@@ -51,7 +37,7 @@ impl AnthropicProvider {
 impl LlmApiProvider for AnthropicProvider {
     async fn chat_stream(
         &self,
-        messages: Vec<ChatRsMessage>,
+        messages: Vec<LlmMessage>,
         tools: Option<Vec<LlmTool>>,
         options: &LlmProviderOptions,
     ) -> Result<LlmStream, LlmError> {
@@ -87,7 +73,7 @@ impl LlmApiProvider for AnthropicProvider {
         }
 
         let stream = async_stream::stream! {
-            let mut sse_event_stream = get_sse_events(response);
+            let mut sse_event_stream = utils::get_sse_events(response);
             let mut tool_calls = Vec::new();
             while let Some(event_result) = sse_event_stream.next().await {
                 match event_result {
@@ -163,9 +149,9 @@ impl LlmApiProvider for AnthropicProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
-        let models_service = ModelsDevService::new(&self.redis, &self.client);
+        let models_service = models::ModelsDevService::new(&self.redis, &self.client);
         let models = models_service
-            .list_models(ModelsDevServiceProvider::Anthropic)
+            .list_models(models::ModelsDevServiceProvider::Anthropic)
             .await?;
 
         Ok(models)

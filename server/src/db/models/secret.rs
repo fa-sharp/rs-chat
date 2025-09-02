@@ -1,8 +1,5 @@
 use chrono::{DateTime, Utc};
-use diesel::{
-    prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
-    Selectable,
-};
+use diesel::prelude::*;
 use schemars::JsonSchema;
 use uuid::Uuid;
 

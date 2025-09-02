@@ -42,6 +42,7 @@
     "openapi-fetch": "^0.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-dropzone": "^14.3.8",
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "rehype-highlight-code-lines": "^1.1.5",
@@ -54,7 +55,7 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.0.0",
+    "@biomejs/biome": "2.2.2",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",

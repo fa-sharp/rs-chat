@@ -8,16 +8,12 @@ use uuid::Uuid;
 use crate::{
     auth::ChatRsUserId,
     db::{
-        models::{
-            ChatRsProvider, ChatRsProviderType, NewChatRsProvider, NewChatRsSecret,
-            UpdateChatRsProvider, UpdateChatRsSecret,
-        },
+        models::*,
         services::{ProviderDbService, SecretDbService},
         DbConnection,
     },
     errors::ApiError,
-    provider::build_llm_provider_api,
-    provider_models::LlmModel,
+    provider::{build_llm_provider_api, models::LlmModel},
     redis::RedisClient,
     utils::Encryptor,
 };

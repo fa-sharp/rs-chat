@@ -2,7 +2,7 @@
 
 ## Overview
 
-RsChat is a real-time chat application that provides resumable streaming conversations with LLM providers. The architecture is designed for high performance, scalability across multiple server instances, and resilient streaming that can survive network interruptions.
+RsChat is an application for chatting with multiple LLM providers. The architecture is designed for high performance, scalability across multiple server instances, and resilient streaming that can survive network interruptions.
 
 ## Core Architecture
 
@@ -14,7 +14,7 @@ RsChat is a real-time chat application that provides resumable streaming convers
 
 ### Backend (Rust/Rocket)
 - **Location**: `server/`
-- **Framework**: Rocket with async/await support
+- **Framework**: Rocket
 - **Database**: PostgreSQL for persistent storage
 - **Cache/Streaming**: Redis for stream management and caching
 
@@ -24,8 +24,8 @@ RsChat is a real-time chat application that provides resumable streaming convers
 
 RsChat uses a hybrid streaming architecture that provides both real-time performance and cross-instance resumability:
 
-1. **Server**: Redis Streams for resumability and multi-instance support
-2. **Client**: Server-Sent Events (SSE) read from the Redis streams
+1. **Server**: Redis Streams created from the provider responses, for resumability and multi-instance support, as well as simultaneous streaming to multiple clients.
+2. **Client**: Server-Sent Events (SSE) read from the Redis streams.
 
 ### Key Components
 
@@ -34,9 +34,8 @@ RsChat uses a hybrid streaming architecture that provides both real-time perform
 The core component that processes LLM provider streams and manages Redis stream output.
 
 **Key Features:**
-- **Batching**: Accumulates chunks from the provider stream, up to a max length or timeout
+- **Batching**: Accumulates chunks from the provider stream, up to a max length or timeout, and adds them to the Redis stream
 - **Background Pings**: Sends regular keepalive pings
-- **Database Integration**: Saves final responses to PostgreSQL
 
 #### 2. Redis and SSE Stream Structure
 
@@ -46,6 +45,7 @@ The core component that processes LLM provider streams and manages Redis stream 
 - `start`: Stream initialization
 - `text`: Accumulated text chunks
 - `tool_call`: LLM tool invocations (JSON stringified)
+- `pending_tool_call`: Pending tool call invocations
 - `error`: Error messages
 - `ping`: Keepalive messages
 - `end`: Stream completion
@@ -54,7 +54,7 @@ The core component that processes LLM provider streams and manages Redis stream 
 #### 3. Stream Lifecycle
 
 ```
-Client Request → SSE Connection → LlmStreamWriter.create()
+Client Request → LLM streaming response → LlmStreamWriter.create()
                      ↓
 LLM Provider Stream → Batching Data Chunks → Redis XADD
                      ↓
@@ -77,9 +77,8 @@ Stream End → Database Save → Redis DEL
 ```
 Client → POST /api/chat/{session_id}
        → Send request to LLM Provider
-       → SSE Response Stream created
-       → LlmStreamWriter.create()
-       → Redis Stream created
+       → LLM response received, streamed to Redis with the `LlmStreamWriter`
+       → GET /api/chat/{session_id}/stream to connect to the stream and stream the response
 ```
 
 ### 2. Stream Processing
@@ -87,7 +86,7 @@ Client → POST /api/chat/{session_id}
 LLM Chunk → Process text, tool calls, usage, and error chunks
           → Batching Logic
           → Redis XADD (if conditions met)
-          → Continue SSE Stream
+          → Client(s) receive the new chunks
 ```
 
 ### 3. Stream Completion
@@ -101,5 +100,5 @@ LLM End → Final Database Save
 ### 4. Reconnection/Resume
 ```
 Client Reconnect → Check ongoing streams via GET /api/chat/streams
-                 → Reconnect to stream (if active)
+                 → Reconnect to any active streams
 ```

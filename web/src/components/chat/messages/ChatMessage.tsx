@@ -1,4 +1,4 @@
-import { Bot, Wrench } from "lucide-react";
+import { Bot, Paperclip, Wrench } from "lucide-react";
 import React, { Suspense } from "react";
 import Markdown from "react-markdown";
 
@@ -7,6 +7,7 @@ import {
   ChatBubbleAvatar,
   ChatBubbleMessage,
 } from "@/components/ui/chat/chat-bubble";
+import { API_URL } from "@/lib/api/client";
 import type { components } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { CopyButton, DeleteButton, InfoButton } from "./ChatMessageActions";
@@ -24,6 +25,7 @@ interface Props {
   message: components["schemas"]["ChatRsMessage"];
   user?: components["schemas"]["ChatRsUser"];
   tools?: components["schemas"]["GetAllToolsResponse"];
+  files?: components["schemas"]["ChatRsFile"][];
   executedToolCalls?: components["schemas"]["ChatRsToolCall"][];
   onExecuteToolCall: (messageId: string, toolCallId: string) => void;
   providers?: components["schemas"]["ChatRsProvider"][];
@@ -34,6 +36,7 @@ export default function ChatMessage({
   message,
   user,
   tools,
+  files,
   executedToolCalls,
   onExecuteToolCall,
   providers,
@@ -96,18 +99,33 @@ export default function ChatMessage({
           </>
         )}
         {message.role === "User" && (
-          <div className="flex items-end justify-between">
-            <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
-              <CopyButton message={message.content} variant="default" />
-              <DeleteButton
-                onDelete={() => onDeleteMessage(message.id)}
-                variant="default"
-              />
+          <>
+            {message.meta.user?.files?.map((fileId) => (
+              <div key={fileId} className="flex items-center gap-1">
+                <Paperclip className="size-4" />
+                <a
+                  className="text-primary-foreground"
+                  href={`${API_URL}/storage/${message.session_id}/${fileId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {files?.find((file) => file.id === fileId)?.path || "File"}
+                </a>
+              </div>
+            ))}
+            <div className="flex items-end justify-between">
+              <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
+                <CopyButton message={message.content} variant="default" />
+                <DeleteButton
+                  onDelete={() => onDeleteMessage(message.id)}
+                  variant="default"
+                />
+              </div>
+              <div className="text-xs text-muted">
+                {formatDate(message.created_at)}
+              </div>
             </div>
-            <div className="text-xs text-muted">
-              {formatDate(message.created_at)}
-            </div>
-          </div>
+          </>
         )}
         {message.role === "Tool" && (
           <div className="flex items-end justify-between">

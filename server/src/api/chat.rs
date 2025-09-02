@@ -18,21 +18,16 @@ use crate::{
     api::session::DEFAULT_SESSION_TITLE,
     auth::ChatRsUserId,
     db::{
-        models::{
-            AssistantMeta, ChatRsMessageMeta, ChatRsMessageRole, ChatRsSessionMeta,
-            NewChatRsMessage, UpdateChatRsSession,
-        },
+        models::*,
         services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
-    provider::{build_llm_provider_api, LlmError, LlmProviderOptions},
+    provider::{build_llm_messages, build_llm_provider_api, LlmError, LlmProviderOptions},
     redis::{ExclusiveRedisClient, RedisClient},
-    stream::{
-        cancel_current_chat_stream, check_chat_stream_exists, get_current_chat_streams,
-        LastEventId, LlmStreamWriter, SseStreamReader,
-    },
-    tools::{get_llm_tools_from_input, SendChatToolInput},
+    storage::LocalStorage,
+    stream::*,
+    tools::SendChatToolInput,
     utils::{generate_title, Encryptor},
 };
 
@@ -72,6 +67,8 @@ pub struct SendChatInput<'a> {
     options: LlmProviderOptions,
     /// Configuration of tools available to the assistant
     tools: Option<SendChatToolInput>,
+    /// IDs of the file(s) to attach to this message
+    files: Option<Vec<Uuid>>,
 }
 
 #[derive(JsonSchema, serde::Serialize)]
@@ -92,6 +89,7 @@ pub async fn send_chat_stream(
     redis: RedisClient,
     redis_writer: ExclusiveRedisClient,
     encryptor: &State<Encryptor>,
+    storage: &State<LocalStorage>,
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
@@ -123,12 +121,26 @@ pub async fn send_chat_stream(
 
     // Get the user's chosen tools
     let mut tools = None;
-    if let Some(tool_input) = input.tools.as_ref() {
-        let mut tool_db_service = ToolDbService::new(&mut db);
-        tools = Some(get_llm_tools_from_input(&user_id, tool_input, &mut tool_db_service).await?);
+    if let Some(conf) = input.tools.take() {
+        let llm_tools = conf
+            .get_llm_tools(&user_id, &mut ToolDbService::new(&mut db))
+            .await?;
+        tools = Some(llm_tools);
+
+        // Update session metadata with new tools if needed
+        if session.meta.tool_config.as_ref().is_none_or(|c| *c != conf) {
+            let data = UpdateChatRsSession {
+                meta: Some(ChatRsSessionMeta::new(Some(conf))),
+                ..Default::default()
+            };
+            ChatDbService::new(&mut db)
+                .update_session(&user_id, &session_id, data)
+                .await?;
+        }
     }
 
     // Generate session title if needed, and save user message to database
+    let attached_file_ids = input.files.take();
     if let Some(user_message) = &input.message {
         if messages.is_empty() && session.title == DEFAULT_SESSION_TITLE {
             generate_title(
@@ -140,47 +152,34 @@ pub async fn send_chat_stream(
                 db_pool,
             );
         }
-        let new_message = ChatDbService::new(&mut db)
+        let message_meta = attached_file_ids
+            .map(|ids| ChatRsMessageMeta::new_user(UserMeta { files: Some(ids) }))
+            .unwrap_or_default();
+        let message = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 content: user_message,
                 session_id: &session_id,
                 role: ChatRsMessageRole::User,
-                meta: ChatRsMessageMeta::default(),
+                meta: message_meta,
             })
             .await?;
-        messages.push(new_message);
+        messages.push(message);
     }
 
-    // Update session metadata if needed
-    if let Some(tool_input) = input.tools.take() {
-        if session
-            .meta
-            .tool_config
-            .is_none_or(|config| config != tool_input)
-        {
-            let meta = ChatRsSessionMeta::new(Some(tool_input));
-            let data = UpdateChatRsSession {
-                meta: Some(&meta),
-                ..Default::default()
-            };
-            ChatDbService::new(&mut db)
-                .update_session(&user_id, &session_id, data)
-                .await?;
-        }
-    }
-
-    // Get the provider's stream response
+    // Convert the messages, and get the provider's response stream
+    let llm_messages =
+        build_llm_messages(messages, &user_id, &session_id, &mut db, &storage).await?;
     let stream = provider_api
-        .chat_stream(messages, tools, &input.options)
+        .chat_stream(llm_messages, tools, &input.options)
         .await?;
-    let provider_id = input.provider_id;
-    let provider_options = input.options.clone();
 
     // Create the Redis stream
     let mut stream_writer = LlmStreamWriter::new(redis_writer, &user_id, &session_id);
     stream_writer.start().await?;
 
     // Spawn a task to stream and save the response
+    let provider_id = input.provider_id.clone();
+    let provider_options = input.options.clone();
     tokio::spawn(async move {
         let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
         let assistant_meta = AssistantMeta {

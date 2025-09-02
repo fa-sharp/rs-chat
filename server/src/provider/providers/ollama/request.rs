@@ -3,59 +3,63 @@
 use serde::Serialize;
 
 use crate::{
-    db::models::{ChatRsMessage, ChatRsMessageRole},
-    provider::LlmTool,
+    db::models::ChatRsFileType,
+    provider::{LlmMessage, LlmTool},
     tools::ToolParameters,
 };
 
-/// Convert ChatRsMessages to Ollama messages
-pub fn build_ollama_messages(messages: &[ChatRsMessage]) -> Vec<OllamaMessage> {
+/// Convert LlmMessages to Ollama messages
+pub fn build_ollama_messages(messages: &[LlmMessage]) -> Vec<OllamaMessage> {
     messages
         .iter()
-        .map(|msg| {
-            let role = match msg.role {
-                ChatRsMessageRole::User => "user",
-                ChatRsMessageRole::Assistant => "assistant",
-                ChatRsMessageRole::System => "system",
-                ChatRsMessageRole::Tool => "tool",
-            };
-
-            let mut ollama_msg = OllamaMessage {
-                role,
-                content: &msg.content,
-                tool_calls: None,
-                tool_name: None,
-            };
-
-            // Handle tool calls in assistant messages
-            if msg.role == ChatRsMessageRole::Assistant {
-                if let Some(msg_tool_calls) = msg
-                    .meta
-                    .assistant
-                    .as_ref()
-                    .and_then(|m| m.tool_calls.as_ref())
-                {
-                    let tool_calls = msg_tool_calls
+        .map(|message| match message {
+            LlmMessage::User(user_message) => {
+                let images = user_message.files.as_ref().map(|files| {
+                    files
+                        .iter()
+                        .filter_map(|file| match file.file_type {
+                            ChatRsFileType::Image => Some(file.content.as_str()),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>()
+                });
+                OllamaMessage {
+                    role: "user",
+                    content: &user_message.text,
+                    images,
+                    ..Default::default()
+                }
+            }
+            LlmMessage::Assistant(assistant_message) => {
+                let tool_calls = assistant_message.tool_calls.as_ref().map(|tool_calls| {
+                    tool_calls
                         .iter()
                         .map(|tc| OllamaToolCall {
-                            function: OllamaToolFunction {
+                            function: OllamaFunction {
                                 name: &tc.tool_name,
                                 arguments: &tc.parameters,
                             },
                         })
-                        .collect();
-                    ollama_msg.tool_calls = Some(tool_calls);
+                        .collect()
+                });
+                OllamaMessage {
+                    role: "assistant",
+                    content: &assistant_message.text,
+                    tool_calls,
+                    ..Default::default()
                 }
             }
-
-            // Handle tool messages (results from tool calls)
-            if msg.role == ChatRsMessageRole::Tool {
-                if let Some(ref tool_call) = msg.meta.tool_call {
-                    ollama_msg.tool_name = Some(&tool_call.tool_name);
-                }
-            }
-
-            ollama_msg
+            LlmMessage::System(text) => OllamaMessage {
+                role: "system",
+                content: text,
+                ..Default::default()
+            },
+            LlmMessage::Tool(result) => OllamaMessage {
+                role: "tool",
+                content: &result.content,
+                tool_name: Some(&result.tool_name),
+                ..Default::default()
+            },
         })
         .collect()
 }
@@ -100,10 +104,12 @@ pub struct OllamaCompletionRequest<'a> {
 }
 
 /// Ollama chat message
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub struct OllamaMessage<'a> {
     pub role: &'a str,
     pub content: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<&'a str>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<OllamaToolCall<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,12 +119,12 @@ pub struct OllamaMessage<'a> {
 /// Ollama tool call in a message
 #[derive(Debug, Serialize)]
 pub struct OllamaToolCall<'a> {
-    pub function: OllamaToolFunction<'a>,
+    pub function: OllamaFunction<'a>,
 }
 
 /// Ollama tool function
 #[derive(Debug, Serialize)]
-pub struct OllamaToolFunction<'a> {
+pub struct OllamaFunction<'a> {
     pub name: &'a str,
     pub arguments: &'a ToolParameters,
 }

@@ -4,34 +4,19 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use rocket::futures::Stream;
-use rocket_okapi::JsonSchema;
 use tokio::time::{interval, Interval};
 
-use crate::{
-    db::models::ChatRsMessage,
-    provider::{
-        LlmApiProvider, LlmError, LlmProviderOptions, LlmStream, LlmStreamChunk,
-        LlmStreamChunkResult, LlmStreamError, LlmTool,
-    },
-    provider_models::LlmModel,
-};
+use crate::provider::*;
 
 /// A test/dummy provider that streams 'lorem ipsum...' and emits test errors during the stream
 #[derive(Debug, Clone)]
 pub struct LoremProvider {
-    pub config: LoremConfig,
-}
-
-#[derive(Debug, Clone, JsonSchema)]
-pub struct LoremConfig {
     pub interval: u32,
 }
 
 impl LoremProvider {
     pub fn new() -> Self {
-        LoremProvider {
-            config: LoremConfig { interval: 400 },
-        }
+        LoremProvider { interval: 400 }
     }
 }
 
@@ -72,7 +57,7 @@ impl Stream for LoremStream {
 impl LlmApiProvider for LoremProvider {
     async fn chat_stream(
         &self,
-        _messages: Vec<ChatRsMessage>,
+        _messages: Vec<LlmMessage>,
         _tools: Option<Vec<LlmTool>>,
         _options: &LlmProviderOptions,
     ) -> Result<LlmStream, LlmError> {
@@ -108,7 +93,7 @@ impl LlmApiProvider for LoremProvider {
         let stream: LlmStream = Box::pin(LoremStream {
             words: lorem_words,
             index: 0,
-            interval: interval(Duration::from_millis(self.config.interval.into())),
+            interval: interval(Duration::from_millis(self.interval.into())),
         });
 
         tokio::time::sleep(Duration::from_millis(1000)).await;

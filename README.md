@@ -2,9 +2,7 @@
 
 A fast, secure, self-hostable chat application built with Rust, TypeScript, and React. Chat with multiple AI providers using your own API keys, with real-time streaming built-in.
 
-!! **Submission to the [T3 Chat Cloneathon](https://cloneathon.t3.chat/)** !!
-
-Demo link: https://rschat.fasharp.io (⚠️ This is a demo - don't expect your account/chats to be there when you come back. It may intermittently delete data. Please also don't enter any sensitive information or confidential data)
+Demo link: https://rs-chat-demo.up.railway.app/ (⚠️ This is a demo - don't expect your account/chats to be there when you come back. It may intermittently delete all data. Please also don't enter any sensitive information or confidential data)
 
 ## ✨ Features
 

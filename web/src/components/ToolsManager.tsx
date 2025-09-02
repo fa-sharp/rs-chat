@@ -1,4 +1,5 @@
 import {
+  Check,
   CloudCog,
   Code2,
   FolderCog,
@@ -40,7 +41,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -228,19 +228,13 @@ export function ToolsManager({
   return (
     <div className={cn("space-y-6", className)} {...props}>
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Tools (Beta)</h2>
-          <p className="text-gray-600">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-3xl font-bold">Tools (Beta)</h2>
+          <p className="text-muted-foreground">
             Manage your system tools and external API integrations
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="size-4 mr-2" />
-              Add Tool
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Tool</DialogTitle>
@@ -264,16 +258,19 @@ export function ToolsManager({
                 <Code2 className="size-5" />
                 <CardTitle className="text-base">Code Runner</CardTitle>
               </div>
-              {!codeRunnerTool && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEnableSystemTool("code_runner")}
-                >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEnableSystemTool("code_runner")}
+                disabled={!!codeRunnerTool}
+              >
+                {!codeRunnerTool ? (
                   <Plus className="size-4 mr-1" />
-                  Enable
-                </Button>
-              )}
+                ) : (
+                  <Check className="size-4 mr-1 text-green-500" />
+                )}
+                {!codeRunnerTool ? "Enable" : "Enabled"}
+              </Button>
             </CardHeader>
             <CardContent>
               <CardDescription>
@@ -296,16 +293,20 @@ export function ToolsManager({
                 <Wrench className="size-5" />
                 <CardTitle className="text-base">System / Time</CardTitle>
               </div>
-              {!systemInfoTool && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEnableSystemTool("system_info")}
-                >
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEnableSystemTool("system_info")}
+                disabled={!!systemInfoTool}
+              >
+                {!systemInfoTool ? (
                   <Plus className="size-4 mr-1" />
-                  Enable
-                </Button>
-              )}
+                ) : (
+                  <Check className="size-4 mr-1 text-green-500" />
+                )}
+                {!systemInfoTool ? "Enable" : "Enabled"}
+              </Button>
             </CardHeader>
             <CardContent>
               <CardDescription>

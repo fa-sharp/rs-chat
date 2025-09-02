@@ -9,6 +9,7 @@ interface Props {
   messages: Array<components["schemas"]["ChatRsMessage"]>;
   providers?: Array<components["schemas"]["ChatRsProvider"]>;
   tools?: components["schemas"]["GetAllToolsResponse"];
+  files?: Array<components["schemas"]["ChatRsFile"]>;
   onToolExecute: (
     messageId: string,
     sessionId: string,
@@ -24,6 +25,7 @@ export default memo(function ChatMessages({
   messages,
   providers,
   tools,
+  files,
   onToolExecute,
   isStreaming,
   sessionId,
@@ -56,6 +58,7 @@ export default memo(function ChatMessages({
         user={user}
         providers={providers}
         tools={tools}
+        files={files}
         executedToolCalls={message.meta.assistant?.tool_calls?.filter((tc) =>
           messages.some((m) => m.meta.tool_call?.id === tc.id),
         )}

@@ -1,3 +1,5 @@
+//! LLM model structs and utils
+
 use std::collections::HashMap;
 
 use enum_iterator::{all, Sequence};

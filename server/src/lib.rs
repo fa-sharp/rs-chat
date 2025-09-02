@@ -4,8 +4,8 @@ pub mod config;
 pub mod db;
 pub mod errors;
 pub mod provider;
-pub mod provider_models;
 pub mod redis;
+pub mod storage;
 pub mod stream;
 pub mod tools;
 pub mod utils;
@@ -20,6 +20,7 @@ use crate::{
     db::setup_db,
     errors::get_catchers,
     redis::setup_redis,
+    storage::setup_storage,
     utils::setup_encryption,
     web::setup_static_files,
 };
@@ -32,6 +33,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_encryption())
         .attach(setup_auth("/api/auth"))
+        .attach(setup_storage())
         .attach(setup_static_files())
         .manage(reqwest::Client::new())
         .register("/", get_catchers())
@@ -47,6 +49,7 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         "/session" => api::session_routes(&openapi_settings),
         "/chat" => api::chat_routes(&openapi_settings),
         "/tool" => api::tool_routes(&openapi_settings),
+        "/storage" => api::storage_routes(&openapi_settings),
         "/secret" => api::secret_routes(&openapi_settings),
         "/api_key" => api::api_key_routes(&openapi_settings),
     };

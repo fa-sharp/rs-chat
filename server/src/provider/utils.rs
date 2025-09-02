@@ -1,3 +1,5 @@
+//! Utils for working with LLM requests and responses
+
 use rocket::futures::TryStreamExt;
 use serde::de::DeserializeOwned;
 use tokio_stream::{Stream, StreamExt};
@@ -7,6 +9,11 @@ use tokio_util::{
 };
 
 use crate::provider::LlmStreamError;
+
+/// Create a data URI
+pub fn create_data_uri(content_type: &str, b64_string: &str) -> String {
+    format!("data:{};base64,{}", content_type, b64_string)
+}
 
 /// Get a stream of deserialized events from a provider SSE stream.
 pub fn get_sse_events<T: DeserializeOwned + Send + 'static>(

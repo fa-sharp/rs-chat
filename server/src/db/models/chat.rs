@@ -1,8 +1,5 @@
 use chrono::{DateTime, Utc};
-use diesel::{
-    prelude::{AsChangeset, Associations, Identifiable, Insertable, Queryable},
-    Selectable,
-};
+use diesel::prelude::*;
 use diesel_as_jsonb::AsJsonb;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -14,7 +11,7 @@ use crate::{
     tools::SendChatToolInput,
 };
 
-#[derive(Identifiable, Associations, Queryable, Selectable, JsonSchema, serde::Serialize)]
+#[derive(Identifiable, Associations, Queryable, Selectable, JsonSchema, Serialize)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::chat_sessions)]
 pub struct ChatRsSession {
@@ -50,12 +47,12 @@ pub struct NewChatRsSession<'r> {
 #[diesel(table_name = super::schema::chat_sessions)]
 pub struct UpdateChatRsSession<'r> {
     pub title: Option<&'r str>,
-    pub meta: Option<&'r ChatRsSessionMeta>,
+    pub meta: Option<ChatRsSessionMeta>,
 }
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::ChatMessageRole")]
-#[derive(Debug, PartialEq, Eq, JsonSchema, serde::Serialize)]
+#[derive(Debug, PartialEq, Eq, JsonSchema, Serialize)]
 pub enum ChatRsMessageRole {
     User,
     Assistant,
@@ -63,7 +60,7 @@ pub enum ChatRsMessageRole {
     Tool,
 }
 
-#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, serde::Serialize)]
+#[derive(Identifiable, Queryable, Selectable, Associations, JsonSchema, Serialize)]
 #[diesel(belongs_to(ChatRsSession, foreign_key = session_id))]
 #[diesel(table_name = super::schema::chat_messages)]
 pub struct ChatRsMessage {
@@ -77,6 +74,9 @@ pub struct ChatRsMessage {
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize, AsJsonb)]
 pub struct ChatRsMessageMeta {
+    /// User messages: metadata associated with the user message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<UserMeta>,
     /// Assistant messages: metadata associated with the assistant message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assistant: Option<AssistantMeta>,
@@ -85,12 +85,25 @@ pub struct ChatRsMessageMeta {
     pub tool_call: Option<ChatRsExecutedToolCall>,
 }
 impl ChatRsMessageMeta {
-    pub fn new_assistant(assistant: AssistantMeta) -> Self {
+    pub fn new_assistant(assistant_meta: AssistantMeta) -> Self {
         Self {
-            assistant: Some(assistant),
-            tool_call: None,
+            assistant: Some(assistant_meta),
+            ..Default::default()
         }
     }
+    pub fn new_user(user_meta: UserMeta) -> Self {
+        Self {
+            user: Some(user_meta),
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Debug, Default, JsonSchema, Serialize, Deserialize)]
+pub struct UserMeta {
+    /// The IDs of the files attached to this message
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub files: Option<Vec<Uuid>>,
 }
 
 #[derive(Debug, Default, JsonSchema, Serialize, Deserialize)]

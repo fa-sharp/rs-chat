@@ -406,6 +406,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/storage/{session_id}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Upload a new session file */
+        post: operations["upload_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/{session_id}/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Download a session file */
+        get: operations["download_file"];
+        put?: never;
+        post?: never;
+        /** @description Delete a session file */
+        delete: operations["delete_file"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/storage/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description List session files */
+        get: operations["list_session_files"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/secret/": {
         parameters: {
             query?: never;
@@ -559,8 +611,6 @@ export interface components {
             id: number;
             name: string;
             provider_type: components["schemas"]["ChatRsProviderType"];
-            /** Format: uuid */
-            user_id: string;
             default_model: string;
             base_url?: string | null;
             /** Format: uuid */
@@ -638,6 +688,20 @@ export interface components {
              * @default false
              */
             info: boolean;
+            /** @default null */
+            files: components["schemas"]["FilesInput"] | null;
+        };
+        FilesInput: {
+            /**
+             * @description Whether assistant has permission to read files
+             * @default false
+             */
+            read: boolean;
+            /**
+             * @description Whether assistant has permission to write files
+             * @default false
+             */
+            write: boolean;
         };
         /** @description Chat input settings for an external API tool */
         ExternalApiToolInput: {
@@ -691,10 +755,16 @@ export interface components {
         /** @enum {string} */
         ChatRsMessageRole: "User" | "Assistant" | "System" | "Tool";
         ChatRsMessageMeta: {
+            /** @description User messages: metadata associated with the user message */
+            user?: components["schemas"]["UserMeta"] | null;
             /** @description Assistant messages: metadata associated with the assistant message */
             assistant?: components["schemas"]["AssistantMeta"] | null;
             /** @description Tool messages: metadata of the executed tool call */
             tool_call?: components["schemas"]["ChatRsExecutedToolCall"] | null;
+        };
+        UserMeta: {
+            /** @description The IDs of the files attached to this message */
+            files?: string[] | null;
         };
         AssistantMeta: {
             /**
@@ -713,7 +783,7 @@ export interface components {
             /** @description Whether this is a partial and/or interrupted message */
             partial?: boolean | null;
         };
-        /** @description Shared configuration for LLM provider requests */
+        /** @description Configuration for LLM provider requests */
         LlmProviderOptions: {
             model: string;
             /** Format: float */
@@ -827,6 +897,8 @@ export interface components {
             options: components["schemas"]["LlmProviderOptions"];
             /** @description Configuration of tools available to the assistant */
             tools?: components["schemas"]["SendChatToolInput"] | null;
+            /** @description IDs of the file(s) to attach to this message */
+            files?: string[] | null;
         };
         GetAllToolsResponse: {
             /** @description System tools */
@@ -853,7 +925,7 @@ export interface components {
         } | {
             /** @enum {string} */
             type: "files";
-            config: null;
+            config: components["schemas"]["FilesConfig"];
         } | {
             /** @enum {string} */
             type: "system_info";
@@ -878,6 +950,13 @@ export interface components {
              * @default 0.5
              */
             cpu_limit: number;
+        };
+        FilesConfig: {
+            storage: components["schemas"]["StorageType"];
+        };
+        StorageType: {
+            /** @enum {string} */
+            type: "local";
         };
         ChatRsExternalApiTool: {
             /** Format: uuid */
@@ -1009,6 +1088,22 @@ export interface components {
             key: string;
             name: string;
         };
+        ChatRsFile: {
+            /** Format: uuid */
+            id: string;
+            path: string;
+            file_type: components["schemas"]["ChatRsFileType"];
+            content_type: string;
+            /** Format: int32 */
+            size: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description File modality
+         * @enum {string}
+         */
+        ChatRsFileType: "text" | "image" | "pdf";
         ChatRsSecretMeta: {
             /** Format: uuid */
             id: string;
@@ -2679,6 +2774,278 @@ export interface operations {
                 };
                 content: {
                     "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    upload_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        /** @description File data */
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsFile"];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    download_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": number[];
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    delete_file: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Incorrectly formatted */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    list_session_files: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsFile"][];
                 };
             };
             /** @description Bad request */

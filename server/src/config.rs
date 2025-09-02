@@ -8,7 +8,7 @@ use rocket::{
 use serde::{Deserialize, Serialize};
 
 /// Main server config (settings are merged with Rocket's default config)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// 32-byte hex string (64 characters) used for encrypting cookies and API keys
     pub secret_key: String,
@@ -16,6 +16,8 @@ pub struct AppConfig {
     pub server_address: String,
     /// Static files directory (default: "../web/dist")
     pub static_path: Option<String>,
+    /// Local data directory (default: "/data")
+    pub data_dir: Option<String>,
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL

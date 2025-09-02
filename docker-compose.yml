@@ -29,9 +29,11 @@ services:
       RS_CHAT_SERVER_ADDRESS: http://localhost:8080
       RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
       RS_CHAT_REDIS_URL: redis://redis:6379
+      RS_CHAT_DATA_DIR: /data
     env_file: server/.env
     volumes:
       - ./.docker:/certs
+      - rschat_data:/data
     depends_on:
       - db
       - redis
@@ -39,3 +41,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  rschat_data:

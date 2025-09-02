@@ -18,20 +18,15 @@ use uuid::Uuid;
 use crate::{
     api::secret::SecretInput,
     auth::ChatRsUserId,
+    config::AppConfig,
     db::{
-        models::{
-            ChatRsExecutedToolCall, ChatRsExternalApiTool, ChatRsMessageMeta, ChatRsMessageRole,
-            ChatRsSystemTool, NewChatRsExternalApiTool, NewChatRsMessage, NewChatRsSecret,
-            NewChatRsSystemTool,
-        },
+        models::*,
         services::{ChatDbService, SecretDbService, ToolDbService},
         DbConnection,
     },
     errors::ApiError,
     provider::LlmToolType,
-    tools::{
-        ChatRsExternalApiToolConfig, ChatRsSystemToolConfig, ToolError, ToolLog, ToolResponseFormat,
-    },
+    tools::*,
     utils::{Encryptor, SenderWithLogging},
 };
 
@@ -147,6 +142,7 @@ async fn execute_tool(
     user_id: ChatRsUserId,
     mut db: DbConnection,
     http_client: &State<reqwest::Client>,
+    app_config: &State<AppConfig>,
     encryptor: &State<Encryptor>,
     message_id: Uuid,
     tool_call_id: &str,
@@ -188,6 +184,7 @@ async fn execute_tool(
     };
 
     let (streaming_tx, streaming_rx) = tokio::sync::mpsc::channel(50);
+    let app_config = app_config.inner().clone();
     let http_client = http_client.inner().clone();
     let secrets = secret_1.into_iter().collect::<Vec<_>>();
 
@@ -217,7 +214,7 @@ async fn execute_tool(
         let tool_result = match (system_tool, external_api_tool) {
             (Some(system_tool), None) => {
                 system_tool
-                    .build_executor()
+                    .build_executor(&mut db, &app_config, &message.session_id)
                     .validate_and_execute(
                         &tool_call.tool_name,
                         &tool_call.parameters,

@@ -1,10 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use diesel::{
-    prelude::{Associations, Identifiable, Insertable, Queryable},
-    Selectable,
-};
+use diesel::prelude::*;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
