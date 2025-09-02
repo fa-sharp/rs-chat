@@ -18,7 +18,9 @@ use {
 /// User configuration of tools when sending a chat message
 #[derive(Debug, Default, PartialEq, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct SendChatToolInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<SystemToolInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub external_apis: Option<Vec<ExternalApiToolInput>>,
 }
 

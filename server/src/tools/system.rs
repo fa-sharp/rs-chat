@@ -45,7 +45,7 @@ pub struct SystemToolInput {
     /// Enable/disable tools to get system information, current date/time, etc.
     #[serde(default)]
     info: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     files: Option<files::FilesInput>,
 }
 impl SystemToolInput {
