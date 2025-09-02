@@ -1,3 +1,5 @@
+//! Utils for working with LLM responses
+
 use rocket::futures::TryStreamExt;
 use serde::de::DeserializeOwned;
 use tokio_stream::{Stream, StreamExt};

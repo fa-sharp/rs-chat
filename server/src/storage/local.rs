@@ -113,7 +113,8 @@ impl LocalStorage {
     }
 }
 
-/// Reads a file as a base64 encoded string (synchronous because `base64` crate writer is synchronous).
+/// Synchronously read a file as a base64 encoded string.
+/// (This is synchronous because the `base64` crate is synchronous.)
 fn read_base64(path: &Path) -> IoResult<String> {
     let mut file = std::fs::File::open(path)?;
     let file_size = file.metadata()?.len();
