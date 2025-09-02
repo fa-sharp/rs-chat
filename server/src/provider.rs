@@ -10,7 +10,7 @@ mod utils;
 
 use crate::{
     db::{
-        models::{ChatRsFileType, ChatRsMessage, ChatRsMessageRole, ChatRsProviderType},
+        models::{ChatRsMessage, ChatRsMessageRole, ChatRsProviderType},
         services::FileDbService,
         DbConnection,
     },
