@@ -20,10 +20,10 @@ const REDIS_POOL_SIZE: usize = 4;
 const MAX_EXCLUSIVE_CLIENTS: usize = 20;
 /// Timeout for connecting and executing commands.
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(6);
-/// Interval for checking idle exclusive clients.
-const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(30);
+/// Interval to check for idle exclusive clients.
+const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(60);
 /// Shut down exclusive clients after this period of inactivity.
-const IDLE_TIME: Duration = Duration::from_secs(60);
+const IDLE_TIME: Duration = Duration::from_secs(60 * 5);
 
 /// Fairing that sets up and initializes the Redis connection pools.
 pub fn setup_redis() -> AdHoc {
