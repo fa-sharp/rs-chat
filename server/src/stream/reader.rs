@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fred::prelude::StreamsInterface;
+use fred::prelude::{FredResult, StreamsInterface};
 use rocket::response::stream::Event;
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -31,15 +31,13 @@ impl SseStreamReader {
     ) -> Result<(Vec<Event>, String, bool), LlmError> {
         let key = get_chat_stream_key(user_id, session_id);
         let start_event_id = start_event_id.unwrap_or("0-0");
-        let (_, prev_events): (String, Vec<(String, HashMap<String, String>)>) = self
-            .redis
-            .xread::<Option<Vec<_>>, _, _>(None, None, &key, start_event_id)
+        let prev_events = self
+            .xread(&key, start_event_id, None, None)
             .await?
-            .and_then(|mut streams| streams.pop()) // should only be 1 stream since we're sending 1 key in the command
             .ok_or(LlmError::StreamNotFound)?;
         let (last_event_id, is_end) = prev_events
             .last()
-            .map(|(id, data)| (id.to_owned(), data.get("type").is_some_and(|t| t == "end")))
+            .map(|(id, data)| (id.to_owned(), is_end_event(&data)))
             .unwrap_or_else(|| (start_event_id.into(), false));
         let sse_events = prev_events
             .into_iter()
@@ -60,7 +58,7 @@ impl SseStreamReader {
         let key = get_chat_stream_key(user_id, session_id);
         let mut last_event_id = last_event_id.to_owned();
         loop {
-            match self.get_next_event(&key, &mut last_event_id, tx).await {
+            match self.next_event(&key, &mut last_event_id, tx).await {
                 Ok((id, data, is_end)) => {
                     let event = convert_redis_event_to_sse((id, data));
                     if let Err(_) = tx.send(event).await {
@@ -79,20 +77,20 @@ impl SseStreamReader {
         }
     }
 
-    /// Get the next event from the given Redis stream using a blocking `xread` command.
+    /// Wait for the next event from the given Redis stream using a blocking `xread` command.
     /// - Updates the last event ID
     /// - Cancels waiting for the next event if the client disconnects
     /// - Returns the event ID, data, and a `bool` indicating whether it's an ending event
-    async fn get_next_event(
+    async fn next_event(
         &self,
         key: &str,
         last_event_id: &mut String,
         tx: &mpsc::Sender<Event>,
     ) -> Result<(String, HashMap<String, String>, bool), LlmError> {
-        let (_, mut events): (String, Vec<(String, HashMap<String, String>)>) = tokio::select! {
-            res = self.redis.xread::<Option<Vec<_>>, _, _>(Some(1), Some(XREAD_BLOCK_TIMEOUT), key, &*last_event_id) => {
-                match res?.as_mut().and_then(|streams| streams.pop()) {
-                    Some(stream) => stream,
+        let mut events = tokio::select! {
+            res = self.xread(key, last_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT)) => {
+                match res? {
+                    Some(events) => events,
                     None => return Err(LlmError::StreamNotFound),
                 }
             },
@@ -101,14 +99,35 @@ impl SseStreamReader {
         match events.pop() {
             Some((id, data)) => {
                 *last_event_id = id.clone();
-                let is_end = data
-                    .get("type")
-                    .is_some_and(|t| t == "end" || t == "cancel");
+                let is_end = is_end_event(&data);
                 Ok((id, data, is_end))
             }
             None => Err(LlmError::NoStreamEvent),
         }
     }
+
+    /// Read events from the given stream (friendly XREAD wrapper that takes care of the weird types).
+    /// Returns `None` if the stream isn't found.
+    async fn xread(
+        &self,
+        key: &str,
+        start_event_id: &str,
+        count: Option<u64>,
+        block: Option<u64>,
+    ) -> FredResult<Option<Vec<(String, HashMap<String, String>)>>> {
+        let stream = self
+            .redis
+            .xread::<Option<Vec<(String, _)>>, _, _>(count, block, key, start_event_id)
+            .await?
+            .and_then(|mut streams| streams.pop()); // should only be 1 stream since we're sending 1 key in the command
+        Ok(stream.map(|(_key, events)| events))
+    }
+}
+
+/// Check if this event is an ending event.
+fn is_end_event(data: &HashMap<String, String>) -> bool {
+    data.get("type")
+        .is_some_and(|t| t == "end" || t == "cancel")
 }
 
 /// Convert a Redis stream event into an SSE event. Expects the event hash map to contain
