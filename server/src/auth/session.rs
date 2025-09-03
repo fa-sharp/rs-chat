@@ -5,8 +5,6 @@ use rocket::fairing::AdHoc;
 use rocket_flex_session::{storage::redis::RedisFredStorage, RocketFlexSession};
 use uuid::Uuid;
 
-use crate::{config::get_app_config, redis::build_redis_pool};
-
 const USER_ID_KEY: &str = "user_id";
 const USER_ID_BYTES_KEY: &str = "user_id_bytes";
 const START_TIME_KEY: &str = "start_time";
@@ -71,10 +69,7 @@ impl From<ChatRsAuthSession> for fred::prelude::Value {
 /// Fairing that sets up persistent sessions via Redis.
 pub fn setup_session() -> AdHoc {
     AdHoc::on_ignite("Sessions", |rocket| async {
-        let app_config = get_app_config(&rocket);
-        let config = fred::prelude::Config::from_url(&app_config.redis_url)
-            .expect("RS_CHAT_REDIS_URL should be valid Redis URL");
-        let session_redis_pool = build_redis_pool(config, 2).expect("Failed to build Redis pool");
+        let pool = rocket.state::<fred::clients::Pool>().expect("pool exists");
         let session_fairing: RocketFlexSession<ChatRsAuthSession> = RocketFlexSession::builder()
             .with_options(|opt| {
                 opt.cookie_name = "auth_rs_chat".to_string();
@@ -82,7 +77,7 @@ pub fn setup_session() -> AdHoc {
                 opt.rolling = true;
             })
             .storage(RedisFredStorage::new(
-                session_redis_pool,
+                pool.clone(),
                 rocket_flex_session::storage::redis::RedisType::Hash,
                 "sess:",
             ))

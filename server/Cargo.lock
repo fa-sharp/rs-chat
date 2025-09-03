@@ -2555,8 +2555,9 @@ dependencies = [
 
 [[package]]
 name = "rocket_flex_session"
-version = "0.1.1"
-source = "git+https://github.com/fa-sharp/rocket-flex-session#fa04c65e8195135bfcf1c7a1cd28c3fc38b96c23"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b9ae539ec6578c63fc2329db9b0250013faf9ebfffc876d37397411ede3b84d"
 dependencies = [
  "fred",
  "rand 0.8.5",

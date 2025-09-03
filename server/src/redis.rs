@@ -25,7 +25,7 @@ const IDLE_TASK_INTERVAL: Duration = Duration::from_secs(30);
 /// Shut down exclusive clients after this period of inactivity.
 const IDLE_TIME: Duration = Duration::from_secs(60);
 
-/// Fairing that sets up and initializes the Redis connection pool.
+/// Fairing that sets up and initializes the Redis connection pools.
 pub fn setup_redis() -> AdHoc {
     AdHoc::on_ignite("Redis", |rocket| async {
         rocket
@@ -88,7 +88,7 @@ pub fn setup_redis() -> AdHoc {
     })
 }
 
-pub fn build_redis_pool(
+fn build_redis_pool(
     redis_config: fred::prelude::Config,
     pool_size: usize,
 ) -> Result<fred::clients::Pool, fred::error::Error> {
