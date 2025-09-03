@@ -30,7 +30,7 @@ pub fn setup_storage() -> AdHoc {
 }
 
 impl ChatRsFile {
-    /// Get the file type and contents for LLM input. Uses base64 URLs for image and PDF files.
+    /// Get the file type and contents for LLM input. Uses base64 encoding for image and PDF files.
     pub async fn read_to_string(
         &self,
         session_id: Option<&Uuid>,
