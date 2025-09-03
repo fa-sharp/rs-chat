@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{provider::LlmError, redis::ExclusiveRedisClient, stream::get_chat_stream_key};
 
 /// Timeout in milliseconds for the blocking `xread` command.
-const XREAD_BLOCK_TIMEOUT: u64 = 5_000; // 5 seconds
+const XREAD_BLOCK_TIMEOUT: u64 = 10_000; // 10 seconds
 
 /// Utility for reading SSE events from a Redis stream.
 pub struct SseStreamReader {
