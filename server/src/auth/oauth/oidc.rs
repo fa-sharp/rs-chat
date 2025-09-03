@@ -144,7 +144,8 @@ async fn oidc_login_callback(
     db: DbConnection,
     token: TokenResponse<OIDCUserInfo>,
     config: &State<OIDCConfig>,
+    client: &State<reqwest::Client>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<OIDCProvider>(db, token, config, session).await
+    generic_login_callback::<OIDCProvider>(db, token, config, client, session).await
 }

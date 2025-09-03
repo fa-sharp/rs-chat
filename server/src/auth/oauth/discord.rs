@@ -130,7 +130,8 @@ async fn discord_login_callback(
     db: DbConnection,
     token: TokenResponse<DiscordUserInfo>,
     config: &State<DiscordOAuthConfig>,
+    client: &State<reqwest::Client>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<DiscordProvider>(db, token, config, session).await
+    generic_login_callback::<DiscordProvider>(db, token, config, client, session).await
 }

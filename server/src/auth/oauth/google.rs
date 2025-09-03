@@ -122,7 +122,8 @@ async fn google_login_callback(
     db: DbConnection,
     token: TokenResponse<GoogleUserInfo>,
     config: &State<GoogleOAuthConfig>,
+    client: &State<reqwest::Client>,
     session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<GoogleProvider>(db, token, config.inner(), session).await
+    generic_login_callback::<GoogleProvider>(db, token, config.inner(), client, session).await
 }

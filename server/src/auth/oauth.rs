@@ -3,7 +3,7 @@ mod github;
 mod google;
 mod oidc;
 
-use rocket::{fairing::AdHoc, figment::Figment, http::CookieJar, response::Redirect, Route};
+use rocket::{fairing::AdHoc, figment::Figment, http::CookieJar, response::Redirect, Route, State};
 use rocket_flex_session::Session;
 use rocket_oauth2::{HyperRustlsAdapter, OAuth2, OAuthConfig, StaticProvider, TokenResponse};
 use serde::Deserialize;
@@ -135,11 +135,9 @@ async fn generic_login_callback<P: OAuthProvider>(
     mut db: DbConnection,
     token: TokenResponse<P::UserInfo>,
     config: &P::Config,
+    client: &State<reqwest::Client>,
     mut session: Session<'_, ChatRsAuthSession>,
 ) -> Result<Redirect, ApiError> {
-    let client = reqwest::Client::builder()
-        .build()
-        .map_err(|e| ApiError::Authentication(format!("Failed to build reqwest client: {}", e)))?;
     let mut request = client
         .get(P::new(config).get_user_info_url())
         .header("Authorization", format!("Bearer {}", token.access_token()));
@@ -164,6 +162,7 @@ async fn generic_login_callback<P: OAuthProvider>(
         Some(existing_user) => {
             session.set(ChatRsAuthSession::new(existing_user.id));
         }
+        // No linked user found, check for active session
         None => match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
             // No linked user and no session found: create new user and session
             None => {
