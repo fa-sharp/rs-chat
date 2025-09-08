@@ -163,7 +163,7 @@ async fn generic_login_callback<P: OAuthProvider>(
             session.set(ChatRsAuthSession::new(existing_user.id));
         }
         // No linked user found, check for active session
-        None => match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
+        None => match session.tap(|data| data.map(|auth_session| auth_session.user_id)) {
             // No linked user and no session found: create new user and session
             None => {
                 let new_user = db_service.create(P::create_new_user(&user_data)).await?;
