@@ -181,7 +181,8 @@ impl managed::Manager for ExclusiveClientManager {
     }
 }
 
-/// Request guard to get a Redis client with an exclusive connection for long-running operations.
+/// Represents a Redis client with an exclusive connection for long-running operations.
+/// Can be used as a request guard to retrieve a client from the exclusive pool.
 #[derive(Debug, OpenApiFromRequest)]
 pub struct ExclusiveRedisClient(pub managed::Object<ExclusiveClientManager>);
 impl Deref for ExclusiveRedisClient {
