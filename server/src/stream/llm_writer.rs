@@ -305,28 +305,12 @@ mod tests {
     use super::*;
     use crate::{
         provider::{providers::LoremProvider, LlmApiProvider, LlmProviderOptions},
-        redis::{ExclusiveClientManager, ExclusiveClientPool},
-        stream::{cancel_current_chat_stream, check_chat_stream_exists},
+        redis::ExclusiveClientPool,
+        stream::{
+            cancel_current_chat_stream, check_chat_stream_exists, test_utils::setup_redis_pool,
+        },
     };
-    use fred::prelude::{Builder, ClientLike, Config};
     use std::time::Duration;
-
-    async fn setup_redis_pool() -> ExclusiveClientPool {
-        let config =
-            Config::from_url("redis://127.0.0.1:6379").unwrap_or_else(|_| Config::default());
-        let pool = Builder::from_config(config)
-            .build_pool(1)
-            .expect("Failed to build Redis pool");
-        pool.init().await.expect("Failed to connect to Redis");
-
-        let manager = ExclusiveClientManager::new(pool.clone());
-        let deadpool: ExclusiveClientPool = deadpool::managed::Pool::builder(manager)
-            .max_size(3)
-            .build()
-            .unwrap();
-
-        deadpool
-    }
 
     async fn create_test_writer(
         redis: &ExclusiveClientPool,
