@@ -77,11 +77,12 @@ impl SseStreamReader {
 
     /// Wait for the next event from the given Redis stream using a blocking `xread` command.
     /// - Cancels waiting for the next event upon the blocking timeout, or if the client disconnects
+    /// - Updates the last event ID with the ID of the received event
     /// - Returns the event ID, data, and a `bool` indicating whether it's an ending event
     async fn next_event(
         &self,
         key: &str,
-        last_event_id: &str,
+        last_event_id: &mut String,
         tx: &mpsc::Sender<Event>,
     ) -> Result<(String, HashMap<String, String>, bool), LlmError> {
         let (id, data) = tokio::select! {
@@ -90,6 +91,7 @@ impl SseStreamReader {
             },
             _ = tx.closed() => return Err(LlmError::ClientDisconnected)
         };
+        *last_event_id = id.clone();
         let is_end = is_end_event(&data);
         Ok((id, data, is_end))
     }
