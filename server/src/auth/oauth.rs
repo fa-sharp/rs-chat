@@ -10,7 +10,7 @@ use serde::Deserialize;
 use std::future::Future;
 
 use crate::{
-    auth::ChatRsAuthSession,
+    auth::{session_meta::SessionMeta, ChatRsAuthSession},
     config::{get_app_config, get_config_provider},
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
@@ -137,6 +137,7 @@ async fn generic_login_callback<P: OAuthProvider>(
     config: &P::Config,
     client: &State<reqwest::Client>,
     mut session: Session<'_, ChatRsAuthSession>,
+    meta: SessionMeta<'_>,
 ) -> Result<Redirect, ApiError> {
     let mut request = client
         .get(P::new(config).get_user_info_url())
@@ -160,14 +161,14 @@ async fn generic_login_callback<P: OAuthProvider>(
     match P::find_linked_user(&mut db_service, &user_data).await? {
         // Existing linked user found: create new session
         Some(existing_user) => {
-            session.set(ChatRsAuthSession::new(existing_user.id));
+            session.set(ChatRsAuthSession::new(existing_user.id, meta));
         }
         // No linked user found, check for active session
         None => match session.tap(|data| data.map(|auth_session| auth_session.user_id)) {
             // No linked user and no session found: create new user and session
             None => {
                 let new_user = db_service.create(P::create_new_user(&user_data)).await?;
-                session.set(ChatRsAuthSession::new(new_user.id));
+                session.set(ChatRsAuthSession::new(new_user.id, meta));
             }
             // No linked user but there is a current session
             Some(user_id) => {

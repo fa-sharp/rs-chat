@@ -19,7 +19,7 @@ use crate::{
 
 /// Auth routes
 pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
-    openapi_get_routes_spec![settings: user, auth_config, logout, delete_account]
+    openapi_get_routes_spec![settings: user, get_sessions, auth_config, logout, delete_account]
 }
 
 /// # Get User
@@ -28,6 +28,31 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 #[get("/user")]
 async fn user(user: ChatRsUser) -> Result<Json<ChatRsUser>, ApiError> {
     Ok(Json(user))
+}
+
+/// # Get Sessions
+/// Get current sessions
+#[openapi(tag = "Auth")]
+#[get("/sessions")]
+async fn get_sessions(
+    user_id: ChatRsUserId,
+    session: Session<'_, ChatRsAuthSession>,
+) -> Result<Json<Vec<SessionResponse>>, ApiError> {
+    let sessions: Vec<SessionResponse> = session
+        .get_sessions_by_identifier(&user_id.simple().to_string())
+        .await
+        .map_err(|err| ApiError::Server(err.to_string()))?
+        .into_iter()
+        .map(|(id, data, ttl)| SessionResponse {
+            id,
+            started: data.start_time,
+            ip: data.ip,
+            user_agent: data.user_agent,
+            ttl,
+        })
+        .collect();
+
+    Ok(Json(sessions))
 }
 
 /// The current auth configuration of the server
@@ -91,6 +116,16 @@ impl<'r> FromRequest<'r> for AuthConfig {
 #[get("/config")]
 async fn auth_config(config: AuthConfig) -> Json<AuthConfig> {
     Json(config)
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+struct SessionResponse {
+    id: String,
+    #[schemars(with = "chrono::DateTime<chrono::Utc>")]
+    started: Option<String>,
+    ttl: u32,
+    ip: Option<String>,
+    user_agent: Option<String>,
 }
 
 /// # Log out
