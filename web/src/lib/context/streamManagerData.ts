@@ -48,7 +48,7 @@ export function useStreamManagerData() {
             updatedData?.messages?.some(
               (msg) =>
                 msg.role === "Assistant" &&
-                new Date(msg.created_at).getTime() > Date.now() - 5000, // Within last 5 seconds
+                new Date(msg.created_at).getTime() > Date.now() - 30_000, // Within last 30 seconds
             ) || false;
 
           // Retry if no new assistant message

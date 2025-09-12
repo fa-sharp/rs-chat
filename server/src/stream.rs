@@ -2,7 +2,7 @@ mod llm_writer;
 mod reader;
 mod test_utils;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use fred::{
     prelude::{FredResult, KeysInterface, StreamsInterface},
@@ -36,15 +36,39 @@ pub async fn get_current_chat_streams(
     redis: &fred::clients::Client,
     user_id: &Uuid,
 ) -> FredResult<Vec<String>> {
+    use fred::bytes_utils::Str;
+
     let prefix = get_chat_stream_prefix(user_id);
     let pattern = format!("{}*", prefix);
-    let (_, keys): (String, Vec<String>) = redis
+    let (_, keys): (Str, Vec<Str>) = redis
         .scan_page("0", &pattern, Some(20), Some(ScanType::Stream))
         .await?;
-    Ok(keys
+
+    // Get the last 2 entries in each stream to check if they are still active
+    let pipeline = redis.pipeline();
+    for key in &keys {
+        let _: () = pipeline.xrevrange(key, "+", "-", Some(2)).await?;
+    }
+    let streams: Vec<Option<Vec<(Str, HashMap<Str, Str>)>>> = pipeline.all().await?;
+
+    let active_keys = keys
         .into_iter()
-        .filter_map(|key| Some(key.strip_prefix(&prefix)?.to_string()))
-        .collect())
+        .zip(streams.into_iter())
+        .filter_map(|(key, stream)| {
+            // Filter out streams that have already ended or been cancelled
+            if let Some(events) = stream {
+                if events.iter().any(|(_, data)| {
+                    data.get("type")
+                        .is_some_and(|t| *t == "end" || *t == "cancel")
+                }) {
+                    return None;
+                }
+            }
+            Some(key.strip_prefix(&prefix)?.to_string())
+        })
+        .collect();
+
+    Ok(active_keys)
 }
 
 /// Check if the chat stream exists.
@@ -59,7 +83,6 @@ pub async fn check_chat_stream_exists(
 }
 
 /// Cancel a stream by adding a `cancel` event to the stream and then deleting it from Redis
-/// (not using a pipeline since we need to ensure the `cancel` event is processed before deleting the stream).
 pub async fn cancel_current_chat_stream(
     redis: &fred::clients::Client,
     user_id: &Uuid,
@@ -68,6 +91,7 @@ pub async fn cancel_current_chat_stream(
     let key = get_chat_stream_key(user_id, session_id);
     let entry: HashMap<String, String> = RedisStreamChunk::Cancel.into();
     let _: () = redis.xadd(&key, true, None, "*", entry).await?;
+    tokio::time::sleep(Duration::from_millis(500)).await;
     redis.del(&key).await
 }
 

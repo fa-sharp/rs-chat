@@ -56,7 +56,7 @@ impl SseStreamReader {
         let key = get_chat_stream_key(user_id, session_id);
         let mut last_event_id = last_event_id.to_owned();
         loop {
-            match self.next_event(&key, &mut last_event_id, tx).await {
+            match self.next_event(&key, &mut last_event_id).await {
                 Ok((id, data, is_end)) => {
                     let event = convert_redis_event_to_sse((id, data));
                     if let Err(_) = tx.send(event).await {
@@ -76,21 +76,19 @@ impl SseStreamReader {
     }
 
     /// Wait for the next event from the given Redis stream using a blocking `xread` command.
-    /// - Cancels waiting for the next event upon the blocking timeout, or if the client disconnects
+    /// - Cancels waiting for the next event upon the blocking timeout
     /// - Updates the last event ID with the ID of the received event
     /// - Returns the event ID, data, and a `bool` indicating whether it's an ending event
     async fn next_event(
         &self,
         key: &str,
         last_event_id: &mut String,
-        tx: &mpsc::Sender<Event>,
     ) -> Result<(String, HashMap<String, String>, bool), LlmError> {
-        let (id, data) = tokio::select! {
-            events = self.xread(key, last_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT)) => {
-                events?.pop().ok_or(LlmError::NoStreamEvent)?
-            },
-            _ = tx.closed() => return Err(LlmError::ClientDisconnected)
-        };
+        let (id, data) = self
+            .xread(key, last_event_id, Some(1), Some(XREAD_BLOCK_TIMEOUT))
+            .await?
+            .pop() // only reading 1 event
+            .ok_or(LlmError::NoStreamEvent)?;
         *last_event_id = id.clone();
         let is_end = is_end_event(&data);
         Ok((id, data, is_end))
