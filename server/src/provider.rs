@@ -1,12 +1,14 @@
 //! LLM providers module
 
-use uuid::Uuid;
-
 mod core;
 pub use core::*;
 pub mod models;
 pub mod providers;
 mod utils;
+
+use std::collections::HashMap;
+
+use uuid::Uuid;
 
 use crate::{
     db::{
@@ -17,6 +19,7 @@ use crate::{
     errors::ApiError,
     provider::{models::LlmModel, providers::*},
     storage::LocalStorage,
+    tools::ToolError,
 };
 
 pub const DEFAULT_MAX_TOKENS: u32 = 2000;
@@ -50,7 +53,8 @@ pub fn build_llm_provider_api(
     }
 }
 
-/// Convert database messages to the generic messages to send to the provider implementation
+/// Extract any attached files, then convert the database messages to the generic format
+/// for sending to LLM providers
 pub async fn build_llm_messages(
     messages: Vec<ChatRsMessage>,
     user_id: &Uuid,
@@ -58,51 +62,64 @@ pub async fn build_llm_messages(
     db: &mut DbConnection,
     storage: &LocalStorage,
 ) -> Result<Vec<LlmMessage>, ApiError> {
-    let mut llm_messages = Vec::with_capacity(messages.len());
+    // Get content of any attached files in the messages
+    let mut file_map: HashMap<Uuid, LlmFileInput> = HashMap::new();
+    let file_ids: Vec<Uuid> = messages.iter().fold(Vec::new(), |mut acc, message| {
+        if let Some(file_ids) = message.meta.user.as_ref().and_then(|u| u.files.as_ref()) {
+            acc.extend(file_ids);
+        }
+        acc
+    });
+    for file_id in file_ids {
+        let file = FileDbService::new(db)
+            .find_session_file(user_id, session_id, &file_id)
+            .await?;
+        let (file_type, content) = file.read_to_string(Some(session_id), storage).await?;
+        file_map.insert(
+            file_id,
+            LlmFileInput {
+                name: file.path,
+                content_type: file.content_type,
+                file_type,
+                content,
+            },
+        );
+    }
 
-    for message in messages {
-        match message.role {
+    // Convert the messages
+    let llm_messages = messages
+        .into_iter()
+        .map(|message| match message.role {
             ChatRsMessageRole::User => {
-                let mut files: Option<Vec<LlmFileInput>> = None;
-                if let Some(file_ids) = message.meta.user.and_then(|u| u.files) {
-                    let mut file_db_service = FileDbService::new(db);
-                    for file_id in file_ids {
-                        let file = file_db_service
-                            .find_session_file(user_id, session_id, &file_id)
-                            .await?;
-                        let (file_type, content) =
-                            file.read_to_string(Some(session_id), storage).await?;
-                        files.get_or_insert_default().push(LlmFileInput {
-                            name: file.path,
-                            content_type: file.content_type,
-                            file_type,
-                            content,
-                        });
-                    }
-                }
-                llm_messages.push(LlmMessage::User(LlmUserMessage {
+                let files = message.meta.user.and_then(|u| u.files).map(|file_ids| {
+                    file_ids
+                        .iter()
+                        .filter_map(|id| file_map.remove(id))
+                        .collect()
+                });
+                Ok(LlmMessage::User(LlmUserMessage {
                     text: message.content,
                     files,
                 }))
             }
-            ChatRsMessageRole::Assistant => {
-                llm_messages.push(LlmMessage::Assistant(LlmAssistantMessage {
-                    text: message.content,
-                    tool_calls: message.meta.assistant.and_then(|a| a.tool_calls),
-                }))
-            }
-            ChatRsMessageRole::System => llm_messages.push(LlmMessage::System(message.content)),
+            ChatRsMessageRole::Assistant => Ok(LlmMessage::Assistant(LlmAssistantMessage {
+                text: message.content,
+                tool_calls: message.meta.assistant.and_then(|a| a.tool_calls),
+            })),
+            ChatRsMessageRole::System => Ok(LlmMessage::System(message.content)),
             ChatRsMessageRole::Tool => {
                 if let Some(tool_call) = message.meta.tool_call {
-                    llm_messages.push(LlmMessage::Tool(LlmToolResult {
+                    Ok(LlmMessage::Tool(LlmToolResult {
                         tool_call_id: tool_call.id,
                         tool_name: tool_call.tool_name,
                         content: message.content,
                     }))
+                } else {
+                    Err(ToolError::ToolCallNotFound)
                 }
             }
-        }
-    }
+        })
+        .collect::<Result<Vec<LlmMessage>, ToolError>>()?;
 
     Ok(llm_messages)
 }

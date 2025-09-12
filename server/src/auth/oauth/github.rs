@@ -4,6 +4,7 @@ use rocket_oauth2::{OAuth2, StaticProvider, TokenResponse};
 use serde::Deserialize;
 
 use crate::{
+    auth::session_meta::SessionMeta,
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
         services::UserDbService,
@@ -126,7 +127,9 @@ async fn github_login_callback(
     db: DbConnection,
     token: TokenResponse<GitHubUserInfo>,
     config: &State<GitHubOAuthConfig>,
+    client: &State<reqwest::Client>,
     session: Session<'_, ChatRsAuthSession>,
+    meta: SessionMeta<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<GitHubProvider>(db, token, config, session).await
+    generic_login_callback::<GitHubProvider>(db, token, config, client, session, meta).await
 }

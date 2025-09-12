@@ -101,10 +101,9 @@ impl LlmStreamWriter {
     /// delete the stream from Redis.
     pub async fn end(&self) -> FredResult<()> {
         let entry: HashMap<String, String> = RedisStreamChunk::End.into();
-        let pipeline = self.redis.pipeline();
-        let _: () = pipeline.xadd(&self.key, true, None, "*", entry).await?;
-        let _: () = pipeline.del(&self.key).await?;
-        pipeline.all().await
+        let _: () = self.redis.xadd(&self.key, true, None, "*", entry).await?;
+        tokio::time::sleep(FLUSH_INTERVAL).await;
+        self.redis.del(&self.key).await
     }
 
     /// Process the incoming stream from the LLM provider, intermittently flushing
@@ -256,8 +255,8 @@ impl LlmStreamWriter {
         self.add_to_redis_stream(entries).await
     }
 
-    /// Adds new entries to the Redis stream. Returns a `LlmStreamError::StreamCancelled` error if the
-    /// stream has been deleted or cancelled.
+    /// Adds new entries to the Redis stream, while also checking for cancellation.
+    /// Returns a `LlmStreamError::StreamCancelled` error if the stream has been cancelled.
     async fn add_to_redis_stream(
         &self,
         entries: Vec<HashMap<String, String>>,
@@ -305,28 +304,12 @@ mod tests {
     use super::*;
     use crate::{
         provider::{providers::LoremProvider, LlmApiProvider, LlmProviderOptions},
-        redis::{ExclusiveClientManager, ExclusiveClientPool},
-        stream::{cancel_current_chat_stream, check_chat_stream_exists},
+        redis::ExclusiveClientPool,
+        stream::{
+            cancel_current_chat_stream, check_chat_stream_exists, test_utils::setup_redis_pool,
+        },
     };
-    use fred::prelude::{Builder, ClientLike, Config};
     use std::time::Duration;
-
-    async fn setup_redis_pool() -> ExclusiveClientPool {
-        let config =
-            Config::from_url("redis://127.0.0.1:6379").unwrap_or_else(|_| Config::default());
-        let pool = Builder::from_config(config)
-            .build_pool(1)
-            .expect("Failed to build Redis pool");
-        pool.init().await.expect("Failed to connect to Redis");
-
-        let manager = ExclusiveClientManager::new(pool.clone());
-        let deadpool: ExclusiveClientPool = deadpool::managed::Pool::builder(manager)
-            .max_size(3)
-            .build()
-            .unwrap();
-
-        deadpool
-    }
 
     async fn create_test_writer(
         redis: &ExclusiveClientPool,

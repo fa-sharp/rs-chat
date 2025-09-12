@@ -4,6 +4,7 @@ use rocket_oauth2::{OAuth2, StaticProvider, TokenResponse};
 use serde::Deserialize;
 
 use crate::{
+    auth::session_meta::SessionMeta,
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
         services::UserDbService,
@@ -122,7 +123,9 @@ async fn google_login_callback(
     db: DbConnection,
     token: TokenResponse<GoogleUserInfo>,
     config: &State<GoogleOAuthConfig>,
+    client: &State<reqwest::Client>,
     session: Session<'_, ChatRsAuthSession>,
+    meta: SessionMeta<'_>,
 ) -> Result<Redirect, ApiError> {
-    generic_login_callback::<GoogleProvider>(db, token, config.inner(), session).await
+    generic_login_callback::<GoogleProvider>(db, token, config.inner(), client, session, meta).await
 }

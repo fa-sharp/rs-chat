@@ -49,9 +49,7 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
 
         // Try authentication via session
         let session = try_outcome!(req.guard::<Session<ChatRsAuthSession>>().await);
-        if let Some(user_id) =
-            session.tap(|data| data.and_then(|auth_session| auth_session.user_id()))
-        {
+        if let Some(user_id) = session.tap(|data| data.map(|auth_session| auth_session.user_id)) {
             return Outcome::Success(ChatRsUserId(user_id));
         }
 

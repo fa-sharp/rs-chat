@@ -2,6 +2,7 @@ mod api_key;
 mod guard;
 mod oauth;
 mod session;
+mod session_meta;
 mod sso_header;
 
 use rocket::fairing::AdHoc;

@@ -50,7 +50,7 @@ export async function createChatStream(
         .pipeThrough(new TextDecoderStream())
         .pipeThrough(new EventSourceParserStream())
         .getReader();
-      loop: while (true) {
+      while (true) {
         const { done, value } = await eventStream.read();
         if (done) break;
 
@@ -70,7 +70,7 @@ export async function createChatStream(
             break;
           case "end":
           case "cancel":
-            break loop;
+            break;
           default:
             console.warn(`Unknown event type: ${value.event}`);
             break;

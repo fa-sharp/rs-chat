@@ -26,6 +26,8 @@ pub enum ApiError {
     Tool(#[from] ToolError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("Server error: {0}")]
+    Server(String),
 }
 
 #[derive(Debug, JsonSchema, serde::Serialize)]

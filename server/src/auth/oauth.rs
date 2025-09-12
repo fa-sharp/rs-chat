@@ -3,14 +3,14 @@ mod github;
 mod google;
 mod oidc;
 
-use rocket::{fairing::AdHoc, figment::Figment, http::CookieJar, response::Redirect, Route};
+use rocket::{fairing::AdHoc, figment::Figment, http::CookieJar, response::Redirect, Route, State};
 use rocket_flex_session::Session;
 use rocket_oauth2::{HyperRustlsAdapter, OAuth2, OAuthConfig, StaticProvider, TokenResponse};
 use serde::Deserialize;
 use std::future::Future;
 
 use crate::{
-    auth::ChatRsAuthSession,
+    auth::{session_meta::SessionMeta, ChatRsAuthSession},
     config::{get_app_config, get_config_provider},
     db::{
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
@@ -135,11 +135,10 @@ async fn generic_login_callback<P: OAuthProvider>(
     mut db: DbConnection,
     token: TokenResponse<P::UserInfo>,
     config: &P::Config,
+    client: &State<reqwest::Client>,
     mut session: Session<'_, ChatRsAuthSession>,
+    meta: SessionMeta<'_>,
 ) -> Result<Redirect, ApiError> {
-    let client = reqwest::Client::builder()
-        .build()
-        .map_err(|e| ApiError::Authentication(format!("Failed to build reqwest client: {}", e)))?;
     let mut request = client
         .get(P::new(config).get_user_info_url())
         .header("Authorization", format!("Bearer {}", token.access_token()));
@@ -162,13 +161,14 @@ async fn generic_login_callback<P: OAuthProvider>(
     match P::find_linked_user(&mut db_service, &user_data).await? {
         // Existing linked user found: create new session
         Some(existing_user) => {
-            session.set(ChatRsAuthSession::new(existing_user.id));
+            session.set(ChatRsAuthSession::new(existing_user.id, meta));
         }
-        None => match session.tap(|data| data.and_then(|auth_session| auth_session.user_id())) {
+        // No linked user found, check for active session
+        None => match session.tap(|data| data.map(|auth_session| auth_session.user_id)) {
             // No linked user and no session found: create new user and session
             None => {
                 let new_user = db_service.create(P::create_new_user(&user_data)).await?;
-                session.set(ChatRsAuthSession::new(new_user.id));
+                session.set(ChatRsAuthSession::new(new_user.id, meta));
             }
             // No linked user but there is a current session
             Some(user_id) => {
