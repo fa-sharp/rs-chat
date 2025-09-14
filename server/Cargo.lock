@@ -428,6 +428,7 @@ dependencies = [
  "serde_json",
  "subst",
  "thiserror",
+ "tinistream-client",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -2168,9 +2169,9 @@ dependencies = [
 
 [[package]]
 name = "percent-encoding"
-version = "2.3.1"
+version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
+checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "phf"
@@ -2327,6 +2328,21 @@ dependencies = [
  "syn 2.0.102",
  "version_check",
  "yansi",
+]
+
+[[package]]
+name = "progenitor-client"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "920f044db9ec07a3339175729794d3701e11d338dcf8cfd946df838102307780"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "percent-encoding",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
 ]
 
 [[package]]
@@ -3371,6 +3387,18 @@ checksum = "3526739392ec93fd8b359c8e98514cb3e8e021beb4e5f597b00a0221f8ed8a49"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "tinistream-client"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "progenitor-client",
+ "reqwest",
+ "serde",
+ "serde_urlencoded",
 ]
 
 [[package]]

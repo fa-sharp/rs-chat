@@ -19,6 +19,21 @@ services:
     volumes:
       - redis_data:/data
 
+  tinistream:
+    image: tinistreamer-streamer
+    container_name: tinistream
+    ports:
+      - "8081:8081"
+    environment:
+      STREAMER_PORT: 8081
+      STREAMER_SERVER_ADDRESS: http://localhost:8081
+      STREAMER_REDIS_URL: redis://redis:6379
+      STREAMER_TTL: 120
+    env_file: server/.env
+
+    depends_on:
+      - redis
+
   rschat:
     build:
       context: .
@@ -37,6 +52,7 @@ services:
     depends_on:
       - db
       - redis
+      - tinistream
 
 volumes:
   postgres_data:

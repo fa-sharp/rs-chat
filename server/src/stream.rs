@@ -1,6 +1,11 @@
 mod llm_writer;
 mod reader;
 mod test_utils;
+mod tinistream;
+
+pub use llm_writer::*;
+pub use reader::*;
+pub use tinistream::*;
 
 use std::{collections::HashMap, time::Duration};
 
@@ -8,10 +13,6 @@ use fred::{
     prelude::{FredResult, KeysInterface, StreamsInterface},
     types::scan::ScanType,
 };
-
-pub use llm_writer::*;
-pub use reader::*;
-
 use rocket::{
     async_trait,
     http::Status,
