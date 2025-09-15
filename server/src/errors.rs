@@ -20,6 +20,8 @@ pub enum ApiError {
     Authentication(String),
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
+    #[error("Tinistream error: {0}")]
+    Tinistream(#[from] crate::stream::TiniError),
     #[error(transparent)]
     Chat(#[from] LlmError),
     #[error(transparent)]
@@ -84,6 +86,12 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
                 ApiErrorResponse::BadRequest(Json(Message::new(&format!("IO error: {}", error))))
                     .respond_to(req)
             }
+            ApiError::Tinistream(error) => match error.status {
+                400 => ApiErrorResponse::BadRequest(Json(Message::new(&error.to_string()))),
+                404 => ApiErrorResponse::NotFound(Json(Message::new(&error.to_string()))),
+                _ => ApiErrorResponse::Server(Json(Message::new(&error.to_string()))),
+            }
+            .respond_to(req),
             _ => ApiErrorResponse::Server(Json(Message::new("Server error!"))).respond_to(req),
         }
     }

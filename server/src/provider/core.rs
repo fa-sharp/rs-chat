@@ -93,6 +93,8 @@ pub enum LlmStreamError {
     StreamCancelled,
     #[error("Redis error: {0}")]
     Redis(#[from] fred::error::Error),
+    #[error("Tinistream error: {0}")]
+    Tinistream(#[from] crate::stream::TiniError),
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

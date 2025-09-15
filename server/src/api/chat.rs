@@ -1,17 +1,10 @@
-use std::{borrow::Cow, pin::Pin};
+use std::borrow::Cow;
 
-use rocket::{
-    futures::{stream, Stream, StreamExt},
-    get, post,
-    response::stream::{Event, EventStream},
-    serde::json::Json,
-    Route, State,
-};
+use rocket::{get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
 use schemars::JsonSchema;
-use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use crate::{
@@ -24,7 +17,7 @@ use crate::{
     },
     errors::ApiError,
     provider::{build_llm_messages, build_llm_provider_api, LlmError, LlmProviderOptions},
-    redis::{ExclusiveRedisClient, RedisClient},
+    redis::RedisClient,
     storage::LocalStorage,
     stream::*,
     tools::SendChatToolInput,
@@ -46,14 +39,20 @@ pub struct GetChatStreamsResponse {
 }
 
 /// # Get chat streams
-/// Get the ongoing chat response streams
+/// Get the session IDs that have ongoing chat response streams
 #[openapi(tag = "Chat")]
 #[get("/streams")]
 pub async fn get_chat_streams(
     user_id: ChatRsUserId,
-    redis: RedisClient,
+    tinistream: &State<TinistreamClient>,
 ) -> Result<Json<GetChatStreamsResponse>, ApiError> {
-    let sessions = get_current_chat_streams(&redis, &user_id).await?;
+    let prefix = chat_stream_prefix(&user_id);
+    let sessions = tinistream
+        .active_streams(&prefix)
+        .await?
+        .iter()
+        .filter_map(|stream| stream.key.strip_prefix(&prefix).map(String::from))
+        .collect();
     Ok(Json(GetChatStreamsResponse { sessions }))
 }
 
@@ -75,6 +74,7 @@ pub struct SendChatInput<'a> {
 pub struct SendChatResponse {
     message: &'static str,
     url: String,
+    token: String,
 }
 
 /// # Start chat stream
@@ -87,7 +87,7 @@ pub async fn send_chat_stream(
     db_pool: &State<DbPool>,
     mut db: DbConnection,
     redis: RedisClient,
-    redis_writer: ExclusiveRedisClient,
+    tinistream: &State<TinistreamClient>,
     encryptor: &State<Encryptor>,
     storage: &State<LocalStorage>,
     http_client: &State<reqwest::Client>,
@@ -95,7 +95,8 @@ pub async fn send_chat_stream(
     mut input: Json<SendChatInput<'_>>,
 ) -> Result<Json<SendChatResponse>, ApiError> {
     // Check that we aren't already streaming a response for this session
-    if check_chat_stream_exists(&redis, &user_id, &session_id).await? {
+    let stream_key = chat_stream_key(&user_id, &session_id);
+    if tinistream.stream_exists(&stream_key).await? {
         return Err(LlmError::AlreadyStreaming)?;
     }
 
@@ -174,8 +175,8 @@ pub async fn send_chat_stream(
         .await?;
 
     // Create the Redis stream
-    let mut stream_writer = LlmStreamWriter::new(redis_writer, &user_id, &session_id);
-    stream_writer.start().await?;
+    let mut stream_writer = LlmStreamWriter::new(tinistream.inner().clone(), &user_id, &session_id);
+    let stream_access = stream_writer.start().await?;
 
     // Spawn a task to stream and save the response
     let provider_id = input.provider_id.clone();
@@ -208,43 +209,33 @@ pub async fn send_chat_stream(
 
     Ok(Json(SendChatResponse {
         message: "Stream started",
-        url: format!("/api/chat/{}/stream", session_id),
+        url: stream_access.url,
+        token: stream_access.token,
     }))
 }
 
+#[derive(Debug, JsonSchema, serde::Serialize)]
+pub struct StreamAccess {
+    url: String,
+    token: String,
+}
+
 /// # Connect to chat stream
-/// Connect to an ongoing chat stream and stream the assistant response
+/// Get a stream URL and token to stream the assistant response
 #[openapi(tag = "Chat")]
 #[get("/<session_id>/stream")]
 pub async fn connect_to_chat_stream(
     user_id: ChatRsUserId,
-    redis_reader: ExclusiveRedisClient,
     session_id: Uuid,
-    start_event_id: Option<LastEventId>,
-) -> Result<EventStream<Pin<Box<dyn Stream<Item = Event> + Send>>>, ApiError> {
-    let stream_reader = SseStreamReader::new(redis_reader);
+    tinistream: &State<TinistreamClient>,
+) -> Result<Json<StreamAccess>, ApiError> {
+    let key = chat_stream_key(&user_id, &session_id);
+    let connect = tinistream.stream_connect(&key).await?;
 
-    // Get all previous events from the Redis stream, and return them if we're already at the end of the stream
-    let (prev_events, last_event_id, is_end) = stream_reader
-        .get_prev_events(&user_id, &session_id, start_event_id.as_deref())
-        .await?;
-    let prev_events_stream = stream::iter(prev_events);
-    if is_end {
-        return Ok(EventStream::from(prev_events_stream.boxed()));
-    }
-
-    // Spawn a task to receive new events from Redis and add them to this channel
-    let (tx, rx) = tokio::sync::mpsc::channel::<Event>(50);
-    tokio::spawn(async move {
-        stream_reader
-            .stream(&user_id, &session_id, &last_event_id, &tx)
-            .await;
-        drop(tx);
-    });
-
-    // Send stream to client
-    let stream = prev_events_stream.chain(ReceiverStream::new(rx)).boxed();
-    Ok(EventStream::from(stream))
+    Ok(Json(StreamAccess {
+        url: connect.url,
+        token: connect.token,
+    }))
 }
 
 /// # Cancel chat stream
@@ -253,12 +244,11 @@ pub async fn connect_to_chat_stream(
 #[post("/<session_id>/cancel")]
 pub async fn cancel_chat_stream(
     user_id: ChatRsUserId,
-    redis: RedisClient,
     session_id: Uuid,
+    tinistream: &State<TinistreamClient>,
 ) -> Result<(), ApiError> {
-    if !check_chat_stream_exists(&redis, &user_id, &session_id).await? {
-        return Err(LlmError::StreamNotFound)?;
-    }
-    cancel_current_chat_stream(&redis, &user_id, &session_id).await?;
+    let key = chat_stream_key(&user_id, &session_id);
+    tinistream.stream_cancel(&key).await?;
+
     Ok(())
 }

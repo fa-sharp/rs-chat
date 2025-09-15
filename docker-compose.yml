@@ -19,7 +19,7 @@ services:
     volumes:
       - redis_data:/data
 
-  tinistream:
+  streamer:
     image: tinistreamer-streamer
     container_name: tinistream
     ports:
@@ -30,7 +30,6 @@ services:
       STREAMER_REDIS_URL: redis://redis:6379
       STREAMER_TTL: 120
     env_file: server/.env
-
     depends_on:
       - redis
 
@@ -52,7 +51,7 @@ services:
     depends_on:
       - db
       - redis
-      - tinistream
+      - streamer
 
 volumes:
   postgres_data:

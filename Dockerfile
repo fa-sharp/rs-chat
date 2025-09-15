@@ -6,8 +6,9 @@ ARG DEBIAN_VERSION=bookworm
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS backend-build
 WORKDIR /app
 
-COPY ./server/src src
+COPY ./server/crates crates
 COPY ./server/migrations migrations
+COPY ./server/src src
 COPY ./server/Cargo.toml ./server/Cargo.lock ./
 
 ARG pkg=chat-rs-api

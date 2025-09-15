@@ -1,19 +1,20 @@
 use tinistream_client::{types::*, Client, ClientStreamExt, Error};
-use uuid::Uuid;
 
 /// A client for interacting with the tinistream API.
+#[derive(Debug, Clone)]
 pub struct TinistreamClient {
     client: Client,
 }
 
-type TiniResult<T> = Result<T, TiniError>;
+/// Result type for tinistream API operations.
+pub type TiniResult<T> = Result<T, TiniError>;
 
 #[derive(Debug, thiserror::Error)]
-#[error("{status} {code}: {message}")]
+#[error("{message}")]
 pub struct TiniError {
-    status: u16,
-    code: String,
-    message: String,
+    pub status: u16,
+    pub code: String,
+    pub message: String,
 }
 
 impl TinistreamClient {
@@ -21,25 +22,31 @@ impl TinistreamClient {
         Self { client }
     }
 
-    pub async fn active_chat_streams(&self, prefix: &str) -> TiniResult<Vec<String>> {
+    /// Returns a list of keys with the given prefix that have an active stream.
+    pub async fn active_streams(&self, prefix: &str) -> TiniResult<Vec<StreamInfo>> {
         let streams = self
             .client
             .list_streams()
             .pattern(format!("{prefix}*"))
             .send()
-            .await?;
-
-        Ok(streams
-            .iter()
-            .filter_map(|stream| stream.key.strip_prefix(prefix).map(String::from))
-            .collect())
+            .await?
+            .into_inner();
+        Ok(streams)
     }
 
-    pub async fn chat_stream_exists(user_id: &Uuid, session_id: &Uuid) -> TiniResult<bool> {
-        todo!()
+    /// Returns whether a chat stream exists for the given key.
+    pub async fn stream_exists(&self, key: &str) -> TiniResult<bool> {
+        let streams = self.client.list_streams().pattern(key).send().await?;
+        Ok(!streams.is_empty())
     }
 
-    pub async fn chat_stream_start(&self, key: &str) -> TiniResult<CreateStreamResponse> {
+    /// Returns info about a chat stream at the given key.
+    pub async fn stream_info(&self, key: &str) -> TiniResult<Option<StreamInfo>> {
+        let mut streams = self.client.list_streams().pattern(key).send().await?;
+        Ok(streams.pop())
+    }
+
+    pub async fn stream_start(&self, key: &str) -> TiniResult<CreateStreamResponse> {
         let res = self
             .client
             .create_stream()
@@ -49,7 +56,17 @@ impl TinistreamClient {
         Ok(res.into_inner())
     }
 
-    pub async fn chat_stream_add(
+    pub async fn stream_connect(&self, key: &str) -> TiniResult<CreateStreamResponse> {
+        let res = self
+            .client
+            .create_token()
+            .body(StreamRequest::builder().key(key))
+            .send()
+            .await?;
+        Ok(res.into_inner())
+    }
+
+    pub async fn stream_add(
         &self,
         key: &str,
         events: Vec<builder::AddEvent>,
@@ -67,7 +84,7 @@ impl TinistreamClient {
         Ok(res.into_inner().ids)
     }
 
-    pub async fn chat_stream_cancel(&self, key: &str) -> TiniResult<String> {
+    pub async fn stream_cancel(&self, key: &str) -> TiniResult<String> {
         let res = self
             .client
             .cancel_stream()
@@ -77,7 +94,7 @@ impl TinistreamClient {
         Ok(res.into_inner().id)
     }
 
-    pub async fn chat_stream_end(&self, key: &str) -> TiniResult<String> {
+    pub async fn stream_end(&self, key: &str) -> TiniResult<String> {
         let res = self
             .client
             .end_stream()
