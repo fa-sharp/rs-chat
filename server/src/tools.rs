@@ -9,11 +9,10 @@ pub use {
     system::{ChatRsSystemToolConfig, SystemToolInput},
 };
 
-use {
-    crate::{db::services::ToolDbService, errors::ApiError, provider::LlmTool},
-    schemars::JsonSchema,
-    uuid::Uuid,
-};
+use schemars::JsonSchema;
+use uuid::Uuid;
+
+use crate::{db::services::ToolDbService, errors::ApiError, provider::LlmTool};
 
 /// User configuration of tools when sending a chat message
 #[derive(Debug, Default, PartialEq, JsonSchema, serde::Serialize, serde::Deserialize)]

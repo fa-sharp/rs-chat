@@ -48,13 +48,11 @@ impl<'r> FromRequest<'r> for DbConnection {
     /// Retrieve a connection from the managed Postgres pool. Responds with an
     /// internal server error if a connection couldn't be retrieved.
     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let Some(pool) = req.rocket().state::<DbPool>() else {
-            return Outcome::Error((Status::InternalServerError, "Database not initialized"));
-        };
+        let pool = req.rocket().state::<DbPool>().expect("should be attached");
         match pool.get().await {
             Ok(conn) => Outcome::Success(DbConnection(conn)),
             Err(e) => {
-                rocket::error!("Couldn't get database connection: {}", e);
+                rocket::error!("Couldn't get database connection: {e}");
                 Outcome::Error((Status::InternalServerError, "Couldn't get connection"))
             }
         }
@@ -64,32 +62,30 @@ impl<'r> FromRequest<'r> for DbConnection {
 /// Fairing that sets up and initializes the Postgres database
 pub fn setup_db() -> AdHoc {
     AdHoc::on_ignite("Database", |rocket| async {
-        rocket
-            .attach(AdHoc::on_ignite("Initialize database", |rocket| async {
-                let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-                    &get_app_config(&rocket).database_url,
-                );
-                let pool: DbPool = Pool::builder(config)
-                    .build()
-                    .expect("Failed to parse database URL");
-                let mut conn = pool.get().await.expect("Failed to connect to database");
+        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
+            &get_app_config(&rocket).database_url,
+        );
+        let pool: DbPool = Pool::builder(config)
+            .build()
+            .expect("Failed to parse database URL");
+        let mut conn = pool.get().await.expect("Failed to connect to database");
 
-                static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
-                MIGRATIONS
-                    .run_pending_migrations(&mut conn)
-                    .await
-                    .expect("Database migrations failed");
-                rocket::info!("Migrations completed successfully");
+        static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+        MIGRATIONS
+            .run_pending_migrations(&mut conn)
+            .await
+            .expect("Database migrations failed");
+        rocket::info!("Migrations completed successfully");
 
-                rocket.manage(pool)
-            }))
-            .attach(AdHoc::on_shutdown("Shutdown database", |rocket| {
-                Box::pin(async {
-                    if let Some(pool) = rocket.state::<DbPool>() {
-                        rocket::info!("Shutting down database connection");
-                        pool.close();
-                    }
-                })
-            }))
+        let shutdown = AdHoc::on_shutdown("Shutdown database", |rocket| {
+            Box::pin(async {
+                if let Some(pool) = rocket.state::<DbPool>() {
+                    rocket::info!("Shutting down database connection");
+                    pool.close();
+                }
+            })
+        });
+
+        rocket.manage(pool).attach(shutdown)
     })
 }
