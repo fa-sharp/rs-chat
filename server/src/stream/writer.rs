@@ -3,14 +3,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-use rocket::futures::StreamExt;
+use reqwest_websocket::WebSocket;
+use rocket::futures::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt, TryStreamExt,
+};
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
     db::models::ChatRsToolCall,
     provider::{LlmPendingToolCall, LlmStream, LlmStreamChunk, LlmStreamError, LlmUsage},
-    stream::{chat_stream_key, TiniResult, TinistreamClient},
+    stream::chat_stream_key,
 };
 
 /// Interval at which chunks are flushed to the Redis stream.
@@ -19,14 +23,10 @@ const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 const MAX_CHUNK_SIZE: usize = 200;
 /// Timeout waiting for data from the LLM stream.
 const LLM_TIMEOUT: Duration = Duration::from_secs(60);
-/// Interval for sending ping messages to the Redis stream.
-const PING_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Utility for processing an incoming LLM response stream and writing to a Redis stream.
 #[derive(Debug)]
 pub struct LlmStreamWriter {
-    /// Tinistream client for writing to the Redis stream.
-    tini: TinistreamClient,
     /// The key of the Redis stream.
     key: String,
     /// The current chunk of data being processed.
@@ -39,6 +39,10 @@ pub struct LlmStreamWriter {
     errors: Option<Vec<LlmStreamError>>,
     /// Accumulated usage information from the LLM provider.
     usage: Option<LlmUsage>,
+    /// WebSocket writer for writing to tinistream
+    ws_writer: SplitSink<WebSocket, reqwest_websocket::Message>,
+    /// WebSocket reader for reading responses from tinistream
+    ws_reader: SplitStream<WebSocket>,
 }
 
 /// Internal state
@@ -68,9 +72,15 @@ impl From<RedisStreamChunk> for HashMap<String, String> {
 }
 
 impl LlmStreamWriter {
-    pub fn new(tini: TinistreamClient, user_id: &Uuid, session_id: &Uuid) -> Self {
+    pub fn new(
+        ws_writer: SplitSink<WebSocket, reqwest_websocket::Message>,
+        ws_reader: SplitStream<WebSocket>,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Self {
         LlmStreamWriter {
-            tini,
+            ws_writer,
+            ws_reader,
             key: chat_stream_key(user_id, session_id),
             current_chunk: ChunkState::default(),
             complete_text: None,
@@ -85,17 +95,6 @@ impl LlmStreamWriter {
         &self.key
     }
 
-    /// Create the Redis stream and get the client URL and token
-    pub async fn start(&self) -> TiniResult<tinistream_client::types::CreateStreamResponse> {
-        self.tini.stream_start(&self.key).await
-    }
-
-    /// Add an `end` event to notify clients that the stream has ended
-    pub async fn end(&self) -> TiniResult<()> {
-        self.tini.stream_end(&self.key).await?;
-        Ok(())
-    }
-
     /// Process the incoming stream from the LLM provider, intermittently flushing
     /// chunks to a Redis stream, and return the final accumulated response.
     pub async fn process(
@@ -108,8 +107,6 @@ impl LlmStreamWriter {
         Option<Vec<String>>,
         bool,
     ) {
-        let ping_handle = self.start_ping_task();
-
         let mut last_flush_time = Instant::now();
         let mut cancelled = false;
         loop {
@@ -148,7 +145,8 @@ impl LlmStreamWriter {
                 last_flush_time = Instant::now();
             }
         }
-        ping_handle.abort();
+
+        self.ws_writer.close().await.ok();
 
         let complete_text = self.complete_text.take();
         let tool_calls = self.tool_calls.take();
@@ -248,39 +246,29 @@ impl LlmStreamWriter {
     /// Adds new entries to the Redis stream, while also checking for cancellation.
     /// Returns a [`LlmStreamError::StreamCancelled`] error if the stream has been cancelled.
     async fn add_to_stream(
-        &self,
+        &mut self,
         entries: Vec<HashMap<String, String>>,
     ) -> Result<(), LlmStreamError> {
-        let events = entries
+        use reqwest_websocket::Message;
+        use tinistream_client::types::AddEvent;
+
+        let events: Vec<AddEvent> = entries
             .into_iter()
-            .map(|mut entry| {
-                tinistream_client::types::AddEvent::builder()
-                    .event(entry.remove("type").unwrap_or_default())
-                    .data(entry.remove("data").unwrap_or_default())
+            .map(|mut entry| AddEvent {
+                event: entry.remove("type").unwrap_or_default(),
+                data: entry.remove("data"),
             })
             .collect();
-
-        match self.tini.stream_add(&self.key, events).await {
-            Ok(_) => Ok(()),
-            Err(e) if e.status == 404 => Err(LlmStreamError::StreamCancelled),
-            Err(e) => Err(LlmStreamError::Tinistream(e)),
-        }
-    }
-
-    /// Start task that pings the Redis stream every `PING_INTERVAL` seconds
-    fn start_ping_task(&self) -> tokio::task::JoinHandle<()> {
-        let tini = self.tini.clone();
-        let key = self.key.to_owned();
-
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(PING_INTERVAL);
-            loop {
-                interval.tick().await;
-                let event = tinistream_client::types::AddEvent::builder()
-                    .event("ping")
-                    .data("");
-                let _ = tini.stream_add(&key, vec![event]).await;
+        for event in events {
+            let message = Message::text_from_json(&event)?;
+            self.ws_writer.send(message).await?;
+            if let Some(response) = self.ws_reader.try_next().await? {
+                if let Message::Close { .. } = response {
+                    return Err(LlmStreamError::StreamCancelled);
+                }
             }
-        })
+        }
+
+        Ok(())
     }
 }

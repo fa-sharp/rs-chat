@@ -156,7 +156,8 @@ impl DockerExecutor {
                 let mut header = tokio_tar::Header::new_gnu();
                 header.set_size(content.len() as u64);
                 header.set_mode(0o644);
-                let _ = tar.append_data(&mut header, path, content.as_bytes()).await;
+                tar.append_data(&mut header, path, content.as_bytes())
+                    .await?;
             }
             tar.finish().await
         });

@@ -95,6 +95,8 @@ pub enum LlmStreamError {
     Redis(#[from] fred::error::Error),
     #[error("Tinistream error: {0}")]
     Tinistream(#[from] crate::stream::TiniError),
+    #[error("Websocket error: {0}")]
+    Websocket(#[from] reqwest_websocket::Error),
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

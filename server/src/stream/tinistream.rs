@@ -1,4 +1,5 @@
-use tinistream_client::{types::*, Client, ClientStreamExt, Error};
+use reqwest_websocket::{RequestBuilderExt, WebSocket};
+use tinistream_client::{types::*, Client, ClientEventsExt, ClientInfo, ClientStreamExt, Error};
 
 /// A client for interacting with the tinistream API.
 #[derive(Debug, Clone)]
@@ -34,10 +35,15 @@ impl TinistreamClient {
         Ok(streams)
     }
 
-    /// Returns whether a chat stream exists for the given key.
+    /// Returns whether an active chat stream exists for the given key.
     pub async fn stream_exists(&self, key: &str) -> TiniResult<bool> {
-        let streams = self.client.list_streams().pattern(key).send().await?;
-        Ok(!streams.is_empty())
+        match self.client.get_stream_info().key(key).send().await {
+            Ok(_) => Ok(true),
+            Err(err) => match err.status() {
+                Some(reqwest::StatusCode::NOT_FOUND) => Ok(false),
+                _ => Err(err.into()),
+            },
+        }
     }
 
     /// Returns info about a chat stream at the given key.
@@ -46,7 +52,7 @@ impl TinistreamClient {
         Ok(streams.pop())
     }
 
-    pub async fn stream_start(&self, key: &str) -> TiniResult<CreateStreamResponse> {
+    pub async fn stream_start(&self, key: &str) -> TiniResult<StreamAccessResponse> {
         let res = self
             .client
             .create_stream()
@@ -56,7 +62,7 @@ impl TinistreamClient {
         Ok(res.into_inner())
     }
 
-    pub async fn stream_connect(&self, key: &str) -> TiniResult<CreateStreamResponse> {
+    pub async fn stream_connect(&self, key: &str) -> TiniResult<StreamAccessResponse> {
         let res = self
             .client
             .create_token()
@@ -64,6 +70,17 @@ impl TinistreamClient {
             .send()
             .await?;
         Ok(res.into_inner())
+    }
+
+    pub async fn stream_writer_ws(&self, key: &str) -> Result<WebSocket, reqwest_websocket::Error> {
+        let http_client = self.client.client();
+        let res = http_client
+            .get(format!("{}/api/event/add/ws-stream", self.client.baseurl()))
+            .query(&[("key", key)])
+            .upgrade()
+            .send()
+            .await?;
+        res.into_websocket().await
     }
 
     pub async fn stream_add(
@@ -84,24 +101,24 @@ impl TinistreamClient {
         Ok(res.into_inner().ids)
     }
 
-    pub async fn stream_cancel(&self, key: &str) -> TiniResult<String> {
+    pub async fn stream_cancel(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client
             .cancel_stream()
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
-        Ok(res.into_inner().id)
+        Ok(res.into_inner().status)
     }
 
-    pub async fn stream_end(&self, key: &str) -> TiniResult<String> {
+    pub async fn stream_end(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client
             .end_stream()
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
-        Ok(res.into_inner().id)
+        Ok(res.into_inner().status)
     }
 }
 

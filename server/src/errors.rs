@@ -28,6 +28,8 @@ pub enum ApiError {
     Tool(#[from] ToolError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("WebSocket error: {0}")]
+    Websocket(#[from] reqwest_websocket::Error),
     #[error("Server error: {0}")]
     Server(String),
 }
@@ -87,7 +89,6 @@ impl<'r, 'o: 'r> response::Responder<'r, 'o> for ApiError {
                     .respond_to(req)
             }
             ApiError::Tinistream(error) => match error.status {
-                400 => ApiErrorResponse::BadRequest(Json(Message::new(&error.to_string()))),
                 404 => ApiErrorResponse::NotFound(Json(Message::new(&error.to_string()))),
                 _ => ApiErrorResponse::Server(Json(Message::new(&error.to_string()))),
             }

@@ -39,6 +39,7 @@ reqwest = { version = "0.12.23", default-features = false, features = [
   "rustls-tls-native-roots",
   "stream",
 ] }
+reqwest-websocket = { version = "0.5.1", features = ["json"] }
 rocket = { version = "0.5.1", features = ["json", "uuid"] }
 rocket_flex_session = { version = "0.2.0", features = [
   "redis_fred",

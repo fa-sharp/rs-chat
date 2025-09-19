@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use rocket::{get, post, serde::json::Json, Route, State};
+use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
@@ -175,13 +175,15 @@ pub async fn send_chat_stream(
         .await?;
 
     // Create the Redis stream
-    let mut stream_writer = LlmStreamWriter::new(tinistream.inner().clone(), &user_id, &session_id);
-    let stream_access = stream_writer.start().await?;
+    let client_access = tinistream.stream_start(&stream_key).await?;
+    let (ws_writer, ws_reader) = tinistream.stream_writer_ws(&stream_key).await?.split();
 
     // Spawn a task to stream and save the response
+    let tinistream = tinistream.inner().to_owned();
     let provider_id = input.provider_id.clone();
     let provider_options = input.options.clone();
     tokio::spawn(async move {
+        let mut stream_writer = LlmStreamWriter::new(ws_writer, ws_reader, &user_id, &session_id);
         let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
         let assistant_meta = AssistantMeta {
             provider_id,
@@ -203,14 +205,14 @@ pub async fn send_chat_stream(
             rocket::error!("Failed to save assistant message: {}", err);
         }
         if !cancelled {
-            stream_writer.end().await.ok();
+            tinistream.stream_end(&stream_key).await.ok();
         }
     });
 
     Ok(Json(SendChatResponse {
         message: "Stream started",
-        url: stream_access.url,
-        token: stream_access.token,
+        url: client_access.sse_url,
+        token: client_access.token,
     }))
 }
 
@@ -220,8 +222,8 @@ pub struct StreamAccess {
     token: String,
 }
 
-/// # Connect to chat stream
-/// Get a stream URL and token to stream the assistant response
+/// # Access chat stream
+/// Get a URL and token to access the assistant response stream for this session
 #[openapi(tag = "Chat")]
 #[get("/<session_id>/stream")]
 pub async fn connect_to_chat_stream(
@@ -233,7 +235,7 @@ pub async fn connect_to_chat_stream(
     let connect = tinistream.stream_connect(&key).await?;
 
     Ok(Json(StreamAccess {
-        url: connect.url,
+        url: connect.sse_url,
         token: connect.token,
     }))
 }
