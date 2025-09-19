@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use progenitor_client::{encode_path, ClientHooks, OperationInfo, RequestBuilderExt};
 #[allow(unused_imports)]
-pub use progenitor_client::{ByteStream, ClientInfo, Error, ResponseValue};
+pub use progenitor_client::{ByteStream, ClientInfo, Error, ResponseValue}; 
 /// Types used as operation parameters and responses.
 #[allow(clippy::all)]
 pub mod types {
