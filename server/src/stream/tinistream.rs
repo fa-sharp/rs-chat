@@ -48,8 +48,8 @@ impl TinistreamClient {
 
     /// Returns info about a chat stream at the given key.
     pub async fn stream_info(&self, key: &str) -> TiniResult<Option<StreamInfo>> {
-        let mut streams = self.client.list_streams().pattern(key).send().await?;
-        Ok(streams.pop())
+        let info = self.client.get_stream_info().key(key).send().await?;
+        Ok(Some(info.into_inner()))
     }
 
     pub async fn stream_start(&self, key: &str) -> TiniResult<StreamAccessResponse> {
