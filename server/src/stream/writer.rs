@@ -56,7 +56,7 @@ struct ChunkState {
 
 /// Chunk of the LLM response stored in the Redis stream.
 #[derive(Debug, Serialize)]
-#[serde(tag = "type", content = "data", rename_all = "snake_case")]
+#[serde(tag = "event", content = "data", rename_all = "snake_case")]
 pub(super) enum RedisStreamChunk {
     Text(String),
     ToolCall(String),
@@ -250,17 +250,9 @@ impl LlmStreamWriter {
         entries: Vec<HashMap<String, String>>,
     ) -> Result<(), LlmStreamError> {
         use reqwest_websocket::Message;
-        use tinistream_client::types::AddEvent;
 
-        let events: Vec<AddEvent> = entries
-            .into_iter()
-            .map(|mut entry| AddEvent {
-                event: entry.remove("type").unwrap_or_default(),
-                data: entry.remove("data"),
-            })
-            .collect();
-        for event in events {
-            let message = Message::text_from_json(&event)?;
+        for entry in entries {
+            let message = Message::text_from_json(&entry)?;
             self.ws_writer.send(message).await?;
             if let Some(response) = self.ws_reader.try_next().await? {
                 if let Message::Close { .. } = response {

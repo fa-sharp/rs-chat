@@ -1,11 +1,11 @@
 mod tinistream;
 mod writer;
 
-#[cfg(test)]
-mod tests;
-
 pub use tinistream::*;
 pub use writer::*;
+
+#[cfg(test)]
+mod tests;
 
 use rocket::{
     async_trait,

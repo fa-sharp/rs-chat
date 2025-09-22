@@ -3447,7 +3447,8 @@ dependencies = [
 
 [[package]]
 name = "tinistream-client"
-version = "0.1.0"
+version = "0.1.7"
+source = "git+https://github.com/fa-sharp/tinistream.git?rev=c37e41d#c37e41dea494c82f06507387cedecb5c3737df47"
 dependencies = [
  "bytes",
  "futures-core",

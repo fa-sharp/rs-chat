@@ -4,9 +4,6 @@ version = "0.6.0"
 edition = "2021"
 publish = false
 
-[workspace]
-members = ["crates/*"]
-
 [dependencies]
 aes-gcm = "0.10.3"
 astral-tokio-tar = "0.5.3"
@@ -52,7 +49,7 @@ serde = { version = "1.0.219" }
 serde_json = "1.0.143"
 subst = { version = "0.3.8", features = ["json"] }
 thiserror = "2.0.16"
-tinistream-client = { path = "crates/tinistream" }
+tinistream-client = { git = "https://github.com/fa-sharp/tinistream.git", rev = "c37e41d" }
 tokio = { version = "1.45.1" }
 tokio-stream = "0.1.17"
 tokio-util = { version = "0.7.16", features = ["io"] }

@@ -19,8 +19,8 @@ services:
     volumes:
       - redis_data:/data
 
-  streamer:
-    image: tinistreamer-streamer
+  stream:
+    image: ghcr.io/fa-sharp/tinistream:0.1.7
     container_name: tinistream
     ports:
       - "8081:8081"
@@ -52,7 +52,7 @@ services:
     depends_on:
       - db
       - redis
-      - streamer
+      - stream
 
 volumes:
   postgres_data:
