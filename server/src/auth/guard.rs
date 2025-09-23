@@ -17,7 +17,7 @@ use crate::{
     auth::{
         api_key::get_api_key_auth_outcome,
         sso_header::{get_sso_auth_outcome, get_sso_user_from_headers},
-        ChatRsAuthSession, SSOHeaderMergedConfig,
+        ChatRsAuthSession, SsoHeaderMergedConfig,
     },
     db::{models::ChatRsUser, services::UserDbService, DbConnection},
     utils::Encryptor,
@@ -54,7 +54,7 @@ impl<'r> FromRequest<'r> for ChatRsUserId {
         }
 
         // Try authentication via proxy headers if configured
-        if let Some(config) = req.rocket().state::<SSOHeaderMergedConfig>() {
+        if let Some(config) = req.rocket().state::<SsoHeaderMergedConfig>() {
             if let Some(proxy_user) = get_sso_user_from_headers(config, req.headers()) {
                 let mut db = try_outcome!(req.guard::<DbConnection>().await);
                 return get_sso_auth_outcome(&proxy_user, config, &mut db).await;

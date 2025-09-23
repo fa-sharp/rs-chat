@@ -88,11 +88,8 @@ impl SessionRedis for ChatRsAuthSession {
     }
 
     fn from_redis(value: RedisValue) -> Result<Self, Self::Error> {
-        let map = value.into_map().expect("should always be a map");
-        let mut user_id = None;
-        let mut start_time = None;
-        let mut ip = None;
-        let mut user_agent = None;
+        let map = value.into_map().expect("should be a map");
+        let (mut user_id, mut start_time, mut ip, mut user_agent) = (None, None, None, None);
         for (key, val) in map {
             match key.as_str() {
                 keys::USER_ID_HEX_KEY => {

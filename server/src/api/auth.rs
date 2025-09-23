@@ -92,7 +92,7 @@ impl<'r> FromRequest<'r> for AuthConfig {
 
     async fn from_request(req: &'r rocket::Request<'_>) -> Outcome<Self, Self::Error> {
         let rocket = req.rocket();
-        let sso_config = rocket.state::<SSOHeaderMergedConfig>();
+        let sso_config = rocket.state::<SsoHeaderMergedConfig>();
 
         Outcome::Success(AuthConfig {
             github: rocket.state::<GitHubOAuthConfig>().is_some(),

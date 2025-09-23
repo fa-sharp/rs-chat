@@ -254,10 +254,8 @@ impl LlmStreamWriter {
         for entry in entries {
             let message = Message::text_from_json(&entry)?;
             self.ws_writer.send(message).await?;
-            if let Some(response) = self.ws_reader.try_next().await? {
-                if let Message::Close { .. } = response {
-                    return Err(LlmStreamError::StreamCancelled);
-                }
+            if let Some(Message::Close { .. }) = self.ws_reader.try_next().await? {
+                return Err(LlmStreamError::StreamCancelled);
             }
         }
 

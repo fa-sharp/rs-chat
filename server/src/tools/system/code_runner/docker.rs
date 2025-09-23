@@ -4,11 +4,7 @@ use bollard::{
     body_try_stream,
     container::{AttachContainerResults, LogOutput},
     models::{ContainerCreateBody, HostConfig, ResourcesUlimits},
-    query_parameters::{
-        AttachContainerOptionsBuilder, BuildImageOptionsBuilder, CreateContainerOptionsBuilder,
-        CreateImageOptionsBuilder, RemoveContainerOptionsBuilder, RemoveImageOptionsBuilder,
-        StartContainerOptions, StopContainerOptions, WaitContainerOptions,
-    },
+    query_parameters::*,
     Docker,
 };
 use rocket::futures::StreamExt;
@@ -372,19 +368,10 @@ impl DockerExecutor {
     }
 
     fn sanitize_package_name(&self, package: &str) -> String {
+        const ALLOWED_SYMBOLS: &[char] = &['-', '_', '.', '=', '"', ':', '/', '@'];
         let sanitized = package
             .chars()
-            .filter(|c| {
-                c.is_alphanumeric()
-                    || *c == '-'
-                    || *c == '_'
-                    || *c == '.'
-                    || *c == '='
-                    || *c == '"'
-                    || *c == ':'
-                    || *c == '/'
-                    || *c == '@' // For npm scoped packages like @types/node
-            })
+            .filter(|c| c.is_alphanumeric() || ALLOWED_SYMBOLS.contains(c))
             .collect::<String>();
 
         sanitized
@@ -402,14 +389,14 @@ async fn capture_container_output(
         match output_result {
             Ok(output) => match output {
                 LogOutput::StdOut { message } => {
-                    let message_str = String::from_utf8_lossy(&message).to_string();
+                    let message_str = String::from_utf8_lossy(&message).into_owned();
                     stdout.push_str(&format!("{message_str}\n"));
-                    let _ = tx.send(ToolLog::Result(message_str)).await;
+                    tx.send(ToolLog::Result(message_str)).await.ok();
                 }
                 LogOutput::StdErr { message } => {
-                    let message_str = String::from_utf8_lossy(&message).to_string();
+                    let message_str = String::from_utf8_lossy(&message).into_owned();
                     stderr.push_str(&format!("{message_str}\n"));
-                    let _ = tx.send(ToolLog::Result(message_str)).await;
+                    tx.send(ToolLog::Result(message_str)).await.ok();
                 }
                 _ => {}
             },

@@ -35,11 +35,12 @@ pub fn get_routes(settings: &OpenApiSettings) -> (Vec<Route>, OpenApi) {
 
 #[derive(Debug, JsonSchema, serde::Serialize)]
 pub struct GetChatStreamsResponse {
+    /// The chat session IDs that have ongoing response streams
     sessions: Vec<String>,
 }
 
 /// # Get chat streams
-/// Get the session IDs that have ongoing chat response streams
+/// Get the session IDs that have ongoing response streams
 #[openapi(tag = "Chat")]
 #[get("/streams")]
 pub async fn get_chat_streams(
@@ -70,16 +71,17 @@ pub struct SendChatInput<'a> {
     files: Option<Vec<Uuid>>,
 }
 
-#[derive(JsonSchema, serde::Serialize)]
-pub struct SendChatResponse {
-    message: &'static str,
+#[derive(Debug, JsonSchema, serde::Serialize)]
+pub struct StreamAccess {
+    /// URL of the response stream
     url: String,
+    /// Bearer token to access the response stream
     token: String,
 }
 
 /// # Start chat stream
-/// Send a chat message and start the streamed assistant response. After the response
-/// has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
+/// Send a chat message and start the streamed assistant response. Use the provided
+/// URL and token to connect to the SSE stream.
 #[openapi(tag = "Chat")]
 #[post("/<session_id>", data = "<input>")]
 pub async fn send_chat_stream(
@@ -93,7 +95,7 @@ pub async fn send_chat_stream(
     http_client: &State<reqwest::Client>,
     session_id: Uuid,
     mut input: Json<SendChatInput<'_>>,
-) -> Result<Json<SendChatResponse>, ApiError> {
+) -> Result<Json<StreamAccess>, ApiError> {
     // Check that we aren't already streaming a response for this session
     let stream_key = chat_stream_key(&user_id, &session_id);
     if tinistream.stream_exists(&stream_key).await? {
@@ -167,7 +169,7 @@ pub async fn send_chat_stream(
         messages.push(message);
     }
 
-    // Convert the messages, and get the provider's response stream
+    // Convert the messages, and get the provider's response
     let llm_messages =
         build_llm_messages(messages, &user_id, &session_id, &mut db, &storage).await?;
     let stream = provider_api
@@ -175,7 +177,7 @@ pub async fn send_chat_stream(
         .await?;
 
     // Create the Redis stream
-    let client_access = tinistream.stream_start(&stream_key).await?;
+    let stream_access = tinistream.stream_start(&stream_key).await?;
     let (ws_writer, ws_reader) = tinistream.stream_writer_ws(&stream_key).await?.split();
 
     // Spawn a task to stream and save the response
@@ -209,17 +211,10 @@ pub async fn send_chat_stream(
         }
     });
 
-    Ok(Json(SendChatResponse {
-        message: "Stream started",
-        url: client_access.sse_url,
-        token: client_access.token,
+    Ok(Json(StreamAccess {
+        url: stream_access.sse_url,
+        token: stream_access.token,
     }))
-}
-
-#[derive(Debug, JsonSchema, serde::Serialize)]
-pub struct StreamAccess {
-    url: String,
-    token: String,
 }
 
 /// # Access chat stream
