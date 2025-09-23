@@ -40,9 +40,10 @@ struct CodeRunnerInput {
     /// or for JavaScript: `["axios@0.27.2", "lodash@4.17.21"]`.
     /// For Rust, features can be added at the end of the list as supported by `cargo add`, e.g., `["package1", "package2", "--features", "package2/feature1"]`.
     dependencies: Vec<String>,
-    /// Whether to enable network access. Set to `true` only if the program needs to access the internet at runtime.
-    /// Network access is not needed for downloading dependencies.
-    network: bool,
+    // /// Whether to enable network access. Set to `true` only if the program needs to access the internet at runtime.
+    // /// Network access is not needed for downloading dependencies.
+    // /// TODO: needs more safety precautions
+    // network: bool,
 }
 
 static CODE_RUNNER_INPUT_SCHEMA: LazyLock<serde_json::Value> =
@@ -135,7 +136,7 @@ impl SystemTool for CodeRunner<'_> {
                 timeout_seconds: self.config.timeout_seconds,
                 memory_limit_mb: self.config.memory_limit_mb,
                 cpu_limit: self.config.cpu_limit,
-                network: input.network,
+                network: false,
             },
         );
 
