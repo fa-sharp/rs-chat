@@ -52,6 +52,7 @@ impl TinistreamClient {
         Ok(Some(info.into_inner()))
     }
 
+    /// Start the chat stream and get the client URL and access token
     pub async fn stream_start(&self, key: &str) -> TiniResult<StreamAccessResponse> {
         let res = self
             .client
@@ -62,6 +63,7 @@ impl TinistreamClient {
         Ok(res.into_inner())
     }
 
+    /// Get URL and token for a client to access a stream
     pub async fn stream_connect(&self, key: &str) -> TiniResult<StreamAccessResponse> {
         let res = self
             .client
@@ -72,6 +74,7 @@ impl TinistreamClient {
         Ok(res.into_inner())
     }
 
+    /// Get a WebSocket connection to write to a stream
     pub async fn stream_writer_ws(&self, key: &str) -> Result<WebSocket, reqwest_websocket::Error> {
         let http_client = self.client.client();
         let res = http_client
@@ -101,6 +104,7 @@ impl TinistreamClient {
         Ok(res.into_inner().ids)
     }
 
+    /// Cancel a stream
     pub async fn stream_cancel(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client
@@ -111,6 +115,7 @@ impl TinistreamClient {
         Ok(res.into_inner().status)
     }
 
+    /// End a stream
     pub async fn stream_end(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client

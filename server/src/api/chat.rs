@@ -176,7 +176,7 @@ pub async fn send_chat_stream(
         .chat_stream(llm_messages, tools, &input.options)
         .await?;
 
-    // Create the Redis stream
+    // Create the Redis stream and get a WebSocket connection for writing to it
     let stream_access = tinistream.stream_start(&stream_key).await?;
     let (ws_writer, ws_reader) = tinistream.stream_writer_ws(&stream_key).await?.split();
 
@@ -185,8 +185,10 @@ pub async fn send_chat_stream(
     let provider_id = input.provider_id.clone();
     let provider_options = input.options.clone();
     tokio::spawn(async move {
-        let mut stream_writer = LlmStreamWriter::new(ws_writer, ws_reader, &user_id, &session_id);
-        let (text, tool_calls, usage, errors, cancelled) = stream_writer.process(stream).await;
+        let mut stream_writer = LlmStreamWriter::new();
+        let (text, tool_calls, usage, errors, cancelled) =
+            stream_writer.process(stream, ws_writer, ws_reader).await;
+
         let assistant_meta = AssistantMeta {
             provider_id,
             provider_options: Some(provider_options),
@@ -206,6 +208,7 @@ pub async fn send_chat_stream(
         if let Err(err) = db_result {
             rocket::error!("Failed to save assistant message: {}", err);
         }
+
         if !cancelled {
             tinistream.stream_end(&stream_key).await.ok();
         }

@@ -1,8 +1,8 @@
 mod utils;
+use reqwest_websocket::WebSocket;
 use rocket::futures::StreamExt;
 use utils::*;
 
-use std::time::Duration;
 use uuid::Uuid;
 
 use crate::{
@@ -15,17 +15,19 @@ use crate::{
 
 use super::LlmStreamWriter;
 
-async fn create_test_writer(user_id: &Uuid, session_id: &Uuid) -> LlmStreamWriter {
+async fn create_test_writer(
+    user_id: &Uuid,
+    session_id: &Uuid,
+) -> (String, WebSocket, LlmStreamWriter) {
     let key = chat_stream_key(user_id, session_id);
     let tini = setup_tini_client();
     tini.stream_start(&key).await.expect("should start stream");
-    let (ws_writer, ws_reader) = tini
+    let ws = tini
         .stream_writer_ws(&key)
         .await
-        .expect("should connect to WebSocket for adding events")
-        .split();
+        .expect("should connect to WebSocket for adding events");
 
-    LlmStreamWriter::new(ws_writer, ws_reader, user_id, session_id)
+    (key, ws, LlmStreamWriter::new())
 }
 
 #[tokio::test]
@@ -33,10 +35,11 @@ async fn stream_writer_basic_functionality() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
     // Create stream
-    assert!(tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(tini.stream_exists(&key).await.unwrap());
 
     // Create Lorem provider and get stream
     let lorem = LoremProvider::new();
@@ -46,7 +49,8 @@ async fn stream_writer_basic_functionality() {
         .expect("Failed to create lorem stream");
 
     // Process the stream
-    let (text, tool_calls, usage, errors, cancelled) = writer.process(stream).await;
+    let (text, tool_calls, usage, errors, cancelled) =
+        writer.process(stream, ws_writer, ws_reader).await;
 
     // Verify results
     assert!(text.is_some());
@@ -61,10 +65,10 @@ async fn stream_writer_basic_functionality() {
     assert!(!cancelled);
 
     // End stream
-    assert!(tini.stream_end(&writer.key()).await.is_ok());
+    assert!(tini.stream_end(&key).await.is_ok());
 
     // Stream should be deleted after end
-    assert!(!tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(!tini.stream_exists(&key).await.unwrap());
 }
 
 #[tokio::test]
@@ -72,7 +76,8 @@ async fn stream_writer_batching() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
     // Create a custom stream with small chunks to test batching
     let chunks = vec![
@@ -85,14 +90,14 @@ async fn stream_writer_batching() {
     );
 
     let stream: LlmStream = Box::pin(chunk_stream);
-    let (text, _, _, _, cancelled) = writer.process(stream).await;
+    let (text, _, _, _, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     let text = text.unwrap();
     assert_eq!(text, "Hello world! This is a test");
     assert!(!cancelled);
 
-    tini.stream_end(&writer.key()).await.ok();
+    tini.stream_end(&key).await.ok();
 }
 
 #[tokio::test]
@@ -100,7 +105,8 @@ async fn stream_writer_error_handling() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
     // Create a stream that produces an error
     let error_stream = tokio_stream::iter(vec![
@@ -110,7 +116,7 @@ async fn stream_writer_error_handling() {
     ]);
 
     let stream: LlmStream = Box::pin(error_stream);
-    let (text, _, _, errors, cancelled) = writer.process(stream).await;
+    let (text, _, _, errors, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     let text = text.unwrap();
@@ -123,39 +129,7 @@ async fn stream_writer_error_handling() {
 
     assert!(!cancelled);
 
-    tini.stream_end(&writer.key()).await.ok();
-}
-
-#[tokio::test]
-async fn stream_writer_timeout() {
-    let user_id = Uuid::new_v4();
-    let session_id = Uuid::new_v4();
-    let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
-
-    assert!(tini.stream_exists(&writer.key()).await.unwrap());
-
-    // Create a stream that hangs (never yields anything)
-    let hanging_stream = tokio_stream::pending::<Result<LlmStreamChunk, LlmStreamError>>();
-
-    let stream: LlmStream = Box::pin(hanging_stream);
-
-    // This should timeout due to LLM_TIMEOUT
-    let start = std::time::Instant::now();
-    let (text, _, _, errors, cancelled) = writer.process(stream).await;
-    let elapsed = start.elapsed();
-
-    // Should complete in roughly LLM_TIMEOUT duration
-    assert!(elapsed >= Duration::from_secs(59)); // Allow some margin
-    assert!(elapsed < Duration::from_secs(65));
-
-    assert!(text.is_none());
-    assert!(errors.is_some());
-    let errors = errors.unwrap();
-    assert!(errors.iter().any(|e| e.contains("Timeout")));
-    assert!(!cancelled); // Timeout is not considered a cancellation
-
-    tini.stream_end(&writer.key()).await.ok();
+    tini.stream_end(&key).await.ok();
 }
 
 #[tokio::test]
@@ -163,15 +137,28 @@ async fn stream_writer_cancel() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let writer = create_test_writer(&user_id, &session_id).await;
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
-    assert!(tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(tini.stream_exists(&key).await.unwrap());
 
-    // Cancel the stream
-    tini.stream_cancel(&writer.key()).await.unwrap();
+    let stream = LoremProvider::new()
+        .chat_stream(vec![], None, &LlmProviderOptions::default())
+        .await
+        .expect("Failed to create lorem stream");
+    let process_fut = writer.process(stream, ws_writer, ws_reader);
+
+    // Cancel the stream after 2 seconds
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    tini.stream_cancel(&key).await.unwrap();
+
+    // process() response should show that stream was cancelled
+    let (_, _, _, errors, cancelled) = process_fut.await;
+    assert!(cancelled);
+    assert!(errors.unwrap().last().unwrap().contains("cancelled"));
 
     // Stream should be deleted after cancel
-    assert!(!tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(!tini.stream_exists(&key).await.unwrap());
 }
 
 #[tokio::test]
@@ -179,9 +166,10 @@ async fn stream_writer_usage_tracking() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
-    assert!(tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(tini.stream_exists(&key).await.unwrap());
 
     // Create a stream with usage information
     let usage_stream = tokio_stream::iter(vec![
@@ -200,7 +188,7 @@ async fn stream_writer_usage_tracking() {
     ]);
 
     let stream: LlmStream = Box::pin(usage_stream);
-    let (text, _, usage, _, cancelled) = writer.process(stream).await;
+    let (text, _, usage, _, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     assert_eq!(text.unwrap(), "Hello World");
@@ -213,7 +201,7 @@ async fn stream_writer_usage_tracking() {
 
     assert!(!cancelled);
 
-    tini.stream_end(&writer.key()).await.ok();
+    tini.stream_end(&key).await.ok();
 }
 
 #[tokio::test]
@@ -221,10 +209,10 @@ async fn redis_stream_entries() {
     let user_id = Uuid::new_v4();
     let session_id = Uuid::new_v4();
     let tini = setup_tini_client();
-    let mut writer = create_test_writer(&user_id, &session_id).await;
-    let key = writer.key().to_owned();
+    let (key, ws, mut writer) = create_test_writer(&user_id, &session_id).await;
+    let (ws_writer, ws_reader) = ws.split();
 
-    assert!(tini.stream_exists(&writer.key()).await.unwrap());
+    assert!(tini.stream_exists(&key).await.unwrap());
 
     // Verify start event was written
     let info = tini
@@ -235,18 +223,18 @@ async fn redis_stream_entries() {
     assert_eq!(info.length, 1);
 
     // Create a simple stream
-    let simple_stream = tokio_stream::iter(vec![Ok(LlmStreamChunk::Text("Test chunk".into()))]);
-    let stream: LlmStream = Box::pin(simple_stream);
-    writer.process(stream).await;
-    writer.flush_chunk().await.ok();
+    let stream = tokio_stream::iter(vec![Ok(LlmStreamChunk::Text("Test chunk".into()))]).boxed();
+    writer.process(stream, ws_writer, ws_reader).await;
+    drop(writer);
 
-    // Should have start + text entries (ping task may add more)
+    // Should have start + text entries
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     let info = tini
         .stream_info(&key)
         .await
         .expect("Failed to check stream")
         .expect("Stream not found");
-    assert!(info.length >= 2);
+    assert_eq!(info.length, 2);
 
     tini.stream_end(&key).await.ok();
 }

@@ -87,8 +87,6 @@ pub enum LlmStreamError {
     Parsing(#[from] serde_json::Error),
     #[error("Failed to decode response: {0}")]
     Decoding(#[from] tokio_util::codec::LinesCodecError),
-    #[error("Timeout waiting for provider response")]
-    StreamTimeout,
     #[error("Stream was cancelled")]
     StreamCancelled,
     #[error("Redis error: {0}")]
