@@ -160,11 +160,11 @@ pub enum AnthropicDelta {
     InputJsonDelta { partial_json: String },
 }
 
-#[derive(Debug, Deserialize)]
-pub struct AnthropicMessageDelta {
-    // stop_reason: Option<String>,
-    // stop_sequence: Option<String>,
-}
+// #[derive(Debug, Deserialize)]
+// pub struct AnthropicMessageDelta {
+// stop_reason: Option<String>,
+// stop_sequence: Option<String>,
+// }
 
 #[derive(Debug, Deserialize)]
 pub struct AnthropicError {

@@ -114,14 +114,14 @@ impl OAuthProvider for OIDCProvider {
         user.oidc_id.is_some()
     }
 
-    fn create_update_user(user_data: &UserData) -> UpdateChatRsUser {
+    fn create_update_user(user_data: &UserData) -> UpdateChatRsUser<'_> {
         UpdateChatRsUser {
             oidc_id: Some(&user_data.id),
             ..Default::default()
         }
     }
 
-    fn create_new_user(user_data: &UserData) -> NewChatRsUser {
+    fn create_new_user(user_data: &UserData) -> NewChatRsUser<'_> {
         NewChatRsUser {
             oidc_id: Some(&user_data.id),
             name: &user_data.name,

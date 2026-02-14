@@ -1,12 +1,11 @@
 ARG NODE_VERSION=22
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1.90
 ARG DEBIAN_VERSION=bookworm
 
 ### Build Rust backend ###
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS backend-build
 WORKDIR /app
 
-COPY ./server/crates crates
 COPY ./server/migrations migrations
 COPY ./server/src src
 COPY ./server/Cargo.toml ./server/Cargo.lock ./

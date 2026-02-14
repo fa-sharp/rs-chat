@@ -29,12 +29,14 @@ pub fn chat_stream_key(user_id: &Uuid, session_id: &Uuid) -> String {
 /// Request guard to extract the Last-Event-ID from the request headers
 #[derive(OpenApiFromRequest)]
 pub struct LastEventId(String);
+
 impl std::ops::Deref for LastEventId {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
+
 #[async_trait]
 impl<'r> FromRequest<'r> for LastEventId {
     type Error = ();
