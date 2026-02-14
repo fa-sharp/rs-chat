@@ -20,7 +20,8 @@ services:
       - redis_data:/data
 
   stream:
-    image: ghcr.io/fa-sharp/tinistream:0.1.7
+    image: ghcr.io/fa-sharp/tinistream:0.1.8
+    platform: linux/amd64
     container_name: tinistream
     ports:
       - "8081:8081"

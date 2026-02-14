@@ -34,15 +34,19 @@ export function useStreamManager() {
   } = useStreamManagerData();
 
   const startStream = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, streamAccess?: { url: string; token: string }) => {
       clearSession(sessionId);
       initSession(sessionId);
 
-      createChatStream(sessionId, {
-        onText: (text) => addTextChunk(sessionId, text),
-        onToolCall: (toolCall) => addToolCallChunk(sessionId, toolCall),
-        onError: (error) => addErrorChunk(sessionId, error),
-      })
+      createChatStream(
+        sessionId,
+        {
+          onText: (text) => addTextChunk(sessionId, text),
+          onToolCall: (toolCall) => addToolCallChunk(sessionId, toolCall),
+          onError: (error) => addErrorChunk(sessionId, error),
+        },
+        streamAccess,
+      )
         .then((chatStream) => {
           chatStream.stream().finally(() => {
             setSessionCompleted(sessionId);
@@ -96,7 +100,7 @@ export function useStreamManager() {
         setSessionCompleted(sessionId);
         return;
       }
-      startStream(sessionId);
+      startStream(sessionId, response.data);
     },
     [initSession, addErrorChunk, startStream, setSessionCompleted],
   );
