@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// Convert LlmMessages to Ollama messages
-pub fn build_ollama_messages(messages: &[LlmMessage]) -> Vec<OllamaMessage> {
+pub fn build_ollama_messages(messages: &[LlmMessage]) -> Vec<OllamaMessage<'_>> {
     messages
         .iter()
         .map(|message| match message {
@@ -65,7 +65,7 @@ pub fn build_ollama_messages(messages: &[LlmMessage]) -> Vec<OllamaMessage> {
 }
 
 /// Convert LlmTools to Ollama tools
-pub fn build_ollama_tools(tools: &[LlmTool]) -> Vec<OllamaTool> {
+pub fn build_ollama_tools(tools: &[LlmTool]) -> Vec<OllamaTool<'_>> {
     tools
         .iter()
         .map(|tool| OllamaTool {

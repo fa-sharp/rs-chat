@@ -1,3 +1,5 @@
+#:tombi schema.strict = false
+
 app = "rs-chat"
 primary_region = "ewr"
 
@@ -18,7 +20,7 @@ min_machines_running = 0
 processes = ["app"]
 
 [[vm]]
-memory = "1gb"
+memory = "512mb"
 cpu_kind = "shared"
 cpus = 2
 

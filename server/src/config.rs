@@ -22,10 +22,12 @@ pub struct AppConfig {
     pub database_url: String,
     /// Redis connection URL
     pub redis_url: String,
-    /// Redis static pool size (default: 4)
+    /// Redis pool size (default: 4)
     pub redis_pool: Option<usize>,
-    /// Maximum number of concurrent Redis connections for streaming (default: 20)
-    pub max_streams: Option<usize>,
+    /// Base URL of the tinistream API
+    pub tinistream_url: String,
+    /// API key for the tinistream API
+    pub tinistream_api_key: String,
 }
 
 /// Get the server configuration variables from Rocket

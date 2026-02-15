@@ -33,9 +33,9 @@ pub async fn get_api_key_auth_outcome<'r>(
     let (nonce, ciphertext) = try_outcome!(auth_header
         .strip_prefix(API_KEY_HEADER_PREFIX)
         .and_then(|s| s.split_once('|'))
-        .and_then(|(nonce_hex, cipher_hex)| (hex::decode(nonce_hex)
+        .and_then(|(nonce_hex, cipher_hex)| hex::decode(nonce_hex)
             .ok()
-            .zip(hex::decode(cipher_hex).ok())))
+            .zip(hex::decode(cipher_hex).ok()))
         .or_error((Status::Unauthorized, "Invalid API key format")));
 
     let key_id = try_outcome!(encryptor

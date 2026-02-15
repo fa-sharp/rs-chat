@@ -19,6 +19,21 @@ services:
     volumes:
       - redis_data:/data
 
+  stream:
+    image: ghcr.io/fa-sharp/tinistream:0.1.8
+    platform: linux/amd64
+    container_name: tinistream
+    ports:
+      - "8081:8081"
+    environment:
+      STREAMER_PORT: 8081
+      STREAMER_SERVER_ADDRESS: http://localhost:8081
+      STREAMER_REDIS_URL: redis://redis:6379
+      STREAMER_TTL: 360
+    env_file: server/.env
+    depends_on:
+      - redis
+
   rschat:
     build:
       context: .
@@ -30,6 +45,7 @@ services:
       RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
       RS_CHAT_REDIS_URL: redis://redis:6379
       RS_CHAT_DATA_DIR: /data
+      RS_CHAT_TINISTREAM_URL: http://tinistream:8081
     env_file: server/.env
     volumes:
       - ./.docker:/certs
@@ -37,6 +53,7 @@ services:
     depends_on:
       - db
       - redis
+      - stream
 
 volumes:
   postgres_data:

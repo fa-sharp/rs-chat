@@ -1,5 +1,6 @@
 pub mod api;
 pub mod auth;
+pub mod clients;
 pub mod config;
 pub mod db;
 pub mod errors;
@@ -16,6 +17,7 @@ use rocket_okapi::{mount_endpoints_and_merged_docs, openapi, openapi_get_routes_
 
 use crate::{
     auth::setup_auth,
+    clients::setup_clients,
     config::{get_config_provider, AppConfig},
     db::setup_db,
     errors::get_catchers,
@@ -33,9 +35,9 @@ pub fn build_rocket() -> rocket::Rocket<rocket::Build> {
         .attach(setup_redis())
         .attach(setup_encryption())
         .attach(setup_auth("/api/auth"))
+        .attach(setup_clients())
         .attach(setup_storage())
         .attach(setup_static_files())
-        .manage(reqwest::Client::new())
         .register("/", get_catchers())
         .mount("/api/docs", get_doc_routes());
 

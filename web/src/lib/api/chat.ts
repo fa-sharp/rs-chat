@@ -29,27 +29,44 @@ export async function createChatStream(
     onToolCall: (toolCall: string) => void;
     onError: (error: string) => void;
   },
+  streamAccess?: {
+    url: string;
+    token: string;
+  },
 ) {
+  if (!streamAccess) {
+    const res = await client.GET("/chat/{session_id}/stream", {
+      params: { path: { session_id: sessionId } },
+    });
+    if (res.error) {
+      throw new Error(res.error.message);
+    }
+    streamAccess = res.data;
+  }
+
+  const streamUrl = new URL(streamAccess.url);
+  streamUrl.searchParams.append("token", streamAccess.token);
   const abortController = new AbortController();
-  const res = await client.GET("/chat/{session_id}/stream", {
-    params: { path: { session_id: sessionId } },
-    parseAs: "stream",
+  const sseStream = await fetch(streamUrl, {
     signal: abortController.signal,
   });
-  if (res.error) {
-    throw new Error(res.error.message);
+  if (!sseStream.ok) {
+    throw new Error(
+      `Failed to fetch SSE stream, status ${sseStream.status}, message: ${await sseStream.text()}`,
+    );
   }
-  if (!res.data) {
-    throw new Error("No data received");
+  if (!sseStream.body) {
+    throw new Error("No data received from SSE stream");
   }
 
   return {
     stream: async () => {
-      if (!res.data) return;
-      const eventStream = res.data
+      if (!sseStream.body) return;
+      const eventStream = sseStream.body
         .pipeThrough(new TextDecoderStream())
         .pipeThrough(new EventSourceParserStream())
         .getReader();
+
       while (true) {
         const { done, value } = await eventStream.read();
         if (done) break;

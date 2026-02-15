@@ -11,7 +11,7 @@ pub use api_key::build_api_key_string;
 pub use guard::ChatRsUserId;
 pub use oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OIDCConfig};
 pub use session::ChatRsAuthSession;
-pub use sso_header::SSOHeaderMergedConfig;
+pub use sso_header::SsoHeaderMergedConfig;
 use {oauth::setup_oauth, session::setup_session, sso_header::setup_sso_header_auth};
 
 /// Fairing that sets up all authentication services

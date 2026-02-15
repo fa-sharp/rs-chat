@@ -1,13 +1,13 @@
 ARG NODE_VERSION=22
-ARG RUST_VERSION=1.85
+ARG RUST_VERSION=1.90
 ARG DEBIAN_VERSION=bookworm
 
 ### Build Rust backend ###
 FROM rust:${RUST_VERSION}-slim-${DEBIAN_VERSION} AS backend-build
 WORKDIR /app
 
-COPY ./server/src src
 COPY ./server/migrations migrations
+COPY ./server/src src
 COPY ./server/Cargo.toml ./server/Cargo.lock ./
 
 ARG pkg=chat-rs-api
@@ -67,5 +67,4 @@ ENV RS_CHAT_STATIC_PATH=/var/www
 ENV RS_CHAT_DATA_DIR=/data
 ENV RS_CHAT_ADDRESS=0.0.0.0
 ENV RS_CHAT_PORT=8080
-EXPOSE 8080
 CMD ["run-server"]

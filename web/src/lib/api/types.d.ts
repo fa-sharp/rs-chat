@@ -61,6 +61,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sessions
+         * @description Get current sessions
+         */
+        get: operations["get_sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/config": {
         parameters: {
             query?: never;
@@ -266,7 +286,7 @@ export interface paths {
         };
         /**
          * Get chat streams
-         * @description Get the ongoing chat response streams
+         * @description Get the session IDs that have ongoing response streams
          */
         get: operations["get_chat_streams"];
         put?: never;
@@ -288,7 +308,7 @@ export interface paths {
         put?: never;
         /**
          * Start chat stream
-         * @description Send a chat message and start the streamed assistant response. After the response has started, use the `/<session_id>/stream` endpoint to connect to the SSE stream.
+         * @description Send a chat message and start the streamed assistant response. Use the provided URL and token to connect to the SSE stream.
          */
         post: operations["send_chat_stream"];
         delete?: never;
@@ -305,8 +325,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Connect to chat stream
-         * @description Connect to an ongoing chat stream and stream the assistant response
+         * Access chat stream
+         * @description Get a URL and token to access the assistant response stream for this session
          */
         get: operations["connect_to_chat_stream"];
         put?: never;
@@ -535,32 +555,6 @@ export interface components {
         InfoResponse: {
             version: string;
             url: string;
-            redis: components["schemas"]["RedisStats"];
-        };
-        RedisStats: {
-            /**
-             * Format: uint
-             * @description Number of static connections
-             */
-            static: number;
-            /**
-             * Format: uint
-             * @description Number of current streaming connections
-             */
-            streaming: number;
-            /**
-             * Format: uint
-             * @description Number of available streaming connections
-             */
-            streaming_available: number;
-            /**
-             * Format: uint
-             * @description Maximum number of streaming connections
-             */
-            streaming_max: number;
-        };
-        Message: {
-            message: string;
         };
         ChatRsUser: {
             /** Format: uuid */
@@ -576,6 +570,18 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        Message: {
+            message: string;
+        };
+        SessionResponse: {
+            id: string;
+            /** Format: date-time */
+            started: string;
+            /** Format: uint32 */
+            ttl: number;
+            ip?: string | null;
+            user_agent?: string | null;
         };
         /** @description The current auth configuration of the server */
         AuthConfig: {
@@ -688,8 +694,7 @@ export interface components {
              * @default false
              */
             info: boolean;
-            /** @default null */
-            files: components["schemas"]["FilesInput"] | null;
+            files?: components["schemas"]["FilesInput"] | null;
         };
         FilesInput: {
             /**
@@ -879,11 +884,14 @@ export interface components {
             title: string;
         };
         GetChatStreamsResponse: {
+            /** @description The chat session IDs that have ongoing response streams */
             sessions: string[];
         };
-        SendChatResponse: {
-            message: string;
+        StreamAccess: {
+            /** @description URL of the response stream */
             url: string;
+            /** @description Bearer token to access the response stream */
+            token: string;
         };
         SendChatInput: {
             /** @description The new chat message from the user */
@@ -1171,6 +1179,25 @@ export interface operations {
                     "application/json": components["schemas"]["InfoResponse"];
                 };
             };
+        };
+    };
+    user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatRsUser"];
+                };
+            };
             /** @description Bad request */
             400: {
                 headers: {
@@ -1218,7 +1245,7 @@ export interface operations {
             };
         };
     };
-    user: {
+    get_sessions: {
         parameters: {
             query?: never;
             header?: never;
@@ -1232,7 +1259,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChatRsUser"];
+                    "application/json": components["schemas"]["SessionResponse"][];
                 };
             };
             /** @description Bad request */
@@ -2312,7 +2339,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SendChatResponse"];
+                    "application/json": components["schemas"]["StreamAccess"];
                 };
             };
             /** @description Bad request */
@@ -2378,7 +2405,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/event-stream": number[];
+                    "application/json": components["schemas"]["StreamAccess"];
                 };
             };
             /** @description Bad request */

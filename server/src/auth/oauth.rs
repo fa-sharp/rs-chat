@@ -55,8 +55,8 @@ trait OAuthProvider {
         user_data: &UserData,
     ) -> impl Future<Output = Result<Option<ChatRsUser>, ApiError>> + Send;
     fn is_user_linked(user: &ChatRsUser) -> bool;
-    fn create_update_user(user_data: &UserData) -> UpdateChatRsUser;
-    fn create_new_user(user_data: &UserData) -> NewChatRsUser;
+    fn create_update_user(user_data: &UserData) -> UpdateChatRsUser<'_>;
+    fn create_new_user(user_data: &UserData) -> NewChatRsUser<'_>;
 }
 
 /// Fairing that sets up OAuth login and routes
