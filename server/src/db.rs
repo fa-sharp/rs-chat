@@ -5,13 +5,15 @@ pub mod services;
 use std::ops::{Deref, DerefMut};
 
 use diesel_async::{
+    async_connection_wrapper::AsyncConnectionWrapper,
     pooled_connection::{
         deadpool::{Object, Pool},
         AsyncDieselConnectionManager,
     },
     AsyncPgConnection,
 };
-use diesel_async_migrations::{embed_migrations, EmbeddedMigrations};
+
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use rocket::{
     fairing::AdHoc,
     http::Status,
@@ -68,13 +70,17 @@ pub fn setup_db() -> AdHoc {
         let pool: DbPool = Pool::builder(config)
             .build()
             .expect("Failed to parse database URL");
-        let mut conn = pool.get().await.expect("Failed to connect to database");
 
-        static MIGRATIONS: EmbeddedMigrations = embed_migrations!();
-        MIGRATIONS
-            .run_pending_migrations(&mut conn)
-            .await
-            .expect("Database migrations failed");
+        const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+        let cxn = pool.get().await.expect("Failed to connect to database");
+        tokio::task::spawn_blocking(move || {
+            AsyncConnectionWrapper::<Object<AsyncPgConnection>>::from(cxn)
+                .run_pending_migrations(MIGRATIONS)
+                .expect("Database migrations failed");
+        })
+        .await
+        .expect("Database migration task failed");
+
         rocket::info!("Migrations completed successfully");
 
         let shutdown = AdHoc::on_shutdown("Shutdown database", |rocket| {
