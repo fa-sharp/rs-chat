@@ -10,12 +10,11 @@ interface ScrollState {
 interface UseAutoScrollOptions {
   offset?: number;
   smooth?: boolean;
-  content?: React.ReactNode;
   contentRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function useAutoScroll(options: UseAutoScrollOptions = {}) {
-  const { offset = 4, smooth = false, content, contentRef } = options;
+  const { offset = 4, smooth = false, contentRef } = options;
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastContentHeight = useRef(0);
   const initialContentHeight = useRef(0);
@@ -104,7 +103,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
       }
       lastContentHeight.current = currentHeight;
     }
-  }, [content, scrollState.autoScrollEnabled, scrollToBottom]);
+  }, [scrollState.autoScrollEnabled, scrollToBottom]);
 
   // Watch for content size changes (e.g., images loading, code blocks expanding)
   useEffect(() => {

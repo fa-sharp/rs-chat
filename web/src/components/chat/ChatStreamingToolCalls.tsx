@@ -201,7 +201,7 @@ function StreamingToolCall({
 }
 
 function DebugLogsContent({ children }: { children: React.ReactNode }) {
-  const { scrollRef } = useAutoScroll({ content: children });
+  const { scrollRef } = useAutoScroll();
 
   return (
     <div ref={scrollRef} className="space-y-0.5 pt-1 max-h-32 overflow-auto">
