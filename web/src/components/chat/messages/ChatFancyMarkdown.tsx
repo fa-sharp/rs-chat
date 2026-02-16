@@ -1,9 +1,9 @@
-import type { ReactNode } from "@tanstack/react-router";
 import svelteHighlight from "highlight.svelte";
 import { common } from "lowlight";
 import { Check, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import {
   type ComponentProps,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -21,11 +21,7 @@ import { cn } from "@/lib/utils";
  * Markdown with plugins for syntax highlighting, line numbers, copying code, etc.
  * Should be asynchronously imported as it loads a bunch of plugins and languages.
  */
-export default function ChatFancyMarkdown({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function ChatFancyMarkdown({ children }: { children: string }) {
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
