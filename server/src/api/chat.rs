@@ -169,7 +169,7 @@ pub async fn send_chat_stream(
         messages.push(message);
     }
 
-    // Convert the messages, and get the streaming response from the provider
+    // Build the messages and get the initial stream response from the provider
     let llm_messages =
         build_llm_messages(messages, &user_id, &session_id, &mut db, &storage).await?;
     let stream = provider_api
@@ -204,11 +204,11 @@ pub async fn connect_to_chat_stream(
     tinistream: &State<TinistreamClient>,
 ) -> Result<Json<StreamAccess>, ApiError> {
     let key = chat_stream_key(&user_id, &session_id);
-    let connect = tinistream.stream_connect(&key).await?;
+    let stream_access = tinistream.stream_connect(&key).await?;
 
     Ok(Json(StreamAccess {
-        url: connect.sse_url,
-        token: connect.token,
+        url: stream_access.sse_url,
+        token: stream_access.token,
     }))
 }
 
