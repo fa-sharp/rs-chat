@@ -64,24 +64,24 @@ impl<'r> FromRequest<'r> for DbConnection {
 /// Fairing that sets up and initializes the Postgres database
 pub fn setup_db() -> AdHoc {
     AdHoc::on_ignite("Database", |rocket| async {
-        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(
-            &get_app_config(&rocket).database_url,
-        );
+        let db_url = get_app_config(&rocket).database_url.as_str();
+        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(db_url);
         let pool: DbPool = Pool::builder(config)
             .build()
             .expect("Failed to parse database URL");
 
         const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
-        let cxn = pool.get().await.expect("Failed to connect to database");
-        tokio::task::spawn_blocking(move || {
-            AsyncConnectionWrapper::<Object<AsyncPgConnection>>::from(cxn)
+        let migration_cxn = pool.get().await.expect("Failed to connect to database");
+        match tokio::task::spawn_blocking(move || {
+            AsyncConnectionWrapper::<Object<AsyncPgConnection>>::from(migration_cxn)
                 .run_pending_migrations(MIGRATIONS)
                 .expect("Database migrations failed");
         })
         .await
-        .expect("Database migration task failed");
-
-        rocket::info!("Migrations completed successfully");
+        {
+            Ok(_) => rocket::info!("Migrations completed successfully"),
+            Err(err) => panic!("Database migration task failed: {err}"),
+        };
 
         let shutdown = AdHoc::on_shutdown("Shutdown database", |rocket| {
             Box::pin(async {
