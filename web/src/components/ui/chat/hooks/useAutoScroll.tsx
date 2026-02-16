@@ -70,7 +70,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     }));
   }, [checkIsAtBottom]);
 
-  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 20);
+  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 150);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -94,11 +94,8 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
         initialContentHeight.current = currentHeight;
       }
       if (scrollState.autoScrollEnabled) {
-        // Double RAF to ensure layout is complete before scrolling
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            scrollToBottom(smooth);
-          });
+          scrollToBottom(smooth);
         });
       }
       lastContentHeight.current = currentHeight;
@@ -115,17 +112,16 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
       if (scrollState.autoScrollEnabled && scrollRef.current) {
         // Use double RAF to avoid layout thrashing and ensure layout is complete
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (scrollRef.current && scrollState.autoScrollEnabled) {
-              const currentHeight = scrollRef.current.scrollHeight;
-              if (currentHeight !== lastContentHeight.current) {
-                const smoothScroll =
-                  currentHeight - lastContentHeight.current < 400;
-                scrollToBottom(smoothScroll); // Use smooth scroll for small changes, instant for large changes
-                lastContentHeight.current = currentHeight;
-              }
+          if (scrollRef.current && scrollState.autoScrollEnabled) {
+            const currentHeight = scrollRef.current.scrollHeight;
+            if (currentHeight !== lastContentHeight.current) {
+              // Smooth scroll for small changes, instant for large changes
+              const smoothScroll =
+                currentHeight - lastContentHeight.current < 800;
+              scrollToBottom(smoothScroll);
+              lastContentHeight.current = currentHeight;
             }
-          });
+          }
         });
       }
     });
