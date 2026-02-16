@@ -116,6 +116,9 @@ pub struct AssistantMeta {
     /// The tool calls requested by the assistant
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    /// IDs of generated images
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<Uuid>>,
     /// Provider usage information
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<LlmUsage>,

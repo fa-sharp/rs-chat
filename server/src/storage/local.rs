@@ -8,6 +8,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
+#[derive(Debug, Clone)]
 pub struct LocalStorage {
     base_path: PathBuf,
 }
@@ -72,6 +73,20 @@ impl LocalStorage {
         Ok(total_bytes_written)
     }
 
+    pub async fn create_file_from_data_url(
+        &self,
+        user_id: &Uuid,
+        session_id: Option<&Uuid>,
+        path: &str,
+        data_url: String,
+    ) -> IoResult<(String, u64)> {
+        let file_path = self.get_file_path(user_id, session_id, path)?;
+        let dir = file_path.parent().expect("Should have a parent directory");
+        tokio::fs::create_dir_all(&dir).await?;
+
+        tokio::task::spawn_blocking(move || save_base64_url(&data_url, &file_path)).await?
+    }
+
     pub async fn delete_file<P: AsRef<Path>>(
         &self,
         user_id: &Uuid,
@@ -114,7 +129,6 @@ impl LocalStorage {
 }
 
 /// Synchronously read a file as a base64 encoded string.
-/// (This is synchronous because the `base64` crate is synchronous.)
 fn read_base64(path: &Path) -> IoResult<String> {
     let mut file = std::fs::File::open(path)?;
     let file_size = file.metadata()?.len();
@@ -131,4 +145,19 @@ fn read_base64(path: &Path) -> IoResult<String> {
         encoder.finish()?;
     }
     Ok(String::from_utf8(result).expect("base64 is valid UTF8"))
+}
+
+/// Synchronously save a base64 data URL to a file. Returns the content type and size of the saved file.
+fn save_base64_url(data_url: &str, output_path: &Path) -> IoResult<(String, u64)> {
+    let (content_type, base64_data) = data_url
+        .split_once(',')
+        .ok_or(std::io::Error::other("Invalid data URL format"))?;
+    let mut decoder = base64::read::DecoderReader::new(
+        std::io::Cursor::new(base64_data.as_bytes()),
+        &base64::engine::general_purpose::STANDARD,
+    );
+    let mut writer = std::io::BufWriter::new(std::fs::File::create(output_path)?);
+    let size = std::io::copy(&mut decoder, &mut writer)?;
+
+    Ok((content_type.to_owned(), size))
 }

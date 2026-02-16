@@ -10,7 +10,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     db::models::ChatRsToolCall,
-    provider::{LlmPendingToolCall, LlmStream, LlmStreamChunk, LlmStreamError, LlmUsage},
+    provider::{
+        LlmImage, LlmOutput, LlmPendingToolCall, LlmStream, LlmStreamChunk, LlmStreamError,
+        LlmUsage,
+    },
 };
 
 /// Interval at which chunks are flushed to the Redis stream.
@@ -27,6 +30,8 @@ pub struct LlmStreamWriter {
     complete_text: Option<String>,
     /// Accumulated tool calls from the assistant.
     tool_calls: Option<Vec<ChatRsToolCall>>,
+    /// Accumulated generated images from the assistant.
+    images: Option<Vec<LlmImage>>,
     /// Accumulated errors during the stream from the LLM provider.
     errors: Option<Vec<LlmStreamError>>,
     /// Accumulated usage information from the LLM provider.
@@ -58,6 +63,7 @@ impl LlmStreamWriter {
             current_chunk: ChunkState::default(),
             complete_text: None,
             tool_calls: None,
+            images: None,
             errors: None,
             usage: None,
         }
@@ -71,13 +77,7 @@ impl LlmStreamWriter {
         stream: LlmStream,
         mut ws_writer: SplitSink<WebSocket, WsMessage>,
         mut ws_reader: SplitStream<WebSocket>,
-    ) -> (
-        Option<String>,
-        Option<Vec<ChatRsToolCall>>,
-        Option<LlmUsage>,
-        Option<Vec<String>>,
-        bool,
-    ) {
+    ) -> LlmOutput {
         let mut cancelled = false;
 
         // Spawn task to listen for stream cancellation
@@ -102,15 +102,18 @@ impl LlmStreamWriter {
         cancel_task.abort();
         ws_writer.close().await.ok();
 
-        let complete_text = self.complete_text.take();
-        let tool_calls = self.tool_calls.take();
-        let usage = self.usage.take();
-        let errors = self.errors.take().map(|e| {
-            e.into_iter()
-                .map(|e| e.to_string())
-                .collect::<Vec<String>>()
-        });
-        (complete_text, tool_calls, usage, errors, cancelled)
+        LlmOutput {
+            text: self.complete_text.take(),
+            tool_calls: self.tool_calls.take(),
+            images: self.images.take(),
+            usage: self.usage.take(),
+            errors: self.errors.take().map(|e| {
+                e.into_iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>()
+            }),
+            cancelled,
+        }
     }
 
     async fn process_stream(
@@ -127,6 +130,7 @@ impl LlmStreamWriter {
                     LlmStreamChunk::PendingToolCall(pending_tool_call) => {
                         self.process_pending_tool_call(pending_tool_call)
                     }
+                    LlmStreamChunk::Images(images) => self.process_images(images),
                     LlmStreamChunk::Usage(usage) => self.process_usage(usage),
                 },
                 Some(Err(err)) => self.process_error(err),
@@ -172,6 +176,10 @@ impl LlmStreamWriter {
         if !current_chunk.iter().any(|tc| tc.index == tool_call.index) {
             current_chunk.push(tool_call);
         }
+    }
+
+    fn process_images(&mut self, images: Vec<LlmImage>) {
+        self.images.get_or_insert_default().extend(images);
     }
 
     fn process_usage(&mut self, usage_chunk: LlmUsage) {

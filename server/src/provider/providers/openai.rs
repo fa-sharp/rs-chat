@@ -63,6 +63,7 @@ impl LlmApiProvider for OpenAIProvider {
                 include_usage: true,
             }),
             tools: openai_tools,
+            modalities: options.modalities.clone(),
         };
 
         let response = self

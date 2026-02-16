@@ -115,7 +115,7 @@ impl TinistreamClient {
         Ok(res.into_inner().status)
     }
 
-    /// End a stream
+    /// Signal the end of a stream
     pub async fn stream_end(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client

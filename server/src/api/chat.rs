@@ -12,7 +12,7 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::*,
-        services::{ChatDbService, ProviderDbService, ToolDbService},
+        services::{ChatDbService, FileDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
@@ -184,32 +184,61 @@ pub async fn send_chat_stream(
     let tinistream = tinistream.inner().to_owned();
     let provider_id = input.provider_id.clone();
     let provider_options = input.options.clone();
+    let storage = storage.inner().to_owned();
     tokio::spawn(async move {
-        let mut stream_writer = LlmStreamWriter::new();
-        let (text, tool_calls, usage, errors, cancelled) =
-            stream_writer.process(stream, ws_writer, ws_reader).await;
+        let response = LlmStreamWriter::new()
+            .process(stream, ws_writer, ws_reader)
+            .await;
+
+        let mut image_ids: Option<Vec<Uuid>> = None;
+        for image in response.images.unwrap_or_default() {
+            let path = format!("generated/{}.png", Uuid::new_v4());
+            match storage
+                .create_file_from_data_url(&user_id, Some(&session_id), &path, image.base64_url)
+                .await
+            {
+                Ok((content_type, size)) => {
+                    match FileDbService::new(&mut db)
+                        .create_session_file(NewChatRsFile {
+                            user_id: &user_id,
+                            session_id: Some(&session_id),
+                            path: &path,
+                            file_type: ChatRsFileType::Image.into(),
+                            content_type: &content_type,
+                            size: size.try_into().unwrap_or_default(),
+                        })
+                        .await
+                    {
+                        Ok(file) => image_ids.get_or_insert_default().push(file.id),
+                        Err(err) => rocket::error!("Failed to save image to db: {err}"),
+                    }
+                }
+                Err(err) => rocket::error!("Failed to save image to storage: {err}"),
+            }
+        }
 
         let assistant_meta = AssistantMeta {
             provider_id,
             provider_options: Some(provider_options),
-            tool_calls,
-            usage,
-            errors,
-            partial: cancelled.then_some(true),
+            tool_calls: response.tool_calls,
+            images: image_ids,
+            usage: response.usage,
+            errors: response.errors,
+            partial: response.cancelled.then_some(true),
         };
-        let db_result = ChatDbService::new(&mut db)
+        if let Err(err) = ChatDbService::new(&mut db)
             .save_message(NewChatRsMessage {
                 session_id: &session_id,
                 role: ChatRsMessageRole::Assistant,
-                content: &text.unwrap_or_default(),
+                content: &response.text.unwrap_or_default(),
                 meta: ChatRsMessageMeta::new_assistant(assistant_meta),
             })
-            .await;
-        if let Err(err) = db_result {
-            rocket::error!("Failed to save assistant message: {}", err);
+            .await
+        {
+            rocket::error!("Failed to save assistant message: {err}");
         }
 
-        if !cancelled {
+        if !response.cancelled {
             tinistream.stream_end(&stream_key).await.ok();
         }
     });
