@@ -69,7 +69,7 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     keyFormat: "sk-ant-...",
     color:
       "bg-orange-100 dark:bg-orange-900 border-orange-300 dark:border-orange-700",
-    defaultModel: "claude-3-7-sonnet-latest",
+    defaultModel: "claude-sonnet-4-5",
   },
   openrouter: {
     name: "OpenRouter",
@@ -78,7 +78,7 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     baseUrl: "https://openrouter.ai/api/v1",
     keyFormat: "sk-or-...",
     color: "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700",
-    defaultModel: "openai/gpt-4o-mini",
+    defaultModel: "moonshotai/kimi-k2.5",
   },
   ollama: {
     name: "Ollama",
