@@ -31,13 +31,13 @@ export default function ChatModelSelect({
     <PopoverDrawer
       open={open}
       onOpenChange={setOpen}
-      popoverProps={{ className: "w-[250px] p-0" }}
+      popoverProps={{ className: "w-[250px] md:w-[300px] p-0" }}
       trigger={
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[180px] md:w-[200px] justify-between"
+          className="w-[180px] md:w-[240px] justify-between"
         >
           <span className="truncate">
             {currentModelId
