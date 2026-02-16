@@ -50,12 +50,15 @@ impl LlmApiProvider for OpenAIProvider {
         let request = OpenAIRequest {
             model: &options.model,
             messages: openai_messages,
-            max_tokens: (options.max_tokens.is_some() && self.base_url != OPENAI_API_BASE_URL)
-                .then(|| options.max_tokens.expect("already checked for Some value")),
             // OpenAI official API has deprecated `max_tokens` for `max_completion_tokens`
-            max_completion_tokens: (options.max_tokens.is_some()
-                && self.base_url == OPENAI_API_BASE_URL)
-                .then(|| options.max_tokens.expect("already checked for Some value")),
+            max_tokens: match options.max_tokens {
+                Some(max_tokens) if self.base_url != OPENAI_API_BASE_URL => Some(max_tokens),
+                _ => None,
+            },
+            max_completion_tokens: match options.max_tokens {
+                Some(max_tokens) if self.base_url == OPENAI_API_BASE_URL => Some(max_tokens),
+                _ => None,
+            },
             temperature: options.temperature,
             store: (self.base_url == OPENAI_API_BASE_URL).then_some(false),
             stream: Some(true),
@@ -63,7 +66,7 @@ impl LlmApiProvider for OpenAIProvider {
                 include_usage: true,
             }),
             tools: openai_tools,
-            modalities: options.modalities.clone(),
+            modalities: options.modalities.as_ref(),
         };
 
         let response = self

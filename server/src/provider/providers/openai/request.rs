@@ -116,7 +116,7 @@ pub struct OpenAIRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<OpenAITool<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub modalities: Option<Vec<ModalityType>>,
+    pub modalities: Option<&'a Vec<ModalityType>>,
 }
 
 /// OpenAI API request stream options
