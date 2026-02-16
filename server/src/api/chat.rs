@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
+use rocket::{get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
@@ -12,7 +12,7 @@ use crate::{
     auth::ChatRsUserId,
     db::{
         models::*,
-        services::{ChatDbService, FileDbService, ProviderDbService, ToolDbService},
+        services::{ChatDbService, ProviderDbService, ToolDbService},
         DbConnection, DbPool,
     },
     errors::ApiError,
@@ -169,79 +169,24 @@ pub async fn send_chat_stream(
         messages.push(message);
     }
 
-    // Convert the messages, and get the provider's response
+    // Convert the messages, and get the streaming response from the provider
     let llm_messages =
         build_llm_messages(messages, &user_id, &session_id, &mut db, &storage).await?;
     let stream = provider_api
         .chat_stream(llm_messages, tools, &input.options)
         .await?;
 
-    // Create the Redis stream and get a WebSocket connection for writing to it
-    let stream_access = tinistream.stream_start(&stream_key).await?;
-    let (ws_writer, ws_reader) = tinistream.stream_writer_ws(&stream_key).await?.split();
-
-    // Spawn a task to stream and save the response
-    let tinistream = tinistream.inner().to_owned();
-    let provider_id = input.provider_id.clone();
-    let provider_options = input.options.clone();
-    let storage = storage.inner().to_owned();
-    tokio::spawn(async move {
-        let response = LlmStreamWriter::new()
-            .process(stream, ws_writer, ws_reader)
-            .await;
-
-        let mut image_ids: Option<Vec<Uuid>> = None;
-        for image in response.images.unwrap_or_default() {
-            let path = format!("generated/{}.png", Uuid::new_v4());
-            match storage
-                .create_file_from_data_url(&user_id, Some(&session_id), &path, image.base64_url)
-                .await
-            {
-                Ok((content_type, size)) => {
-                    match FileDbService::new(&mut db)
-                        .create_session_file(NewChatRsFile {
-                            user_id: &user_id,
-                            session_id: Some(&session_id),
-                            path: &path,
-                            file_type: ChatRsFileType::Image.into(),
-                            content_type: &content_type,
-                            size: size.try_into().unwrap_or_default(),
-                        })
-                        .await
-                    {
-                        Ok(file) => image_ids.get_or_insert_default().push(file.id),
-                        Err(err) => rocket::error!("Failed to save image to db: {err}"),
-                    }
-                }
-                Err(err) => rocket::error!("Failed to save image to storage: {err}"),
-            }
-        }
-
-        let assistant_meta = AssistantMeta {
-            provider_id,
-            provider_options: Some(provider_options),
-            tool_calls: response.tool_calls,
-            images: image_ids,
-            usage: response.usage,
-            errors: response.errors,
-            partial: response.cancelled.then_some(true),
-        };
-        if let Err(err) = ChatDbService::new(&mut db)
-            .save_message(NewChatRsMessage {
-                session_id: &session_id,
-                role: ChatRsMessageRole::Assistant,
-                content: &response.text.unwrap_or_default(),
-                meta: ChatRsMessageMeta::new_assistant(assistant_meta),
-            })
-            .await
-        {
-            rocket::error!("Failed to save assistant message: {err}");
-        }
-
-        if !response.cancelled {
-            tinistream.stream_end(&stream_key).await.ok();
-        }
-    });
+    // Start the client stream and get the access URL / token
+    let stream_access = LlmClientStreamer::new(db, tinistream, storage)
+        .start(
+            stream,
+            stream_key,
+            user_id.clone(),
+            session_id,
+            input.provider_id,
+            input.into_inner().options,
+        )
+        .await?;
 
     Ok(Json(StreamAccess {
         url: stream_access.sse_url,

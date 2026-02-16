@@ -21,7 +21,7 @@ const FLUSH_INTERVAL: Duration = Duration::from_millis(400);
 /// Max # of characters of the text chunk before it is automatically flushed to Redis.
 const MAX_CHUNK_SIZE: usize = 200;
 
-/// Utility for processing an incoming LLM response stream and writing to a Redis stream.
+/// Utility for processing an incoming LLM response stream and writing chunks to `tinistream`.
 #[derive(Debug)]
 pub struct LlmStreamWriter {
     /// The current chunk of data being processed.
@@ -70,7 +70,7 @@ impl LlmStreamWriter {
     }
 
     /// Process the incoming stream from the LLM provider, intermittently flushing
-    /// chunks to tinistream via the WebSocket connection, and return the final
+    /// chunks to `tinistream` via the WebSocket connection, and return the final
     /// accumulated response.
     pub async fn process(
         &mut self,

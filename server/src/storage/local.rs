@@ -8,6 +8,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
+/// Local file storage
 #[derive(Debug, Clone)]
 pub struct LocalStorage {
     base_path: PathBuf,
