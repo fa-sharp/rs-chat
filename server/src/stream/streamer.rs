@@ -86,7 +86,7 @@ impl LlmClientStreamer {
                 provider_id,
                 provider_options: Some(provider_options),
                 tool_calls: response.tool_calls,
-                images: image_ids,
+                files: image_ids,
                 usage: response.usage,
                 errors: response.errors,
                 partial: response.cancelled.then_some(true),
