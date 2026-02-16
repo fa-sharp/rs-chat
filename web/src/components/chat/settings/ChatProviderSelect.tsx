@@ -37,7 +37,7 @@ export default function ChatProviderSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[130px] md:w-[150px] justify-between"
+          className="w-[130px] md:w-[160px] justify-between"
         >
           <span className="truncate">
             {currentProvider ? currentProvider.name : "Select provider"}

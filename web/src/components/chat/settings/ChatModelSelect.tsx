@@ -57,13 +57,18 @@ export default function ChatModelSelect({
             {models?.map((model) => (
               <CommandItem
                 key={model.id}
-                value={model.id}
+                value={`${model.id} ${model.name}`}
                 onSelect={() => {
                   onSelect(model.id);
                   setOpen(false);
                 }}
               >
-                {model.name}
+                <div className="flex flex-col">
+                  {model.name}
+                  <span className="text-muted-foreground text-xs">
+                    {model.id}
+                  </span>
+                </div>
                 <Check
                   className={cn(
                     "ml-auto",
