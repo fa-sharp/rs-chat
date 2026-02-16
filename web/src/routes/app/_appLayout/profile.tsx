@@ -201,6 +201,13 @@ function ProfilePage() {
                 variant="outline"
                 className="w-full justify-start"
               >
+                <Link to="/app/tools">Manage Tools</Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="w-full justify-start"
+              >
                 <Link to="/app/api-keys">Manage API Keys</Link>
               </Button>
             </CardContent>
