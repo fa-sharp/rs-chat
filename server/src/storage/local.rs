@@ -1,5 +1,5 @@
 use std::{
-    io::Result as IoResult,
+    io::{Result as IoResult, Write},
     path::{Path, PathBuf},
 };
 use tokio::{
@@ -150,15 +150,21 @@ fn read_base64(path: &Path) -> IoResult<String> {
 
 /// Synchronously save a base64 data URL to a file. Returns the content type and size of the saved file.
 fn save_base64_url(data_url: &str, output_path: &Path) -> IoResult<(String, u64)> {
-    let (content_type, base64_data) = data_url
+    let (prefix, base64_data) = data_url
         .split_once(',')
         .ok_or(std::io::Error::other("Invalid data URL format"))?;
+    let content_type = prefix
+        .strip_prefix("data:")
+        .and_then(|p| p.strip_suffix(";base64"))
+        .ok_or(std::io::Error::other("Invalid data URL prefix"))?;
+
     let mut decoder = base64::read::DecoderReader::new(
         std::io::Cursor::new(base64_data.as_bytes()),
         &base64::engine::general_purpose::STANDARD,
     );
     let mut writer = std::io::BufWriter::new(std::fs::File::create(output_path)?);
-    let size = std::io::copy(&mut decoder, &mut writer)?;
+    let total_bytes = std::io::copy(&mut decoder, &mut writer)?;
+    writer.flush()?;
 
-    Ok((content_type.to_owned(), size))
+    Ok((content_type.to_owned(), total_bytes))
 }
