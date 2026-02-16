@@ -44,7 +44,7 @@ export default function ChatMessageToolLogs({
 }
 
 function LogsContent({ children }: { children: React.ReactNode }) {
-  const { scrollRef } = useAutoScroll({ content: children });
+  const { scrollRef } = useAutoScroll();
 
   return (
     <div ref={scrollRef} className="space-y-0.5 pt-2 max-h-32 overflow-auto">

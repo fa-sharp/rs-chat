@@ -10,11 +10,11 @@ interface ScrollState {
 interface UseAutoScrollOptions {
   offset?: number;
   smooth?: boolean;
-  content?: React.ReactNode;
+  contentRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export function useAutoScroll(options: UseAutoScrollOptions = {}) {
-  const { offset = 4, smooth = false, content } = options;
+  const { offset = 4, smooth = false, contentRef } = options;
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastContentHeight = useRef(0);
   const initialContentHeight = useRef(0);
@@ -36,30 +36,27 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     [offset],
   );
 
-  const scrollToBottom = useCallback(
-    (smooth?: boolean) => {
-      if (!scrollRef.current) return;
+  const scrollToBottom = useCallback((smooth?: boolean) => {
+    if (!scrollRef.current) return;
 
-      const targetScrollTop =
-        scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
+    const targetScrollTop =
+      scrollRef.current.scrollHeight - scrollRef.current.clientHeight;
 
-      if (!smooth) {
-        scrollRef.current.scrollTop = targetScrollTop;
-      } else {
-        scrollRef.current.scrollTo({
-          top: targetScrollTop,
-          behavior: smooth ? "smooth" : "auto",
-        });
-      }
-
-      setScrollState({
-        isAtBottom: true,
-        autoScrollEnabled: true,
+    if (!smooth) {
+      scrollRef.current.scrollTop = targetScrollTop;
+    } else {
+      scrollRef.current.scrollTo({
+        top: targetScrollTop,
+        behavior: smooth ? "smooth" : "auto",
       });
-      userHasScrolled.current = false;
-    },
-    [smooth],
-  );
+    }
+
+    setScrollState({
+      isAtBottom: true,
+      autoScrollEnabled: true,
+    });
+    userHasScrolled.current = false;
+  }, []);
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
@@ -73,7 +70,7 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
     }));
   }, [checkIsAtBottom]);
 
-  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 20);
+  const debouncedHandleScroll = useDebouncedCallback(handleScroll, 150);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -98,27 +95,40 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
       }
       if (scrollState.autoScrollEnabled) {
         requestAnimationFrame(() => {
-          scrollToBottom();
+          scrollToBottom(smooth);
         });
       }
       lastContentHeight.current = currentHeight;
     }
-  }, [content, scrollState.autoScrollEnabled, scrollToBottom]);
+  }, [scrollState.autoScrollEnabled, scrollToBottom, smooth]);
 
-  // TODO ResizeObserver is causing issues with smooth scrolling
-  // useEffect(() => {
-  //   const element = scrollRef.current;
-  //   if (!element) return;
+  // Watch for content size changes (e.g., images loading, code blocks expanding)
+  useEffect(() => {
+    // Observe the content container, not the scroll container
+    const elementToObserve = contentRef?.current || scrollRef.current;
+    if (!elementToObserve) return;
 
-  //   const resizeObserver = new ResizeObserver(() => {
-  //     if (scrollState.autoScrollEnabled && lastContentHeight.current !== 0) {
-  //       scrollToBottom(true);
-  //     }
-  //   });
+    const resizeObserver = new ResizeObserver(() => {
+      if (scrollState.autoScrollEnabled && scrollRef.current) {
+        // Use double RAF to avoid layout thrashing and ensure layout is complete
+        requestAnimationFrame(() => {
+          if (scrollRef.current && scrollState.autoScrollEnabled) {
+            const currentHeight = scrollRef.current.scrollHeight;
+            if (currentHeight !== lastContentHeight.current) {
+              // Smooth scroll for small changes, instant for large changes
+              const smoothScroll =
+                currentHeight - lastContentHeight.current < 800;
+              scrollToBottom(smoothScroll);
+              lastContentHeight.current = currentHeight;
+            }
+          }
+        });
+      }
+    });
 
-  //   resizeObserver.observe(element);
-  //   return () => resizeObserver.disconnect();
-  // }, [scrollState.autoScrollEnabled, scrollToBottom]);
+    resizeObserver.observe(elementToObserve);
+    return () => resizeObserver.disconnect();
+  }, [scrollState.autoScrollEnabled, scrollToBottom, contentRef]);
 
   const disableAutoScroll = useCallback(() => {
     const atBottom = scrollRef.current

@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use uuid::Uuid;
 
 use crate::{
@@ -26,7 +24,7 @@ pub fn generate_title(
     let user_id = user_id.to_owned();
     let session_id = session_id.to_owned();
     let user_message = user_message.to_owned();
-    let provider = dyn_clone::clone_box(provider.deref());
+    let provider = dyn_clone::clone_box(&**provider);
     let model = model.to_owned();
     let pool = pool.clone();
 

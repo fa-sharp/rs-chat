@@ -8,8 +8,6 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createFileRoute } from '@tanstack/react-router'
-
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalTermsRouteImport } from './routes/legal/terms'
@@ -22,13 +20,6 @@ import { Route as AppAppLayoutProfileRouteImport } from './routes/app/_appLayout
 import { Route as AppAppLayoutApiKeysRouteImport } from './routes/app/_appLayout/api-keys'
 import { Route as AppAppLayoutSessionSessionIdRouteImport } from './routes/app/_appLayout/session/$sessionId'
 
-const AppRouteImport = createFileRoute('/app')()
-
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -45,8 +36,9 @@ const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAppLayoutRoute = AppAppLayoutRouteImport.update({
-  id: '/_appLayout',
-  getParentRoute: () => AppRoute,
+  id: '/app/_appLayout',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppAppLayoutIndexRoute = AppAppLayoutIndexRouteImport.update({
   id: '/',
@@ -94,19 +86,18 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app': typeof AppAppLayoutIndexRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/app/api-keys': typeof AppAppLayoutApiKeysRoute
   '/app/profile': typeof AppAppLayoutProfileRoute
   '/app/providers': typeof AppAppLayoutProvidersRoute
   '/app/tools': typeof AppAppLayoutToolsRoute
+  '/app': typeof AppAppLayoutIndexRoute
   '/app/session/$sessionId': typeof AppAppLayoutSessionSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
   '/app/_appLayout': typeof AppAppLayoutRouteWithChildren
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
@@ -133,18 +124,17 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/app'
     | '/legal/privacy'
     | '/legal/terms'
     | '/app/api-keys'
     | '/app/profile'
     | '/app/providers'
     | '/app/tools'
+    | '/app'
     | '/app/session/$sessionId'
   id:
     | '__root__'
     | '/'
-    | '/app'
     | '/app/_appLayout'
     | '/legal/privacy'
     | '/legal/terms'
@@ -158,20 +148,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRouteWithChildren
+  AppAppLayoutRoute: typeof AppAppLayoutRouteWithChildren
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -198,7 +181,7 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppAppLayoutRouteImport
-      parentRoute: typeof AppRoute
+      parentRoute: typeof rootRouteImport
     }
     '/app/_appLayout/': {
       id: '/app/_appLayout/'
@@ -267,19 +250,9 @@ const AppAppLayoutRouteWithChildren = AppAppLayoutRoute._addFileChildren(
   AppAppLayoutRouteChildren,
 )
 
-interface AppRouteChildren {
-  AppAppLayoutRoute: typeof AppAppLayoutRouteWithChildren
-}
-
-const AppRouteChildren: AppRouteChildren = {
-  AppAppLayoutRoute: AppAppLayoutRouteWithChildren,
-}
-
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
+  AppAppLayoutRoute: AppAppLayoutRouteWithChildren,
   LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
 }

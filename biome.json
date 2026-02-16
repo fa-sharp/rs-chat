@@ -11,7 +11,7 @@
       "web/**",
       "!**/*.gen.ts",
       "!**/*.d.ts",
-      "!web/src/components/ui/**"
+      "!web/src/components/ui/**/*"
     ]
   },
   "formatter": {
