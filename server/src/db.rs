@@ -55,7 +55,7 @@ impl<'r> FromRequest<'r> for DbConnection {
             Ok(conn) => Outcome::Success(DbConnection(conn)),
             Err(e) => {
                 rocket::error!("Couldn't get database connection: {e}");
-                Outcome::Error((Status::InternalServerError, "Couldn't get connection"))
+                Outcome::Error((Status::InternalServerError, "Couldn't get db connection"))
             }
         }
     }
