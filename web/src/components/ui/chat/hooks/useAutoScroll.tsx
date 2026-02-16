@@ -97,13 +97,13 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
         // Double RAF to ensure layout is complete before scrolling
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            scrollToBottom();
+            scrollToBottom(smooth);
           });
         });
       }
       lastContentHeight.current = currentHeight;
     }
-  }, [scrollState.autoScrollEnabled, scrollToBottom]);
+  }, [scrollState.autoScrollEnabled, scrollToBottom, smooth]);
 
   // Watch for content size changes (e.g., images loading, code blocks expanding)
   useEffect(() => {
@@ -119,7 +119,9 @@ export function useAutoScroll(options: UseAutoScrollOptions = {}) {
             if (scrollRef.current && scrollState.autoScrollEnabled) {
               const currentHeight = scrollRef.current.scrollHeight;
               if (currentHeight !== lastContentHeight.current) {
-                scrollToBottom(false); // Use instant scroll for resize events
+                const smoothScroll =
+                  currentHeight - lastContentHeight.current < 400;
+                scrollToBottom(smoothScroll); // Use smooth scroll for small changes, instant for large changes
                 lastContentHeight.current = currentHeight;
               }
             }
