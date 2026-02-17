@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown, Eye, FileText, ImageIcon, Wrench } from "lucide-react";
 import React from "react";
 
 import PopoverDrawer from "@/components/PopoverDrawer";
@@ -37,7 +37,7 @@ export default function ChatModelSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[180px] md:w-[240px] justify-between"
+          className="w-45 md:w-60 justify-between"
         >
           <span className="truncate">
             {currentModelId
@@ -63,18 +63,23 @@ export default function ChatModelSelect({
                   setOpen(false);
                 }}
               >
-                <div className="flex flex-col">
+                <div
+                  className={cn(
+                    "flex flex-col",
+                    model.id === currentModelId && "font-bold",
+                  )}
+                >
                   {model.name}
                   <span className="text-muted-foreground text-xs">
                     {model.id}
                   </span>
                 </div>
-                <Check
-                  className={cn(
-                    "ml-auto",
-                    currentModelId === model.id ? "opacity-100" : "opacity-0",
-                  )}
-                />
+                <div className="flex gap-2 ml-auto">
+                  {model.tool_call && <Wrench />}
+                  {model.modalities?.input.includes("image") && <Eye />}
+                  {model.modalities?.input.includes("pdf") && <FileText />}
+                  {model.modalities?.output.includes("image") && <ImageIcon />}
+                </div>
               </CommandItem>
             ))}
           </CommandGroup>

@@ -1,7 +1,7 @@
 import { CornerDownLeft, Paperclip, Upload, X } from "lucide-react";
 import {
-  type FormEventHandler,
   memo,
+  type SubmitEventHandler,
   useCallback,
   useMemo,
   useState,
@@ -35,9 +35,10 @@ export default memo(function ChatMessageInput({
   const isMobile = useIsMobile();
 
   const {
+    sessionId,
     providerId,
     modelId,
-    sessionId,
+    selectedModel,
     toolInput,
     files,
     maxTokens,
@@ -84,7 +85,7 @@ export default memo(function ChatMessageInput({
     [enterKeyShouldSubmit, onSubmitUserMessage],
   );
 
-  const handleFormSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+  const handleFormSubmit: SubmitEventHandler<HTMLFormElement> = useCallback(
     (ev) => {
       ev.preventDefault();
       onSubmitUserMessage();
@@ -197,32 +198,39 @@ export default memo(function ChatMessageInput({
                   currentTemperature={temperature}
                   onSelectMaxTokens={setMaxTokens}
                   onSelectTemperature={setTemperature}
+                  showTemperature={selectedModel?.temperature}
                 />
-                <ChatToolSelect
-                  tools={tools}
-                  toolInput={toolInput}
-                  onSetSystemTool={onSetSystemTool}
-                  onToggleExternalApiTool={onToggleExternalApiTool}
-                />
-                <ChatFileSelect
-                  sessionId={sessionId}
-                  selectedFiles={files}
-                  onAddFile={onAddFile}
-                  onRemoveFile={onRemoveFile}
-                  onRemoveAllFiles={onRemoveAllFiles}
-                  onOpenChange={setIsFileDialogOpen}
-                />
-                {files.length > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-                    <Paperclip className="size-3" />
-                    <span>{files.map((file) => file.path).join(", ")}</span>
-                  </div>
+                {(!selectedModel || selectedModel.tool_call) && (
+                  <ChatToolSelect
+                    tools={tools}
+                    toolInput={toolInput}
+                    onSetSystemTool={onSetSystemTool}
+                    onToggleExternalApiTool={onToggleExternalApiTool}
+                  />
                 )}
-                {uploadingFiles.length > 0 && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Upload className="size-3 animate-pulse" />
-                    Uploading...
-                  </div>
+                {(!selectedModel || selectedModel.attachment) && (
+                  <>
+                    <ChatFileSelect
+                      sessionId={sessionId}
+                      selectedFiles={files}
+                      onAddFile={onAddFile}
+                      onRemoveFile={onRemoveFile}
+                      onRemoveAllFiles={onRemoveAllFiles}
+                      onOpenChange={setIsFileDialogOpen}
+                    />
+                    {files.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                        <Paperclip className="size-3" />
+                        <span>{files.map((file) => file.path).join(", ")}</span>
+                      </div>
+                    )}
+                    {uploadingFiles.length > 0 && (
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Upload className="size-3 animate-pulse" />
+                        Uploading...
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}

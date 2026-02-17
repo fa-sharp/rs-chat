@@ -18,6 +18,7 @@ interface Props {
   onSelectMaxTokens: (tokens: number) => void;
   currentTemperature: number;
   onSelectTemperature: (temperature: number) => void;
+  showTemperature?: boolean | null;
 }
 
 export default function ChatMoreSettings({
@@ -25,6 +26,7 @@ export default function ChatMoreSettings({
   onSelectMaxTokens,
   currentTemperature,
   onSelectTemperature,
+  showTemperature = true,
 }: Props) {
   return (
     <PopoverDrawer
@@ -42,7 +44,7 @@ export default function ChatMoreSettings({
             value={currentMaxTokens.toString()}
             onValueChange={(tokens) => onSelectMaxTokens(+tokens)}
           >
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-25">
               <SelectValue placeholder="Max tokens" />
             </SelectTrigger>
             <SelectContent>
@@ -57,32 +59,34 @@ export default function ChatMoreSettings({
             </SelectContent>
           </Select>
         </Label>
-        <Label>
-          Temperature
-          <Select
-            value={currentTemperature.toFixed(1)}
-            onValueChange={(temperature) => onSelectTemperature(+temperature)}
-          >
-            <SelectTrigger className="w-[80px]">
-              <SelectValue placeholder="Temperature" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Temperature</SelectLabel>
-                {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map(
-                  (temperature) => (
-                    <SelectItem
-                      key={temperature}
-                      value={temperature.toFixed(1)}
-                    >
-                      {temperature.toFixed(1)}
-                    </SelectItem>
-                  ),
-                )}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Label>
+        {showTemperature && (
+          <Label>
+            Temperature
+            <Select
+              value={currentTemperature.toFixed(1)}
+              onValueChange={(temperature) => onSelectTemperature(+temperature)}
+            >
+              <SelectTrigger className="w-20">
+                <SelectValue placeholder="Temperature" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Temperature</SelectLabel>
+                  {[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map(
+                    (temperature) => (
+                      <SelectItem
+                        key={temperature}
+                        value={temperature.toFixed(1)}
+                      >
+                        {temperature.toFixed(1)}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Label>
+        )}
       </div>
     </PopoverDrawer>
   );
