@@ -151,7 +151,7 @@ pub async fn send_chat_stream(
                 &session_id,
                 &user_message,
                 &provider_api,
-                &input.options.model,
+                &provider.default_model,
                 db_pool,
             );
         }
