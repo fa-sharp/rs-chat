@@ -208,29 +208,25 @@ export default memo(function ChatMessageInput({
                     onToggleExternalApiTool={onToggleExternalApiTool}
                   />
                 )}
-                {(!selectedModel || selectedModel.attachment) && (
-                  <>
-                    <ChatFileSelect
-                      sessionId={sessionId}
-                      selectedFiles={files}
-                      onAddFile={onAddFile}
-                      onRemoveFile={onRemoveFile}
-                      onRemoveAllFiles={onRemoveAllFiles}
-                      onOpenChange={setIsFileDialogOpen}
-                    />
-                    {files.length > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
-                        <Paperclip className="size-3" />
-                        <span>{files.map((file) => file.path).join(", ")}</span>
-                      </div>
-                    )}
-                    {uploadingFiles.length > 0 && (
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Upload className="size-3 animate-pulse" />
-                        Uploading...
-                      </div>
-                    )}
-                  </>
+                <ChatFileSelect
+                  sessionId={sessionId}
+                  selectedFiles={files}
+                  onAddFile={onAddFile}
+                  onRemoveFile={onRemoveFile}
+                  onRemoveAllFiles={onRemoveAllFiles}
+                  onOpenChange={setIsFileDialogOpen}
+                />
+                {files.length > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                    <Paperclip className="size-3" />
+                    <span>{files.map((file) => file.path).join(", ")}</span>
+                  </div>
+                )}
+                {uploadingFiles.length > 0 && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Upload className="size-3 animate-pulse" />
+                    Uploading...
+                  </div>
                 )}
               </>
             )}

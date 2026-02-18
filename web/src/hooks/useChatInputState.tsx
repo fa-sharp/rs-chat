@@ -166,10 +166,7 @@ export const useChatInputState = ({
         modalities: selectedModel?.modalities?.output,
       },
       tools: selectedModel?.tool_call ? toolInput : undefined,
-      files:
-        selectedModel?.attachment && files.length > 0
-          ? files.map((file) => file.id)
-          : undefined,
+      files: files.length > 0 ? files.map((file) => file.id) : undefined,
     });
     formRef.current?.reset();
   }, [
