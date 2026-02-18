@@ -78,7 +78,7 @@ const PROVIDERS: Record<AIProvider, ProviderInfo> = {
     baseUrl: "https://openrouter.ai/api/v1",
     keyFormat: "sk-or-...",
     color: "bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700",
-    defaultModel: "moonshotai/kimi-k2.5",
+    defaultModel: "openai/gpt-4o-mini",
   },
   ollama: {
     name: "Ollama",

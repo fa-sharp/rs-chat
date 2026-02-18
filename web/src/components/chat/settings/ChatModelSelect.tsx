@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Eye, FileText, ImageIcon, Wrench } from "lucide-react";
+import { ChevronsUpDown, Eye, FileText, Wrench } from "lucide-react";
 import React from "react";
 
 import PopoverDrawer from "@/components/PopoverDrawer";
@@ -54,34 +54,35 @@ export default function ChatModelSelect({
         <CommandList>
           <CommandEmpty>No models found.</CommandEmpty>
           <CommandGroup>
-            {models?.map((model) => (
-              <CommandItem
-                key={model.id}
-                value={`${model.id} ${model.name}`}
-                onSelect={() => {
-                  onSelect(model.id);
-                  setOpen(false);
-                }}
-              >
-                <div
-                  className={cn(
-                    "flex flex-col",
-                    model.id === currentModelId && "font-bold",
-                  )}
+            {models
+              ?.toSorted((a, _) => (a.id === currentModelId ? -1 : 0))
+              .map((model) => (
+                <CommandItem
+                  key={model.id}
+                  value={`${model.id} ${model.name}`}
+                  onSelect={() => {
+                    onSelect(model.id);
+                    setOpen(false);
+                  }}
                 >
-                  {model.name}
-                  <span className="text-muted-foreground text-xs">
-                    {model.id}
-                  </span>
-                </div>
-                <div className="flex gap-2 ml-auto">
-                  {model.tool_call && <Wrench />}
-                  {model.modalities?.input.includes("image") && <Eye />}
-                  {model.modalities?.input.includes("pdf") && <FileText />}
-                  {model.modalities?.output.includes("image") && <ImageIcon />}
-                </div>
-              </CommandItem>
-            ))}
+                  <div
+                    className={cn(
+                      "flex flex-col",
+                      model.id === currentModelId && "font-bold",
+                    )}
+                  >
+                    {model.name}
+                    <span className="text-muted-foreground text-xs">
+                      {model.id}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 ml-auto">
+                    {model.tool_call && <Wrench />}
+                    {model.modalities?.input.includes("image") && <Eye />}
+                    {model.modalities?.input.includes("pdf") && <FileText />}
+                  </div>
+                </CommandItem>
+              ))}
           </CommandGroup>
         </CommandList>
       </Command>

@@ -31,6 +31,7 @@ export const useProviderModels = (providerId?: number | null) =>
       if (response.error) {
         throw new Error(response.error.message);
       }
+      response.data.sort((a, b) => a.name.localeCompare(b.name));
       return response.data;
     },
   });
