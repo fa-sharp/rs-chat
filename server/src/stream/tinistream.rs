@@ -1,4 +1,4 @@
-use reqwest_websocket::{RequestBuilderExt, WebSocket};
+use reqwest_websocket::{Upgrade, WebSocket};
 use tinistream_client::{types::*, Client, ClientEventsExt, ClientInfo, ClientStreamExt, Error};
 
 /// A client for interacting with the tinistream API.
