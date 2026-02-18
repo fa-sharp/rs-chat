@@ -29,13 +29,9 @@ RsChat uses a hybrid streaming architecture that provides both real-time perform
 
 ### Key Components
 
-#### 1. LlmStreamWriter (`server/src/stream/llm_writer.rs`)
+#### 1. LlmClientStreamer (`server/src/stream/streamer.rs`)
 
 The core component that processes LLM provider streams and manages Redis stream output.
-
-**Key Features:**
-- **Batching**: Accumulates chunks from the provider stream, up to a max length or timeout, and adds them to the Redis stream
-- **Background Pings**: Sends regular keepalive pings
 
 #### 2. Redis and SSE Stream Structure
 
@@ -68,8 +64,7 @@ Stream End → Database Save → Redis DEL
 
 #### Cross-Instance Support
 - Redis streams provide shared state across server instances
-- Background ping tasks maintain stream liveness
-- Stream cancellation detected via Redis XADD failures
+- Stream cancellation detection
 
 ## Data Flow
 
@@ -77,23 +72,21 @@ Stream End → Database Save → Redis DEL
 ```
 Client → POST /api/chat/{session_id}
        → Send request to LLM Provider
-       → LLM response received, streamed to Redis with the `LlmStreamWriter`
-       → GET /api/chat/{session_id}/stream to connect to the stream and stream the response
+       → LLM response received, streamed to Redis with the `LlmClientStreamer`
 ```
 
 ### 2. Stream Processing
 ```
 LLM Chunk → Process text, tool calls, usage, and error chunks
           → Batching Logic
-          → Redis XADD (if conditions met)
-          → Client(s) receive the new chunks
+          → Add chunks to Redis via `tinistream` service
+          → Client(s) receive the new chunks from `tinistream`
 ```
 
 ### 3. Stream Completion
 ```
 LLM End → Final Database Save
-        → Redis Stream End Event
-        → Redis Stream Cleanup
+        → `tinistream` End Event
         → SSE Connection Close
 ```
 
