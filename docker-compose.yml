@@ -34,6 +34,22 @@ services:
     depends_on:
       - redis
 
+  runner:
+    image: ghcr.io/fa-sharp/tinirun:0.1.1
+    container_name: tinirun
+    ports:
+      - "8082:8082"
+    environment:
+      RUNNER_HOST: 0.0.0.0
+      RUNNER_PORT: 8082
+      RUNNER_LOG_LEVEL: info
+      RUNNER_REDIS_URL: redis://redis:6379
+    env_file: server/.env
+    depends_on:
+      - redis
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   rschat:
     build:
       context: .
@@ -46,14 +62,15 @@ services:
       RS_CHAT_REDIS_URL: redis://redis:6379
       RS_CHAT_DATA_DIR: /data
       RS_CHAT_TINISTREAM_URL: http://tinistream:8081
+      RS_CHAT_RUNNER_URL: http://tinirun:8082
     env_file: server/.env
     volumes:
-      - ./.docker:/certs
       - rschat_data:/data
     depends_on:
       - db
       - redis
       - stream
+      - runner
 
 volumes:
   postgres_data:

@@ -35,6 +35,7 @@ Desktop.ini
 *.pfx
 secrets.json
 config/secrets.yml
+.docker/
 .secrets/
 
 # Dependency Directories
