@@ -157,8 +157,10 @@ pub struct OpenRouterImageData {
 pub struct OpenAIUsage {
     prompt_tokens: Option<u32>,
     completion_tokens: Option<u32>,
+    /// OpenRouter cost
     cost: Option<f32>,
-    // total_tokens: Option<u32>,
+    /// LLM Gateway cost
+    cost_usd_total: Option<f32>,
 }
 
 impl From<OpenAIUsage> for LlmUsage {
@@ -166,7 +168,7 @@ impl From<OpenAIUsage> for LlmUsage {
         LlmUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
-            cost: usage.cost,
+            cost: usage.cost.or(usage.cost_usd_total),
         }
     }
 }
