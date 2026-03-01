@@ -50,27 +50,27 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  rschat:
-    build:
-      context: .
-    ports:
-      - "8080:8080"
-    environment:
-      RUST_LOG: info
-      RS_CHAT_SERVER_ADDRESS: http://localhost:8080
-      RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
-      RS_CHAT_REDIS_URL: redis://redis:6379
-      RS_CHAT_DATA_DIR: /data
-      RS_CHAT_TINISTREAM_URL: http://tinistream:8081
-      RS_CHAT_RUNNER_URL: http://tinirun:8082
-    env_file: server/.env
-    volumes:
-      - rschat_data:/data
-    depends_on:
-      - db
-      - redis
-      - stream
-      - runner
+  # rschat:
+  #   build:
+  #     context: .
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     RUST_LOG: info
+  #     RS_CHAT_SERVER_ADDRESS: http://localhost:8080
+  #     RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
+  #     RS_CHAT_REDIS_URL: redis://redis:6379
+  #     RS_CHAT_DATA_DIR: /data
+  #     RS_CHAT_TINISTREAM_URL: http://tinistream:8081
+  #     RS_CHAT_TINIRUN_URL: http://tinirun:8082
+  #   env_file: server/.env
+  #   volumes:
+  #     - rschat_data:/data
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - stream
+  #     - runner
 
 volumes:
   postgres_data:

@@ -1,7 +1,3 @@
-mod docker;
-mod dockerfiles;
-use docker::{DockerExecutor, DockerExecutorOptions};
-
 use std::sync::LazyLock;
 
 use rocket::async_trait;
@@ -20,13 +16,19 @@ use crate::{
     utils::SenderWithLogging,
 };
 
+mod tinirun;
+use tinirun::{TinirunExecutor, TinirunExecutorOptions};
+
 const CODE_RUNNER_NAME: &str = "code_runner";
 const CODE_RUNNER_DESCRIPTION: &str = "Run code snippet in a sandboxed environment. \
-    Temporary files can be written to the `$HOME` directory (must be created first). \
+    Temporary files can be written to the /tmp directory and subdirectories. \
     Other than that, it is a read-only environment.";
 const DEFAULT_TIMEOUT_SECONDS: u32 = 30;
 const DEFAULT_MEMORY_LIMIT_MB: u32 = 512;
 const DEFAULT_CPU_LIMIT: f32 = 0.5;
+
+static CODE_RUNNER_INPUT_SCHEMA: LazyLock<serde_json::Value> =
+    LazyLock::new(|| get_json_schema::<CodeRunnerInput>());
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -42,25 +44,22 @@ struct CodeRunnerInput {
     dependencies: Vec<String>,
     // /// Whether to enable network access. Set to `true` only if the program needs to access the internet at runtime.
     // /// Network access is not needed for downloading dependencies.
-    // /// TODO: needs more safety precautions
+    // /// TODO: disabled for now because tinirun doesn't support this (security risk)
     // network: bool,
 }
 
-static CODE_RUNNER_INPUT_SCHEMA: LazyLock<serde_json::Value> =
-    LazyLock::new(|| get_json_schema::<CodeRunnerInput>());
-
-/// Tool to run code snippets in a sandboxed environment.
-#[derive(Debug)]
+/// Tool to run code snippets in a sandboxed environment. Uses the `tinirun` service.
 pub struct CodeRunner<'a> {
+    client: tinirun_client::TinirunClient,
     config: &'a CodeRunnerConfig,
 }
 impl<'a> CodeRunner<'a> {
-    pub fn new(config: &'a CodeRunnerConfig) -> Self {
-        CodeRunner { config }
+    pub fn new(client: tinirun_client::TinirunClient, config: &'a CodeRunnerConfig) -> Self {
+        CodeRunner { client, config }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 enum CodeLanguage {
     Python,
@@ -130,19 +129,19 @@ impl SystemTool for CodeRunner<'_> {
         sender: &SenderWithLogging<ToolLog>,
     ) -> ToolResult<(String, ToolResponseFormat)> {
         let input = serde_json::from_value::<CodeRunnerInput>(params)?;
-        let executor = DockerExecutor::new(
+        let executor = TinirunExecutor::new(
+            &self.client,
             input.language,
-            DockerExecutorOptions {
+            TinirunExecutorOptions {
                 timeout_seconds: self.config.timeout_seconds,
                 memory_limit_mb: self.config.memory_limit_mb,
                 cpu_limit: self.config.cpu_limit,
-                network: false,
             },
         );
-
         let tool_response = executor
             .execute(&input.code, &input.dependencies, sender)
             .await?;
+
         Ok((tool_response, ToolResponseFormat::Markdown))
     }
 }

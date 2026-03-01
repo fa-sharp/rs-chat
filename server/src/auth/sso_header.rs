@@ -17,25 +17,34 @@ struct SsoHeaderConfig {
     /// Whether SSO header authentication is enabled
     sso_header_enabled: bool,
     /// Header for unique, identifying username (default: `Remote-User`)
-    sso_username_header: Option<String>,
+    #[serde(default = "default_username_header")]
+    sso_username_header: String,
     /// Header for display name (default: `Remote-Name`)
-    sso_name_header: Option<String>,
+    #[serde(default = "default_name_header")]
+    sso_name_header: String,
     /// Header for groups the user belongs to (default: `Remote-Groups`)
-    sso_groups_header: Option<String>,
+    #[serde(default = "default_groups_header")]
+    sso_groups_header: String,
     /// If set, only users in this group will be allowed to access the app
     sso_user_group: Option<String>,
     /// URL to redirect to in order to log out of the remote service
     sso_logout_url: Option<String>,
 }
+fn default_username_header() -> String {
+    "Remote-User".to_string()
+}
+fn default_name_header() -> String {
+    "Remote-Name".to_string()
+}
+fn default_groups_header() -> String {
+    "Remote-Groups".to_string()
+}
 
 /// SSO header config added to Rocket state when enabled
-#[derive(bon::Builder, Debug, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SsoHeaderMergedConfig {
-    #[builder(into, default = "Remote-User")]
     pub username_header: String,
-    #[builder(into, default = "Remote-Name")]
     pub name_header: String,
-    #[builder(into, default = "Remote-Groups")]
     pub groups_header: String,
     pub user_group: Option<String>,
     pub logout_url: Option<String>,
@@ -54,13 +63,13 @@ pub fn setup_sso_header_auth() -> AdHoc {
         match get_config_provider().extract::<SsoHeaderConfig>() {
             Ok(config) => {
                 if config.sso_header_enabled {
-                    let merged_config = SsoHeaderMergedConfig::builder()
-                        .maybe_username_header(config.sso_username_header)
-                        .maybe_name_header(config.sso_name_header)
-                        .maybe_groups_header(config.sso_groups_header)
-                        .maybe_user_group(config.sso_user_group)
-                        .maybe_logout_url(config.sso_logout_url)
-                        .build();
+                    let merged_config = SsoHeaderMergedConfig {
+                        username_header: config.sso_username_header,
+                        name_header: config.sso_name_header,
+                        groups_header: config.sso_groups_header,
+                        user_group: config.sso_user_group,
+                        logout_url: config.sso_logout_url,
+                    };
                     rocket::info!("SSO header auth: enabled! Config: {:?}", merged_config);
                     rocket.manage(merged_config)
                 } else {

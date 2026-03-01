@@ -6,10 +6,7 @@ publish = false
 
 [dependencies]
 aes-gcm = "0.10.3"
-astral-tokio-tar = "0.5.6"
 base64 = "0.22.1"
-bollard = { version = "0.19.4", features = ["ssl"] }
-bon = "3.9"
 chrono = { version = "0.4.43", features = ["serde"] }
 const_format = "0.2.35"
 diesel = { version = "2.3.6", features = [
@@ -54,7 +51,7 @@ serde = { version = "1.0.228" }
 serde_json = "1.0.149"
 subst = { version = "0.3.8", features = ["json"] }
 thiserror = "2.0.18"
-tinirun-client = { git = "https://github.com/fa-sharp/tinirun", rev = "1413a49" }
+tinirun-client = { git = "https://github.com/fa-sharp/tinirun", rev = "a60644d" }
 tinistream-client = { git = "https://github.com/fa-sharp/tinistream", rev = "f25144c" }
 tokio = { version = "1.49.0" }
 tokio-stream = "0.1.18"

@@ -137,11 +137,17 @@ impl<'a> ChatRsSystemTool {
         &'a self,
         db: &'a mut DbConnection,
         app_config: &'a AppConfig,
+        http_client: &'a reqwest::Client,
         session_id: &'a Uuid,
     ) -> Box<dyn SystemTool + 'a> {
         match &self.data {
             ChatRsSystemToolConfig::CodeRunner(config) => {
-                Box::new(code_runner::CodeRunner::new(config))
+                let client = tinirun_client::TinirunClient::with_client(
+                    http_client.to_owned(),
+                    app_config.tinirun_url.clone(),
+                    app_config.tinirun_api_key.clone(),
+                );
+                Box::new(code_runner::CodeRunner::new(client, config))
             }
             ChatRsSystemToolConfig::SystemInfo => {
                 Box::new(system_info::SystemInfo::new(app_config))
