@@ -22,12 +22,11 @@ impl From<anyhow::Error> for AppError {
     }
 }
 
-// Add more conversions here to be able to propagate them in route handlers:
-// impl From<DatabaseError> for AppError {
-//     fn from(error: DatabaseError) -> Self {
-//         Self::internal(error.into())
-//     }
-// }
+impl From<diesel::result::Error> for AppError {
+    fn from(error: diesel::result::Error) -> Self {
+        Self::internal(error.into())
+    }
+}
 
 impl AppError {
     pub fn new(status: StatusCode, message: impl Into<String>) -> Self {

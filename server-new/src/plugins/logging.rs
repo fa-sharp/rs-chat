@@ -8,16 +8,12 @@ use tower_http::{
     request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer},
 };
-use tracing::{Level, level_filters::LevelFilter};
+use tracing::Level;
 
 use crate::state::AppState;
 
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Request logs").on_setup(|router, state: &AppState| {
-        if LevelFilter::from_str(&state.config.log_level)? > LevelFilter::INFO {
-            return Ok(router);
-        }
-
         const LOG_LEVEL: Level = Level::INFO;
         let request_id_header = HeaderName::from_str(&state.config.request_id_header)
             .context("invalid request ID header")?;

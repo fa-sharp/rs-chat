@@ -18,6 +18,11 @@ pub struct AppConfig {
     pub log_level: String,
     #[serde(default = "default_request_id_header")]
     pub request_id_header: String,
+    pub ip_header: Option<String>,
+
+    // Database
+    #[serde(default = "default_database_url")]
+    pub database_url: String,
 
     // Auth
     pub cookie_key: String,
@@ -44,13 +49,15 @@ fn default_log_level() -> String {
 fn default_request_id_header() -> String {
     "x-request-id".to_string()
 }
+fn default_database_url() -> String {
+    "postgres://localhost".to_owned()
+}
 fn default_cookie_name() -> String {
     "auth-rs-chat".to_string()
 }
 fn default_session_length() -> i64 {
     60 * 60 * 24 * 7 // 1 week
 }
-
 fn default_body_limit() -> usize {
     2 * 1024 * 1024 // 2 MB
 }

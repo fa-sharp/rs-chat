@@ -12,12 +12,19 @@ axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
   rev = "9f72278b3c"
 }
+diesel = {
+  version = "2.3.10",
+  default-features = false,
+  features = ["postgres", "time", "uuid"]
+}
+diesel-async = { version = "0.9.2", features = ["deadpool", "postgres"] }
+diesel_migrations = { version = "2.3.2", features = ["postgres"] }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env"] }
 hex = "0.4.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-time = { version = "=0.3.49", default-features = false }
+time = { version = "0.3.51", features = ["serde"] }
 tokio = {
   version = "1.52.3",
   default-features = false,
@@ -41,3 +48,4 @@ tower-sessions = {
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+uuid = { version = "1.23.3", features = ["serde", "v4"] }
