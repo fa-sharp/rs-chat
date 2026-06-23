@@ -8,9 +8,9 @@ WORKDIR /app
 
 # Copy all necessary files to build the server
 COPY Cargo.lock Cargo.toml ./
+COPY ./crates ./crates
+COPY ./migrations ./migrations
 COPY ./src ./src
-# COPY ./migrations ./migrations
-# etc...
 
 ARG pkg=rs-chat-api
 
