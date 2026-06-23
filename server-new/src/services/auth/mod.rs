@@ -2,18 +2,15 @@ use crate::{
     config::AppConfig,
     db::{DbPool, DbService, models::ChatRsUser},
     error::{AppError, AppResult},
-    extractors::session::SessionMeta,
 };
-use tower_sessions::Session;
 use uuid::Uuid;
 
 pub mod oauth;
+pub mod session;
 pub mod session_store;
+mod types;
 
-/// The field used to store the user ID in the session
-const USER_ID_FIELD: &str = "user_id";
-/// The field used to store the user session metadata
-const META_FIELD: &str = "meta";
+pub use types::*;
 
 pub struct AuthService<'a> {
     config: &'a AppConfig,
@@ -30,28 +27,6 @@ impl<'a> AuthService<'a> {
         }
     }
 
-    /// Initialize a new logged-in session for the given user
-    pub async fn init_session(
-        &self,
-        session: &Session,
-        meta: &SessionMeta,
-        user_id: &Uuid,
-    ) -> AppResult<()> {
-        session.cycle_id().await?;
-        session.insert(USER_ID_FIELD, user_id).await?;
-        session.insert(META_FIELD, meta).await?;
-        session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
-            tower_sessions::cookie::time::Duration::seconds(self.config.auth.session_length),
-        )));
-
-        Ok(())
-    }
-
-    /// Extract the current user ID if this is an active user session
-    pub async fn extract_user_id(&self, session: Session) -> AppResult<Option<Uuid>> {
-        Ok(session.get::<Uuid>(USER_ID_FIELD).await?)
-    }
-
     /// Get the user from the database with the given ID, or return
     /// an internal error if not found
     pub async fn get_user(&self, id: &Uuid) -> AppResult<ChatRsUser> {
@@ -62,10 +37,9 @@ impl<'a> AuthService<'a> {
         }
     }
 
-    /// Logout the user, deleting the current session
-    pub async fn logout_user(&self, session: &Session) -> AppResult<()> {
-        session.flush().await?;
-        Ok(())
+    /// Access session functions.
+    pub fn session(&self) -> session::AuthSessionService {
+        session::AuthSessionService::new(self.config.auth.session_length)
     }
 
     /// Access OAuth functions

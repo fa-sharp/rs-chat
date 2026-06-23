@@ -7,11 +7,13 @@ use axum::{
     extract::{ConnectInfo, FromRequestParts, OptionalFromRequestParts},
     http::header,
 };
-use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
-use uuid::Uuid;
 
-use crate::{db::UtcDateTime, error::AppError, state::AppState};
+use crate::{
+    error::AppError,
+    services::auth::{SessionMeta, UserSession},
+    state::AppState,
+};
 
 /// Active user session data.
 ///
@@ -20,25 +22,6 @@ use crate::{db::UtcDateTime, error::AppError, state::AppState};
 /// and `None` otherwise.
 /// - If used as `UserSession`, request will automatically return an unauthorized error
 /// if there is no active session.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UserSession {
-    pub user_id: Uuid,
-}
-
-/// Session metadata extracted on login.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SessionMeta {
-    pub start_time: UtcDateTime,
-    pub ip: Option<IpAddr>,
-    pub user_agent: Option<String>,
-}
-
-impl UserSession {
-    pub fn new(user_id: Uuid) -> Self {
-        Self { user_id }
-    }
-}
-
 impl OptionalFromRequestParts<AppState> for UserSession {
     type Rejection = AppError;
 
@@ -49,9 +32,8 @@ impl OptionalFromRequestParts<AppState> for UserSession {
         let session = Session::from_request_parts(parts, state)
             .await
             .map_err(|(_, msg)| AppError::internal(anyhow::anyhow!(msg)))?;
-        let user_id = state.auth_service().extract_user_id(session).await?;
 
-        Ok(user_id.map(UserSession::new))
+        state.auth_service().session().user_session(&session).await
     }
 }
 

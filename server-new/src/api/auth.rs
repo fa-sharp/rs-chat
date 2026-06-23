@@ -10,8 +10,7 @@ use serde::Deserialize;
 use crate::{
     api::RoutePrefix,
     error::AppResult,
-    extractors::session::{SessionMeta, UserSession},
-    services::auth::oauth::OAuthProviderEnum,
+    services::auth::{SessionMeta, UserSession, oauth::OAuthProviderEnum},
     state::AppState,
 };
 
@@ -67,10 +66,10 @@ async fn callback_handler(
         )
         .await?;
     let user = oauth.get_user(provider, &token, maybe_user).await?;
-
     state
         .auth_service()
-        .init_session(&session, &meta, &user.id)
+        .session()
+        .login(&session, &meta, &user.id)
         .await?;
 
     Ok(Redirect::to("/api/auth/user"))
@@ -89,6 +88,6 @@ async fn logout_handler(
     session: tower_sessions::Session,
     State(state): State<AppState>,
 ) -> AppResult<impl IntoResponse> {
-    state.auth_service().logout_user(&session).await?;
+    state.auth_service().session().logout(&session).await?;
     Ok(StatusCode::NO_CONTENT)
 }

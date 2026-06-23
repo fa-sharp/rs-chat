@@ -23,15 +23,6 @@ impl SessionDbStore {
         Uuid::from_bytes(id.0.to_be_bytes())
     }
 
-    fn extract_user_id(record: &Record) -> Result<Option<Uuid>> {
-        record
-            .data
-            .get(super::USER_ID_FIELD)
-            .map(|val| serde_json::from_value::<Uuid>(val.clone()))
-            .transpose()
-            .map_err(|_| Error::Encode("invalid user id field".to_owned()))
-    }
-
     fn convert_expiry(time: OffsetDateTime) -> Result<UtcDateTime> {
         UtcDateTime::from_timestamp_secs(time.unix_timestamp())
             .ok_or_else(|| Error::Backend(format!("Invalid expiry: {time}")))
@@ -55,7 +46,7 @@ impl SessionStore for SessionDbStore {
     /// Creates a new session in the store with the provided session record.
     async fn create(&self, record: &mut Record) -> Result<()> {
         let session_id = Self::get_session_uuid(&record.id);
-        let user_id = Self::extract_user_id(record)?;
+        let user_id = super::session::user_id_from_record_data(&record.data)?;
         let expires_at = Self::convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;
