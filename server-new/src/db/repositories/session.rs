@@ -22,7 +22,7 @@ impl<'a> SessionRepository<'a> {
     pub async fn create(
         &mut self,
         session_id: &Uuid,
-        user_id: &Uuid,
+        user_id: Option<&Uuid>,
         data: &HashMap<String, serde_json::Value>,
         expires_at: UtcDateTime,
     ) -> QueryResult<ChatRsAuthSession> {
@@ -55,22 +55,25 @@ impl<'a> SessionRepository<'a> {
             .await
     }
 
-    pub async fn find_by_id(
+    /// Find an active (not expired) session by ID
+    pub async fn find_active_by_id(
         &mut self,
         session_id: &Uuid,
     ) -> QueryResult<Option<ChatRsAuthSession>> {
         auth_sessions::table
             .find(session_id)
+            .filter(auth_sessions::expires_at.gt(diesel::dsl::now))
             .select(ChatRsAuthSession::as_select())
             .first(self.db)
             .await
             .optional()
     }
 
-    pub async fn delete_by_id(&mut self, session_id: &Uuid) -> QueryResult<Uuid> {
+    /// Delete a session by ID. Won't return an error if it does not exist.
+    pub async fn delete_by_id(&mut self, session_id: &Uuid) -> QueryResult<usize> {
         diesel::delete(auth_sessions::table.find(session_id))
             .returning(auth_sessions::id)
-            .get_result(self.db)
+            .execute(self.db)
             .await
     }
 }

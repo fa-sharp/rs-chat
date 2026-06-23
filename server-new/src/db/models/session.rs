@@ -16,7 +16,7 @@ use crate::db::{UtcDateTime, models::ChatRsUser};
 #[diesel(table_name = super::schema::auth_sessions)]
 pub struct ChatRsAuthSession {
     pub id: Uuid,
-    pub user_id: Uuid,
+    pub user_id: Option<Uuid>,
     pub data: AuthSessionData,
     pub expires_at: UtcDateTime,
 }
@@ -25,7 +25,7 @@ pub struct ChatRsAuthSession {
 #[diesel(table_name = super::schema::auth_sessions)]
 pub struct NewChatRsAuthSession<'r> {
     pub id: &'r Uuid,
-    pub user_id: &'r Uuid,
+    pub user_id: Option<&'r Uuid>,
     pub data: AuthSessionData,
     pub expires_at: UtcDateTime,
 }

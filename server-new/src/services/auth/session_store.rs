@@ -46,17 +46,17 @@ impl SessionStore for SessionDbStore {
     /// Creates a new session in the store with the provided session record.
     async fn create(&self, record: &mut Record) -> Result<()> {
         let session_id = self.get_session_uuid(&record.id);
-        let user_id_val = record
+        let user_id = record
             .data
             .get(super::USER_ID_FIELD)
-            .ok_or_else(|| Error::Encode("no user id field".to_owned()))?;
-        let user_id: Uuid = serde_json::from_value(user_id_val.clone())
+            .map(|val| serde_json::from_value::<Uuid>(val.clone()))
+            .transpose()
             .map_err(|_| Error::Encode("invalid user id field".to_owned()))?;
         let expires_at = self.convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;
         db.sessions()
-            .create(&session_id, &user_id, &record.data, expires_at)
+            .create(&session_id, user_id.as_ref(), &record.data, expires_at)
             .await
             .map_err(|err| Error::Backend(err.to_string()))?;
 
@@ -88,7 +88,7 @@ impl SessionStore for SessionDbStore {
         let session_id = self.get_session_uuid(&session_id);
         let mut db = self.get_db().await?;
 
-        match db.sessions().find_by_id(&session_id).await {
+        match db.sessions().find_active_by_id(&session_id).await {
             Ok(Some(session)) => Ok(Some(Record {
                 id: Id(i128::from_be_bytes(session.id.into_bytes())),
                 data: session.data.0,

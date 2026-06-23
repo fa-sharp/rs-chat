@@ -38,7 +38,6 @@ async fn get_user_handler(
     State(state): State<AppState>,
 ) -> AppResult<impl IntoResponse> {
     let user = state.auth_service().get_user(&user_id).await?;
-
     Ok(Json(user))
 }
 

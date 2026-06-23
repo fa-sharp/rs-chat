@@ -22,7 +22,7 @@ diesel::table! {
 diesel::table! {
     auth_sessions (id) {
         id -> Uuid,
-        user_id -> Uuid,
+        user_id -> Nullable<Uuid>,
         data -> Jsonb,
         expires_at -> Timestamptz,
         created_at -> Timestamptz,

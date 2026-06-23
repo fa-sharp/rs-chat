@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::{
     db::{DbPool, DbService, models::ChatRsUser},
     error::{AppError, AppResult},
-    extractors::session::{SessionMeta, UserSession},
+    extractors::session::SessionMeta,
 };
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 mod session_store;
 pub use session_store::SessionDbStore;
 
-/// The field used to store the user session data
+/// The field used to store the user ID in the session
 const USER_ID_FIELD: &str = "user_id";
 /// The field used to store the user session metadata
 const META_FIELD: &str = "meta";
@@ -44,10 +44,9 @@ impl<'a> AuthService<'a> {
         Ok(())
     }
 
-    /// Extract the current user session data
-    pub async fn extract_user_session(&self, session: Session) -> AppResult<Option<UserSession>> {
-        let user_id = session.get::<Uuid>(USER_ID_FIELD).await?;
-        Ok(user_id.map(UserSession::new))
+    /// Extract the current user ID if this is an active user session
+    pub async fn extract_user_id(&self, session: Session) -> AppResult<Option<Uuid>> {
+        Ok(session.get::<Uuid>(USER_ID_FIELD).await?)
     }
 
     /// Get the user from the database with the given ID, or return
