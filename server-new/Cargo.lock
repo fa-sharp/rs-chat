@@ -459,6 +459,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "diesel-jsonb-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "diesel_derives"
 version = "2.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1352,6 +1361,7 @@ dependencies = [
  "chrono",
  "diesel",
  "diesel-async",
+ "diesel-jsonb-derive",
  "diesel_migrations",
  "dotenvy",
  "figment",

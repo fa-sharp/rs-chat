@@ -23,6 +23,7 @@ diesel = {
   default-features = false,
   features = ["chrono", "serde_json", "uuid"]
 }
+diesel-jsonb-derive = { path = "./diesel-jsonb-derive" }
 diesel-async = {
   version = "0.9.2",
   features = ["deadpool", "migrations", "postgres"]

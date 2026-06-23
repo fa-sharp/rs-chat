@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
-use diesel::{
-    deserialize::{FromSql, FromSqlRow},
-    expression::AsExpression,
-    prelude::*,
-    serialize::ToSql,
-};
+use diesel::{deserialize::FromSqlRow, expression::AsExpression, prelude::*};
+use diesel_jsonb_derive::AsJsonb;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -37,29 +33,6 @@ pub struct UpdateChatRsAuthSession {
     pub expires_at: UtcDateTime,
 }
 
-#[derive(Debug, Serialize, Deserialize, FromSqlRow, AsExpression)]
+#[derive(Debug, Serialize, Deserialize, FromSqlRow, AsExpression, AsJsonb)]
 #[diesel(sql_type = diesel::sql_types::Jsonb)]
 pub struct AuthSessionData(pub HashMap<String, serde_json::Value>);
-
-impl FromSql<diesel::sql_types::Jsonb, diesel::pg::Pg> for AuthSessionData {
-    fn from_sql(bytes: diesel::pg::PgValue<'_>) -> diesel::deserialize::Result<Self> {
-        let value =
-            <serde_json::Value as FromSql<diesel::sql_types::Jsonb, diesel::pg::Pg>>::from_sql(
-                bytes,
-            )?;
-        Ok(serde_json::from_value(value)?)
-    }
-}
-
-impl ToSql<diesel::sql_types::Jsonb, diesel::pg::Pg> for AuthSessionData {
-    fn to_sql<'b>(
-        &'b self,
-        out: &mut diesel::serialize::Output<'b, '_, diesel::pg::Pg>,
-    ) -> diesel::serialize::Result {
-        let value = serde_json::to_value(self)?;
-        <serde_json::Value as ToSql<diesel::sql_types::Jsonb, diesel::pg::Pg>>::to_sql(
-            &value,
-            &mut out.reborrow(),
-        )
-    }
-}
