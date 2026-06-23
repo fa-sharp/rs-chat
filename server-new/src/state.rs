@@ -4,7 +4,7 @@ use std::{ops::Deref, sync::Arc};
 
 use axum_plugin::{AppState, TypeMap};
 
-use crate::{config::AppConfig, db::DbPool, services::UserService};
+use crate::{config::AppConfig, db::DbPool, services::AuthService};
 
 /// App state stored in the Axum router
 #[derive(Clone)]
@@ -17,8 +17,8 @@ pub struct AppStateInner {
 }
 
 impl AppState {
-    pub fn user_service(&self) -> UserService<'_> {
-        UserService::new(&self.db_pool)
+    pub fn auth_service(&self) -> AuthService<'_> {
+        AuthService::new(&self.db_pool)
     }
 }
 

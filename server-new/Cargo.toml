@@ -6,25 +6,38 @@ description = "LLM chat application"
 
 [dependencies]
 anyhow = "1.0.102"
+async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["json", "query"] }
 axum-helmet = "1.0.2"
 axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
   rev = "9f72278b3c"
 }
+chrono = {
+  version = "0.4.45",
+  default-features = false,
+  features = ["now", "serde", "std"]
+}
 diesel = {
   version = "2.3.10",
   default-features = false,
-  features = ["postgres", "time", "uuid"]
+  features = ["chrono", "serde_json", "uuid"]
 }
-diesel-async = { version = "0.9.2", features = ["deadpool", "postgres"] }
+diesel-async = {
+  version = "0.9.2",
+  features = ["deadpool", "migrations", "postgres"]
+}
 diesel_migrations = { version = "2.3.2", features = ["postgres"] }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env"] }
 hex = "0.4.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
-time = { version = "0.3.51", features = ["serde"] }
+serde_with = {
+  version = "3.21.0",
+  default-features = false,
+  features = ["macros"]
+}
 tokio = {
   version = "1.52.3",
   default-features = false,

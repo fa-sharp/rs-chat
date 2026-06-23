@@ -5,7 +5,7 @@ use tower_sessions::{
     cookie::{Key, SameSite, time::Duration},
 };
 
-use crate::state::AppState;
+use crate::{services::SessionDbStore, state::AppState};
 
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Session").on_setup(|router, state: &AppState| {
@@ -15,8 +15,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             bail!("cookie_key must be at least 32 bytes");
         }
 
-        // TODO change to a persistent store!
-        let session_store = tower_sessions::MemoryStore::default();
+        let session_store = SessionDbStore::new(state.db_pool.clone());
         let session_layer = SessionManagerLayer::new(session_store)
             .with_name(state.config.cookie_name.clone())
             .with_expiry(Expiry::OnInactivity(Duration::seconds(

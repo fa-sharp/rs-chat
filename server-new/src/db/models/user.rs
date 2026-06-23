@@ -1,27 +1,24 @@
 use diesel::prelude::*;
 use serde::Serialize;
-use time::OffsetDateTime;
+use serde_with::skip_serializing_none;
 use uuid::Uuid;
 
+use crate::db::UtcDateTime;
+
+#[skip_serializing_none]
 #[derive(Identifiable, Queryable, Selectable, Serialize)]
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,
     pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub github_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub google_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub discord_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub oidc_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub sso_username: Option<String>,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: UtcDateTime,
 }
 
 #[derive(Insertable, Default)]

@@ -6,6 +6,7 @@ use crate::db::schema;
 // mod provider;
 // mod secret;
 // mod tool;
+mod session;
 mod user;
 
 // pub use api_key::*;
@@ -14,4 +15,5 @@ mod user;
 // pub use provider::*;
 // pub use secret::*;
 // pub use tool::*;
+pub use session::*;
 pub use user::*;

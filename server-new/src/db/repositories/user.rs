@@ -3,11 +3,7 @@ use diesel::result::Error;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
-use crate::db::{
-    DbConnection,
-    models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    schema::users,
-};
+use crate::db::{DbConnection, models::ChatRsUser, schema::users};
 
 pub struct UserRepository<'a> {
     db: &'a mut DbConnection,

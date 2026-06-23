@@ -20,6 +20,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    auth_sessions (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        data -> Jsonb,
+        expires_at -> Timestamptz,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     use diesel::sql_types::*;
     use super::sql_types::ChatMessageRole;
     use super::sql_types::Tsvector;
@@ -123,6 +134,7 @@ diesel::table! {
 }
 
 diesel::joinable!(app_api_keys -> users (user_id));
+diesel::joinable!(auth_sessions -> users (user_id));
 diesel::joinable!(chat_messages -> chat_sessions (session_id));
 diesel::joinable!(chat_sessions -> users (user_id));
 diesel::joinable!(external_api_tools -> users (user_id));
@@ -135,6 +147,7 @@ diesel::joinable!(system_tools -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     app_api_keys,
+    auth_sessions,
     chat_messages,
     chat_sessions,
     external_api_tools,

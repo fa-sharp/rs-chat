@@ -1,3 +1,3 @@
-mod user;
+mod auth;
 
-pub use user::UserService;
+pub use auth::{AuthService, SessionDbStore};

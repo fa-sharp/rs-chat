@@ -3,25 +3,17 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::Context;
 use axum::{
     extract::{ConnectInfo, FromRequestParts, OptionalFromRequestParts},
     http::header,
 };
 use serde::{Deserialize, Serialize};
-use time::UtcDateTime;
 use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::{error::AppError, state::AppState};
+use crate::{db::UtcDateTime, error::AppError, state::AppState};
 
-/// The field used to store the user session data
-const USER_SESSION_FIELD: &str = "sess";
-/// The field used to store the user session metadata
-const SESSION_META_FIELD: &str = "meta";
-
-/// Active session data. Beware when changing or adding to this struct, as it can
-/// invalidate existing sessions.
+/// Active user session data.
 ///
 /// This can be used as an extractor in route handlers:
 /// - If used as `Option<UserSession>`, will be `Some` if there is an active session
@@ -45,51 +37,32 @@ impl UserSession {
     pub fn new(user_id: Uuid) -> Self {
         Self { user_id }
     }
-
-    pub async fn init(
-        session: &Session,
-        meta: &SessionMeta,
-        user_id: &Uuid,
-    ) -> Result<(), AppError> {
-        session
-            .insert(USER_SESSION_FIELD, UserSession::new(user_id.clone()))
-            .await
-            .context("failed to initialize session")?;
-        session.insert(SESSION_META_FIELD, meta).await.ok();
-
-        Ok(())
-    }
 }
 
-impl<S: Send + Sync> OptionalFromRequestParts<S> for UserSession {
+impl OptionalFromRequestParts<AppState> for UserSession {
     type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &S,
+        state: &AppState,
     ) -> Result<Option<Self>, Self::Rejection> {
         let session = Session::from_request_parts(parts, state)
             .await
             .map_err(|(_, msg)| AppError::internal(anyhow::anyhow!(msg)))?;
 
-        match session.get::<UserSession>(USER_SESSION_FIELD).await {
-            Ok(Some(user_session)) => Ok(Some(user_session)),
-            Ok(None) => Ok(None),
-            Err(err) => Err(AppError::internal(
-                anyhow::Error::from(err).context("error while retrieving session"),
-            )),
-        }
+        state.auth_service().extract_user_session(session).await
     }
 }
 
-impl<S: Send + Sync> FromRequestParts<S> for UserSession {
+impl FromRequestParts<AppState> for UserSession {
     type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        state: &S,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        match <Self as OptionalFromRequestParts<S>>::from_request_parts(parts, state).await? {
+        match <Self as OptionalFromRequestParts<AppState>>::from_request_parts(parts, state).await?
+        {
             Some(user_session) => Ok(user_session),
             None => Err(AppError::unauthorized()),
         }
@@ -121,12 +94,11 @@ impl FromRequestParts<AppState> for SessionMeta {
             .get(header::USER_AGENT)
             .and_then(|h| h.to_str().ok())
             .map(|ua| ua.to_owned());
-        let start_time = UtcDateTime::now();
 
         Ok(Self {
-            start_time,
             ip,
             user_agent,
+            start_time: chrono::Utc::now(),
         })
     }
 }
