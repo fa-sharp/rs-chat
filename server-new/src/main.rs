@@ -42,9 +42,7 @@ fn init_logging() -> (
     tracing_subscriber::reload::Handle<EnvFilter, Registry>,
     tracing_appender::non_blocking::WorkerGuard,
 ) {
-    let init_log_level = std::env::var("RS_CHAT_SERVER__LOG_LEVEL")
-        .or_else(|_| std::env::var("RS_CHAT_LOG_LEVEL"))
-        .unwrap_or("info".into());
+    let init_log_level = std::env::var("RS_CHAT_SERVER__LOG_LEVEL").unwrap_or("info".into());
     let (writer, guard) = tracing_appender::non_blocking(std::io::stdout());
     let (filter_layer, filter_handle) =
         tracing_subscriber::reload::Layer::new(EnvFilter::new(init_log_level));

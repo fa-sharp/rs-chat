@@ -65,7 +65,7 @@ impl FromRequestParts<AppState> for UserSession {
         match <Self as OptionalFromRequestParts<AppState>>::from_request_parts(parts, state).await?
         {
             Some(user_session) => Ok(user_session),
-            None => Err(AppError::unauthorized()),
+            None => Err(AppError::unauthorized("no active session")),
         }
     }
 }

@@ -5,7 +5,10 @@ use axum_plugin::AdHocPlugin;
 use figment::providers::{Env, Format, Toml};
 use serde::Deserialize;
 
-use crate::state::AppState;
+use crate::{
+    services::auth::oauth::{DiscordOAuthConfig, GitHubOAuthConfig},
+    state::AppState,
+};
 
 /// Parsed app configuration
 #[derive(Debug, Clone, Deserialize)]
@@ -21,6 +24,7 @@ pub struct AppConfig {
 pub struct ServerConfig {
     pub host: IpAddr,
     pub port: u16,
+    pub base_url: String,
     pub log_level: String,
     pub request_id_header: String,
     pub ip_header: Option<String>,
@@ -36,6 +40,8 @@ pub struct AuthConfig {
     pub cookie_key: String,
     pub cookie_name: String,
     pub session_length: i64,
+    pub github: Option<GitHubOAuthConfig>,
+    pub discord: Option<DiscordOAuthConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

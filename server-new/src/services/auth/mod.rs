@@ -1,6 +1,5 @@
-use std::fmt::Debug;
-
 use crate::{
+    config::AppConfig,
     db::{DbPool, DbService, models::ChatRsUser},
     error::{AppError, AppResult},
     extractors::session::SessionMeta,
@@ -8,8 +7,8 @@ use crate::{
 use tower_sessions::Session;
 use uuid::Uuid;
 
-mod session_store;
-pub use session_store::SessionDbStore;
+pub mod oauth;
+pub mod session_store;
 
 /// The field used to store the user ID in the session
 const USER_ID_FIELD: &str = "user_id";
@@ -17,18 +16,18 @@ const USER_ID_FIELD: &str = "user_id";
 const META_FIELD: &str = "meta";
 
 pub struct AuthService<'a> {
+    config: &'a AppConfig,
     db: &'a DbPool,
-}
-
-impl<'a> Debug for AuthService<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AuthService").finish()
-    }
+    http_client: &'a reqwest::Client,
 }
 
 impl<'a> AuthService<'a> {
-    pub fn new(db: &'a DbPool) -> Self {
-        Self { db }
+    pub fn new(config: &'a AppConfig, http_client: &'a reqwest::Client, db: &'a DbPool) -> Self {
+        Self {
+            config,
+            http_client,
+            db,
+        }
     }
 
     /// Initialize a new logged-in session for the given user
@@ -40,6 +39,9 @@ impl<'a> AuthService<'a> {
     ) -> AppResult<()> {
         session.insert(USER_ID_FIELD, user_id).await?;
         session.insert(META_FIELD, meta).await?;
+        session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
+            tower_sessions::cookie::time::Duration::seconds(self.config.auth.session_length),
+        )));
 
         Ok(())
     }
@@ -63,5 +65,14 @@ impl<'a> AuthService<'a> {
     pub async fn logout_user(&self, session: &Session) -> AppResult<()> {
         session.flush().await?;
         Ok(())
+    }
+
+    /// Access OAuth functions
+    pub fn oauth(self) -> oauth::OAuthService<'a> {
+        oauth::OAuthService {
+            config: self.config,
+            db: self.db,
+            http_client: self.http_client,
+        }
     }
 }

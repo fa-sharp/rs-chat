@@ -53,8 +53,12 @@ impl AppError {
         Self::new(StatusCode::BAD_REQUEST, message)
     }
 
-    pub fn unauthorized() -> Self {
-        Self::new(StatusCode::UNAUTHORIZED, "unauthorized")
+    pub fn unauthorized(source: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            message: "unauthorized".into(),
+            source: Some(anyhow::anyhow!(source.into())),
+        }
     }
 
     pub fn not_found(message: impl Into<String>) -> Self {

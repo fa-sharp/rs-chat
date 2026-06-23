@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.102"
+async-oauth2 = "0.6.0"
 async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["json", "query"] }
 axum-helmet = "1.0.2"
@@ -37,7 +38,9 @@ fred = {
   default-features = false,
   features = ["i-keys", "i-streams"]
 }
+futures = "0.3.32"
 hex = "0.4.3"
+reqwest = { version = "0.13.4", features = ["json"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 serde_with = {
@@ -45,6 +48,7 @@ serde_with = {
   default-features = false,
   features = ["macros"]
 }
+subtle = "2.6.1"
 tokio = {
   version = "1.52.3",
   default-features = false,
