@@ -14,11 +14,14 @@ use crate::{
     error::{AppError, AppResult},
     services::auth::UserSession,
 };
+
 mod discord;
 mod github;
+mod google;
 
 pub use discord::DiscordOAuthConfig;
 pub use github::GitHubOAuthConfig;
+pub use google::GoogleOAuthConfig;
 
 /// Supported OAuth providers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -26,12 +29,14 @@ pub use github::GitHubOAuthConfig;
 pub enum OAuthProviderEnum {
     Github,
     Discord,
+    Google,
 }
 impl OAuthProviderEnum {
     pub fn as_str(&self) -> &str {
         match self {
             OAuthProviderEnum::Github => "github",
             OAuthProviderEnum::Discord => "discord",
+            OAuthProviderEnum::Google => "google",
         }
     }
 }
@@ -214,6 +219,10 @@ impl<'a> OAuthService<'a> {
             },
             OAuthProviderEnum::Discord => match self.config.auth.discord {
                 Some(ref c) => Some(Box::new(discord::DiscordOAuthProvider::new(c))),
+                None => None,
+            },
+            OAuthProviderEnum::Google => match self.config.auth.google {
+                Some(ref c) => Some(Box::new(google::GoogleOAuthProvider::new(c))),
                 None => None,
             },
         };

@@ -48,16 +48,16 @@ impl<'a> UserRepository<'a> {
         Ok(user)
     }
 
-    // pub async fn find_by_google_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
-    //     let user = users::table
-    //         .filter(users::google_id.eq(id))
-    //         .select(ChatRsUser::as_select())
-    //         .first(self.db)
-    //         .await
-    //         .optional()?;
+    pub async fn find_by_google_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::google_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
 
-    //     Ok(user)
-    // }
+        Ok(user)
+    }
 
     pub async fn find_by_discord_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
         let user = users::table
