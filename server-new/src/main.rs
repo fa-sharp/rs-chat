@@ -20,11 +20,11 @@ async fn main() -> anyhow::Result<()> {
     // Set log level from config
     let env_filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
-        .parse(&config.log_level)?;
+        .parse(&config.server.log_level)?;
     log_filter_handle.reload(env_filter)?;
 
     // Start listening for requests
-    let addr = SocketAddr::new(config.host, config.port);
+    let addr = SocketAddr::new(config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     tracing::info!("Server listening on http://{}...", listener.local_addr()?);
     axum::serve(
@@ -42,7 +42,9 @@ fn init_logging() -> (
     tracing_subscriber::reload::Handle<EnvFilter, Registry>,
     tracing_appender::non_blocking::WorkerGuard,
 ) {
-    let init_log_level = std::env::var("RS_CHAT_LOG_LEVEL").unwrap_or("info".into());
+    let init_log_level = std::env::var("RS_CHAT_SERVER__LOG_LEVEL")
+        .or_else(|_| std::env::var("RS_CHAT_LOG_LEVEL"))
+        .unwrap_or("info".into());
     let (writer, guard) = tracing_appender::non_blocking(std::io::stdout());
     let (filter_layer, filter_handle) =
         tracing_subscriber::reload::Layer::new(EnvFilter::new(init_log_level));

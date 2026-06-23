@@ -41,5 +41,6 @@ COPY --from=build --chown=appuser /app/run-server /usr/local/bin/
 
 # Run server
 WORKDIR /app
-ENV RS_CHAT_HOST=0.0.0.0
+COPY --chown=appuser config.toml ./config.toml
+ENV RS_CHAT_SERVER__HOST=0.0.0.0
 CMD ["run-server"]

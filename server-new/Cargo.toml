@@ -2,7 +2,8 @@
 name = "rs-chat-api"
 version = "0.1.0"
 edition = "2024"
-description = "LLM chat application"
+description = "RsChat Server"
+publish = false
 
 [dependencies]
 anyhow = "1.0.102"
@@ -30,7 +31,12 @@ diesel-async = {
 diesel-jsonb-derive = { path = "./crates/diesel-jsonb-derive" }
 diesel_migrations = { version = "2.3.2", features = ["postgres"] }
 dotenvy = "0.15.7"
-figment = { version = "0.10.19", features = ["env"] }
+figment = { version = "0.10.19", features = ["env", "toml"] }
+fred = {
+  version = "10.1.0",
+  default-features = false,
+  features = ["i-keys", "i-streams"]
+}
 hex = "0.4.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
@@ -59,6 +65,7 @@ tower-sessions = {
   default-features = false,
   features = ["axum-core", "memory-store", "private"]
 }
+tower-sessions-redis-store = "0.16.0"
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }

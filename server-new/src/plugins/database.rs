@@ -16,10 +16,11 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             let app_config = state.get::<AppConfig>().context("missing config")?;
 
             let manager =
-                AsyncDieselConnectionManager::<AsyncPgConnection>::new(&app_config.database_url);
+                AsyncDieselConnectionManager::<AsyncPgConnection>::new(&app_config.database.url);
             let pool: DbPool = Pool::builder(manager).build()?;
 
             let cxn = pool.get().await.context("failed to connect to database")?;
+            tracing::info!("Connected to database");
             match AsyncMigrationHarness::new(cxn).run_pending_migrations(MIGRATIONS) {
                 Ok(run_migrations) if run_migrations.is_empty() => {
                     tracing::info!("No migrations to run");

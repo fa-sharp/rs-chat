@@ -15,6 +15,7 @@ pub async fn create_app() -> anyhow::Result<InitializedApp<AppState>> {
     let app = App::new()
         .register(config::plugin()) // Extract configuration and add to state
         .register(plugins::database::plugin()) // Initialize database
+        .register(plugins::redis::plugin()) // Initialize Redis
         .register(routes::plugin()) // Add API routes
         .register(plugins::session::plugin()) // Setup sessions
         .register(plugins::logging::plugin()) // Request logging

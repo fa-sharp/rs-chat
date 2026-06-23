@@ -15,7 +15,7 @@ use crate::state::AppState;
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Request logs").on_setup(|router, state: &AppState| {
         const LOG_LEVEL: Level = Level::INFO;
-        let request_id_header = HeaderName::from_str(&state.config.request_id_header)
+        let request_id_header = HeaderName::from_str(&state.config.server.request_id_header)
             .context("invalid request ID header")?;
 
         let trace_layer = TraceLayer::new_for_http()

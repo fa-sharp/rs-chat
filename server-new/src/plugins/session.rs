@@ -10,16 +10,16 @@ use crate::{services::SessionDbStore, state::AppState};
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Session").on_setup(|router, state: &AppState| {
         let cookie_key =
-            hex::decode(&state.config.cookie_key).context("cookie_key must be hex value")?;
+            hex::decode(&state.config.auth.cookie_key).context("cookie_key must be hex value")?;
         if cookie_key.len() < 32 {
             bail!("cookie_key must be at least 32 bytes");
         }
 
         let session_store = SessionDbStore::new(state.db_pool.clone());
         let session_layer = SessionManagerLayer::new(session_store)
-            .with_name(state.config.cookie_name.clone())
+            .with_name(state.config.auth.cookie_name.clone())
             .with_expiry(Expiry::OnInactivity(Duration::seconds(
-                state.config.session_length,
+                state.config.auth.session_length,
             )))
             .with_private(Key::derive_from(&cookie_key))
             .with_path("/")

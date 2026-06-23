@@ -1,7 +1,8 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 
 use anyhow::Context;
 use axum_plugin::AdHocPlugin;
+use figment::providers::{Env, Format, Toml};
 use serde::Deserialize;
 
 use crate::state::AppState;
@@ -9,75 +10,60 @@ use crate::state::AppState;
 /// Parsed app configuration
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppConfig {
-    // Server config
-    #[serde(default = "default_host")]
+    pub server: ServerConfig,
+    pub database: DatabaseConfig,
+    pub auth: AuthConfig,
+    pub security: SecurityConfig,
+    pub redis: RedisConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerConfig {
     pub host: IpAddr,
-    #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default = "default_log_level")]
     pub log_level: String,
-    #[serde(default = "default_request_id_header")]
     pub request_id_header: String,
     pub ip_header: Option<String>,
+}
 
-    // Database
-    #[serde(default = "default_database_url")]
-    pub database_url: String,
+#[derive(Debug, Clone, Deserialize)]
+pub struct DatabaseConfig {
+    pub url: String,
+}
 
-    // Auth
+#[derive(Debug, Clone, Deserialize)]
+pub struct AuthConfig {
     pub cookie_key: String,
-    #[serde(default = "default_cookie_name")]
     pub cookie_name: String,
-    #[serde(default = "default_session_length")]
     pub session_length: i64,
+}
 
-    // Security
-    #[serde(default = "default_body_limit")]
+#[derive(Debug, Clone, Deserialize)]
+pub struct SecurityConfig {
     pub body_limit: usize,
-    #[serde(default = "default_req_timeout")]
     pub request_timeout: u64,
 }
-fn default_host() -> IpAddr {
-    IpAddr::V4(Ipv4Addr::LOCALHOST)
-}
-fn default_port() -> u16 {
-    8080
-}
-fn default_log_level() -> String {
-    "info".to_string()
-}
-fn default_request_id_header() -> String {
-    "x-request-id".to_string()
-}
-fn default_database_url() -> String {
-    "postgres://localhost".to_owned()
-}
-fn default_cookie_name() -> String {
-    "auth-rs-chat".to_string()
-}
-fn default_session_length() -> i64 {
-    60 * 60 * 24 * 7 // 1 week
-}
-fn default_body_limit() -> usize {
-    2 * 1024 * 1024 // 2 MB
-}
-fn default_req_timeout() -> u64 {
-    120 // 2 minutes
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RedisConfig {
+    pub url: String,
 }
 
 /// Plugin that reads and validates configuration, and adds it to server state
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Config").on_init(async |mut state| {
         let config = extract_config()?;
+        tracing::info!(log_level = config.server.log_level, "Config loaded!");
         state.insert(config);
         Ok(state)
     })
 }
 
-/// Extract the configuration from env variables prefixed with `RS_CHAT_`.
+/// Extract configuration from config.toml, then environment overrides.
 fn extract_config() -> anyhow::Result<AppConfig> {
     let config = figment::Figment::new()
-        .merge(figment::providers::Env::prefixed("RS_CHAT_"))
+        .merge(Toml::file("config.toml"))
+        .merge(Env::prefixed("RS_CHAT_").split("__"))
         .extract::<AppConfig>()
         .context("Failed to extract valid configuration")?;
 

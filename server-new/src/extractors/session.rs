@@ -79,6 +79,7 @@ impl FromRequestParts<AppState> for SessionMeta {
     ) -> Result<Self, Self::Rejection> {
         let ip_header = state
             .config
+            .server
             .ip_header
             .as_ref()
             .and_then(|h| parts.headers.get(h).and_then(|h| h.to_str().ok()))

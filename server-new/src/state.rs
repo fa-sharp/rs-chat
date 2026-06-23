@@ -14,6 +14,7 @@ pub struct AppState(Arc<AppStateInner>);
 pub struct AppStateInner {
     pub config: AppConfig,
     pub db_pool: DbPool,
+    pub redis: fred::prelude::Pool,
 }
 
 impl AppState {

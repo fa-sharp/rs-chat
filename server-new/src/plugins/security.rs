@@ -20,10 +20,10 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             .into_layer()?;
 
         let service = ServiceBuilder::new()
-            .layer(RequestBodyLimitLayer::new(state.config.body_limit))
+            .layer(RequestBodyLimitLayer::new(state.config.security.body_limit))
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
-                Duration::from_secs(state.config.request_timeout),
+                Duration::from_secs(state.config.security.request_timeout),
             ))
             .layer(security_headers);
 
