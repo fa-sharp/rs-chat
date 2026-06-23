@@ -53,19 +53,17 @@ tokio = {
 tower = { version = "0.5", default-features = false }
 tower-http = {
   version = "0.7.0",
-  features = [
-    "limit",
-    "request-id",
-    "timeout",
-    "trace",
-  ]
+  features = ["limit", "request-id", "timeout", "trace"]
 }
 tower-sessions = {
   version = "0.15.0",
   default-features = false,
   features = ["axum-core", "memory-store", "private"]
 }
-tower-sessions-redis-store = "0.16.0"
+tower-sessions-redis-store = {
+  git = "https://github.com/maxcountryman/tower-sessions-stores",
+  rev = "69e025f"
+}
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }

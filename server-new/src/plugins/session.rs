@@ -1,12 +1,16 @@
 use anyhow::{Context, bail};
 use axum_plugin::AdHocPlugin;
 use tower_sessions::{
-    Expiry, SessionManagerLayer,
+    CachingSessionStore, Expiry, SessionManagerLayer,
     cookie::{Key, SameSite, time::Duration},
 };
+use tower_sessions_redis_store::RedisStore;
 
 use crate::{services::SessionDbStore, state::AppState};
 
+const REDIS_PREFIX: &str = "rs-chat:sess:";
+
+/// Add session handling to the server. Sessions are stored in Postgres and cached in Redis.
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Session").on_setup(|router, state: &AppState| {
         let cookie_key =
@@ -15,7 +19,9 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             bail!("cookie_key must be at least 32 bytes");
         }
 
-        let session_store = SessionDbStore::new(state.db_pool.clone());
+        let redis_store = RedisStore::with_prefix(state.redis.clone(), REDIS_PREFIX.to_owned());
+        let db_store = SessionDbStore::new(state.db_pool.clone());
+        let session_store = CachingSessionStore::new(redis_store, db_store);
         let session_layer = SessionManagerLayer::new(session_store)
             .with_name(state.config.auth.cookie_name.clone())
             .with_expiry(Expiry::OnInactivity(Duration::seconds(
