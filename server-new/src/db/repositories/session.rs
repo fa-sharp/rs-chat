@@ -44,8 +44,7 @@ impl<'a> SessionRepository<'a> {
         data: &HashMap<String, serde_json::Value>,
         expires_at: UtcDateTime,
     ) -> QueryResult<ChatRsAuthSession> {
-        diesel::update(auth_sessions::table)
-            .filter(auth_sessions::id.eq(session_id))
+        diesel::update(auth_sessions::table.find(session_id))
             .set(UpdateChatRsAuthSession {
                 data: AuthSessionData(data.to_owned()),
                 expires_at,

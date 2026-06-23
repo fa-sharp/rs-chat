@@ -19,11 +19,20 @@ impl SessionDbStore {
         Self { db }
     }
 
-    fn get_session_uuid(&self, id: &Id) -> Uuid {
+    fn get_session_uuid(id: &Id) -> Uuid {
         Uuid::from_bytes(id.0.to_be_bytes())
     }
 
-    fn convert_expiry(&self, time: OffsetDateTime) -> Result<UtcDateTime> {
+    fn extract_user_id(record: &Record) -> Result<Option<Uuid>> {
+        record
+            .data
+            .get(super::USER_ID_FIELD)
+            .map(|val| serde_json::from_value::<Uuid>(val.clone()))
+            .transpose()
+            .map_err(|_| Error::Encode("invalid user id field".to_owned()))
+    }
+
+    fn convert_expiry(time: OffsetDateTime) -> Result<UtcDateTime> {
         UtcDateTime::from_timestamp_secs(time.unix_timestamp())
             .ok_or_else(|| Error::Backend(format!("Invalid expiry: {time}")))
     }
@@ -45,14 +54,9 @@ impl std::fmt::Debug for SessionDbStore {
 impl SessionStore for SessionDbStore {
     /// Creates a new session in the store with the provided session record.
     async fn create(&self, record: &mut Record) -> Result<()> {
-        let session_id = self.get_session_uuid(&record.id);
-        let user_id = record
-            .data
-            .get(super::USER_ID_FIELD)
-            .map(|val| serde_json::from_value::<Uuid>(val.clone()))
-            .transpose()
-            .map_err(|_| Error::Encode("invalid user id field".to_owned()))?;
-        let expires_at = self.convert_expiry(record.expiry_date)?;
+        let session_id = Self::get_session_uuid(&record.id);
+        let user_id = Self::extract_user_id(record)?;
+        let expires_at = Self::convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;
         db.sessions()
@@ -67,10 +71,10 @@ impl SessionStore for SessionDbStore {
     ///
     /// This method is intended for updating the state of an existing session.
     async fn save(&self, record: &Record) -> Result<()> {
-        let session_id = self.get_session_uuid(&record.id);
-        let mut db = self.get_db().await?;
-        let expires_at = self.convert_expiry(record.expiry_date)?;
+        let session_id = Self::get_session_uuid(&record.id);
+        let expires_at = Self::convert_expiry(record.expiry_date)?;
 
+        let mut db = self.get_db().await?;
         db.sessions()
             .update(&session_id, &record.data, expires_at)
             .await
@@ -85,7 +89,7 @@ impl SessionStore for SessionDbStore {
     /// does not exist or has been invalidated (e.g., expired), `None` is
     /// returned.
     async fn load(&self, session_id: &Id) -> Result<Option<Record>> {
-        let session_id = self.get_session_uuid(&session_id);
+        let session_id = Self::get_session_uuid(&session_id);
         let mut db = self.get_db().await?;
 
         match db.sessions().find_active_by_id(&session_id).await {
@@ -104,7 +108,7 @@ impl SessionStore for SessionDbStore {
     ///
     /// If the session exists, it is removed from the store.
     async fn delete(&self, session_id: &Id) -> Result<()> {
-        let session_id = self.get_session_uuid(session_id);
+        let session_id = Self::get_session_uuid(session_id);
         let mut db = self.get_db().await?;
 
         db.sessions()

@@ -37,6 +37,7 @@ impl<'a> AuthService<'a> {
         meta: &SessionMeta,
         user_id: &Uuid,
     ) -> AppResult<()> {
+        session.cycle_id().await?;
         session.insert(USER_ID_FIELD, user_id).await?;
         session.insert(META_FIELD, meta).await?;
         session.set_expiry(Some(tower_sessions::Expiry::OnInactivity(
@@ -69,10 +70,6 @@ impl<'a> AuthService<'a> {
 
     /// Access OAuth functions
     pub fn oauth(self) -> oauth::OAuthService<'a> {
-        oauth::OAuthService {
-            config: self.config,
-            db: self.db,
-            http_client: self.http_client,
-        }
+        oauth::OAuthService::new(self.config, self.db, self.http_client)
     }
 }
