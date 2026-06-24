@@ -3,14 +3,22 @@ use serde::Deserialize;
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    error::AppResult,
-    services::auth::oauth::OAuthProvider,
+    services::auth::{AuthError, AuthResult, oauth::OAuthProvider},
 };
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GitHubOAuthConfig {
     client_id: String,
     client_secret: String,
+}
+
+/// User info returned from GitHub API
+#[derive(Debug, Deserialize)]
+struct GitHubUserInfo {
+    id: u64,
+    login: String,
+    name: Option<String>,
+    avatar_url: Option<String>,
 }
 
 pub struct GitHubOAuthProvider {
@@ -57,8 +65,10 @@ impl OAuthProvider for GitHubOAuthProvider {
         ]
     }
 
-    fn extract_user_data(&self, user_info: serde_json::Value) -> anyhow::Result<super::UserData> {
-        let info: GitHubUserInfo = serde_json::from_value(user_info)?;
+    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<super::UserData> {
+        let info: GitHubUserInfo = serde_json::from_value(user_info).map_err(|err| {
+            AuthError::Provider(anyhow::Error::from(err).context("parse user info"))
+        })?;
 
         Ok(super::UserData {
             id: info.id.to_string(),
@@ -71,7 +81,7 @@ impl OAuthProvider for GitHubOAuthProvider {
         &self,
         db: &'a mut crate::db::DbService,
         user_data: &'a super::UserData,
-    ) -> BoxFuture<'a, AppResult<Option<ChatRsUser>>> {
+    ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>> {
         Box::pin(async move {
             let user = db.users().find_by_github_id(&user_data.id).await?;
             Ok(user)
@@ -97,13 +107,4 @@ impl OAuthProvider for GitHubOAuthProvider {
             ..Default::default()
         }
     }
-}
-
-/// User info returned from GitHub API
-#[derive(Debug, Deserialize)]
-struct GitHubUserInfo {
-    id: u64,
-    login: String,
-    name: Option<String>,
-    avatar_url: Option<String>,
 }

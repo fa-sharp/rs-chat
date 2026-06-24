@@ -1,15 +1,16 @@
 use crate::{
     config::AppConfig,
     db::{DbPool, DbService, models::ChatRsUser},
-    error::{AppError, AppResult},
 };
 use uuid::Uuid;
 
+mod error;
 pub mod oauth;
 pub mod session;
 pub mod session_store;
 mod types;
 
+pub use error::{AuthError, AuthResult};
 pub use types::*;
 
 pub struct AuthService<'a> {
@@ -29,10 +30,10 @@ impl<'a> AuthService<'a> {
 
     /// Get the user from the database with the given ID, or return
     /// an internal error if not found
-    pub async fn get_user(&self, id: &Uuid) -> AppResult<ChatRsUser> {
+    pub async fn get_user(&self, id: &Uuid) -> AuthResult<ChatRsUser> {
         let mut db = DbService::from_pool(&self.db).await?;
         match db.users().find_by_id(id).await? {
-            None => Err(AppError::internal(anyhow::anyhow!("user not found"))),
+            None => Err(AuthError::UserNotFound),
             Some(user) => Ok(user),
         }
     }

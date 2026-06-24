@@ -3,8 +3,10 @@ use serde::Deserialize;
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    error::AppResult,
-    services::auth::oauth::{OAuthProvider, UserData},
+    services::auth::{
+        AuthError, AuthResult,
+        oauth::{OAuthProvider, UserData},
+    },
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -58,8 +60,10 @@ impl OAuthProvider for GoogleOAuthProvider {
         self.config.client_secret.clone()
     }
 
-    fn extract_user_data(&self, user_info: serde_json::Value) -> anyhow::Result<UserData> {
-        let user_info: GoogleUserInfo = serde_json::from_value(user_info)?;
+    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<UserData> {
+        let user_info: GoogleUserInfo = serde_json::from_value(user_info).map_err(|err| {
+            AuthError::Provider(anyhow::Error::from(err).context("parse user info"))
+        })?;
 
         Ok(UserData {
             id: user_info.sub,
@@ -72,7 +76,7 @@ impl OAuthProvider for GoogleOAuthProvider {
         &self,
         db: &'a mut crate::db::DbService,
         user_data: &'a super::UserData,
-    ) -> BoxFuture<'a, AppResult<Option<ChatRsUser>>> {
+    ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>> {
         Box::pin(async move {
             let user = db.users().find_by_google_id(&user_data.id).await?;
             Ok(user)

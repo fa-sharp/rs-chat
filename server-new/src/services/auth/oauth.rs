@@ -1,6 +1,4 @@
-use anyhow::Context;
 use futures::future::BoxFuture;
-use oauth2::{StandardToken, Token};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use tower_sessions::Session;
@@ -11,8 +9,7 @@ use crate::{
         DbPool, DbService,
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
     },
-    error::{AppError, AppResult},
-    services::auth::UserSession,
+    services::auth::{AuthError, AuthResult, UserSession},
 };
 
 mod discord;
@@ -52,12 +49,12 @@ pub trait OAuthProvider: Send + Sync {
     fn create_request_headers(&self) -> Vec<(&'static str, &'static str)> {
         vec![]
     }
-    fn extract_user_data(&self, user_info: serde_json::Value) -> anyhow::Result<UserData>;
+    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<UserData>;
     fn find_linked_user<'a>(
         &self,
         db: &'a mut DbService,
         user_data: &'a UserData,
-    ) -> BoxFuture<'a, AppResult<Option<ChatRsUser>>>;
+    ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>>;
     fn is_user_linked(&self, user: &ChatRsUser) -> bool;
     fn create_update_user<'a>(&self, user_data: &'a UserData) -> UpdateChatRsUser<'a>;
     fn create_new_user<'a>(&self, user_data: &'a UserData) -> NewChatRsUser<'a>;
@@ -69,6 +66,11 @@ pub struct UserData {
     pub id: String,
     pub name: String,
     pub avatar_url: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct TokenResponse {
+    access_token: String,
 }
 
 /// OAuth functions
@@ -99,7 +101,7 @@ impl<'a> OAuthService<'a> {
         provider: OAuthProviderEnum,
         callback_path: &str,
         session: &Session,
-    ) -> AppResult<oauth2::Url> {
+    ) -> AuthResult<oauth2::Url> {
         let provider = self.get_provider(provider)?;
         let client = self.get_oauth_client(provider.as_ref(), callback_path)?;
 
@@ -122,21 +124,22 @@ impl<'a> OAuthService<'a> {
         callback_path: &str,
         session: &Session,
         code: &str,
-        returned_state: &str,
-    ) -> AppResult<oauth2::StandardToken> {
+        state: &str,
+    ) -> AuthResult<TokenResponse> {
         // Get saved state and code verifier from session
         let saved_state = session
             .remove::<oauth2::State>(Self::SESS_STATE_FIELD)
             .await?
-            .ok_or_else(|| AppError::unauthorized("no state in session"))?;
+            .ok_or(AuthError::Unauthorized("missing state in session"))?
+            .to_base64();
         let pkce_verifier = session
             .remove::<oauth2::PkceCodeVerifierS256>(Self::SESS_PKCE_FIELD)
             .await?
-            .ok_or_else(|| AppError::unauthorized("no PKCE verifier in session"))?;
+            .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
         // Verify state
-        if saved_state.ct_ne(returned_state.as_bytes()).into() {
-            return Err(AppError::unauthorized("state parameter doesn't match"));
+        if saved_state.as_bytes().ct_ne(state.as_bytes()).into() {
+            return Err(AuthError::Unauthorized("OAuth state mismatch"));
         }
 
         // Exchange code for token
@@ -146,9 +149,11 @@ impl<'a> OAuthService<'a> {
             .exchange_code(code)
             .param("code_verifier", String::from(pkce_verifier))
             .with_reqwest_client(&self.http_client)
-            .execute::<StandardToken>()
+            .execute::<TokenResponse>()
             .await
-            .map_err(|err| AppError::unauthorized(format!("token exchange failed: {err}")))?;
+            .map_err(|err| {
+                AuthError::Provider(anyhow::Error::from(err).context("token exchange"))
+            })?;
 
         Ok(response)
     }
@@ -156,32 +161,32 @@ impl<'a> OAuthService<'a> {
     pub async fn get_user(
         &self,
         provider: OAuthProviderEnum,
-        token: &oauth2::StandardToken,
+        token: &TokenResponse,
         active_session: Option<UserSession>,
-    ) -> AppResult<ChatRsUser> {
+    ) -> AuthResult<ChatRsUser> {
         let provider = self.get_provider(provider)?;
+
+        // Get user info from provider
         let mut user_info_request = self
             .http_client
             .get(provider.get_user_info_url())
-            .bearer_auth(token.access_token().as_ref());
+            .bearer_auth(&token.access_token);
         for (name, value) in provider.create_request_headers() {
             user_info_request = user_info_request.header(name, value);
         }
-        let user_info_response = user_info_request.send().await.context("request failed")?;
+        let user_info_response = user_info_request.send().await?;
         if !user_info_response.status().is_success() {
-            let error =
-                anyhow::anyhow!("failed to get user: {:?}", user_info_response.text().await);
-            return Err(AppError::internal(error));
+            let error = anyhow::anyhow!("couldn't get user: {:?}", user_info_response.text().await);
+            return Err(AuthError::Provider(error));
         }
-        let user_data = provider
-            .extract_user_data(user_info_response.json().await.context("request failed")?)
-            .context("unable to extract user data from response")?;
+        let user_data = provider.extract_user_data(user_info_response.json().await?)?;
 
+        // Check for existing user, or create new user
         let mut db = DbService::from_pool(self.db).await?;
         let user = match provider.find_linked_user(&mut db, &user_data).await? {
             Some(existing_user) => {
                 if active_session.is_some_and(|sess| sess.user_id != existing_user.id) {
-                    return Err(AppError::unauthorized("cannot switch users via OAuth"));
+                    return Err(AuthError::Unauthorized("cannot switch users via OAuth"));
                 } else {
                     existing_user
                 }
@@ -193,7 +198,7 @@ impl<'a> OAuthService<'a> {
                 }
                 Some(sess) => match db.users().find_by_id(&sess.user_id).await? {
                     Some(user) if provider.is_user_linked(&user) => {
-                        return Err(AppError::bad_request("user already linked to provider"));
+                        return Err(AuthError::BadRequest("user already linked to provider"));
                     }
                     Some(user) => {
                         // Link logged-in user to new provider
@@ -202,7 +207,7 @@ impl<'a> OAuthService<'a> {
                         user
                     }
                     None => {
-                        return Err(AppError::internal(anyhow::anyhow!("user not found")));
+                        return Err(AuthError::UserNotFound);
                     }
                 },
             },
@@ -211,7 +216,7 @@ impl<'a> OAuthService<'a> {
         Ok(user)
     }
 
-    fn get_provider(&self, provider: OAuthProviderEnum) -> AppResult<Box<dyn OAuthProvider>> {
+    fn get_provider(&self, provider: OAuthProviderEnum) -> AuthResult<Box<dyn OAuthProvider>> {
         let provider: Option<Box<dyn OAuthProvider>> = match provider {
             OAuthProviderEnum::Github => match self.config.auth.github {
                 Some(ref c) => Some(Box::new(github::GitHubOAuthProvider::new(c))),
@@ -227,7 +232,7 @@ impl<'a> OAuthService<'a> {
             },
         };
 
-        provider.ok_or_else(|| AppError::bad_request("unsupported OAuth provider"))
+        provider.ok_or(AuthError::BadRequest("unsupported OAuth provider"))
     }
 
     fn get_oauth_client(

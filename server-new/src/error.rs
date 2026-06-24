@@ -5,8 +5,6 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::db::DbPoolError;
-
 /// Global result type that can be used for API route handlers
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -16,28 +14,6 @@ pub struct AppError {
     status: StatusCode,
     message: String,
     source: Option<anyhow::Error>,
-}
-
-// Convenient error conversions
-impl From<anyhow::Error> for AppError {
-    fn from(error: anyhow::Error) -> Self {
-        Self::internal(error)
-    }
-}
-impl From<diesel::result::Error> for AppError {
-    fn from(error: diesel::result::Error) -> Self {
-        Self::internal(anyhow::Error::from(error).context("database error"))
-    }
-}
-impl From<DbPoolError> for AppError {
-    fn from(error: DbPoolError) -> Self {
-        Self::internal(anyhow::Error::from(error).context("pool error"))
-    }
-}
-impl From<tower_sessions::session::Error> for AppError {
-    fn from(error: tower_sessions::session::Error) -> Self {
-        Self::internal(anyhow::Error::from(error).context("session error"))
-    }
 }
 
 impl AppError {

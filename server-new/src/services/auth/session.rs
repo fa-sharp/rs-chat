@@ -7,9 +7,9 @@ use tower_sessions::{
 };
 use uuid::Uuid;
 
-use crate::{
-    error::AppResult,
-    services::auth::types::{SessionMeta, UserSession},
+use crate::services::auth::{
+    AuthResult,
+    types::{SessionMeta, UserSession},
 };
 
 /// The field used to store the user ID in the session.
@@ -33,7 +33,7 @@ impl AuthSessionService {
         session: &Session,
         meta: &SessionMeta,
         user_id: &Uuid,
-    ) -> AppResult<()> {
+    ) -> AuthResult<()> {
         session.cycle_id().await?;
         session.insert(USER_ID_FIELD, user_id).await?;
         session.insert(META_FIELD, meta).await?;
@@ -45,13 +45,13 @@ impl AuthSessionService {
     }
 
     /// Extract the current user session if this is an active user session.
-    pub async fn user_session(&self, session: &Session) -> AppResult<Option<UserSession>> {
+    pub async fn user_session(&self, session: &Session) -> AuthResult<Option<UserSession>> {
         let user_id = session.get::<Uuid>(USER_ID_FIELD).await?;
         Ok(user_id.map(UserSession::new))
     }
 
     /// Logout the user, deleting the current session.
-    pub async fn logout(&self, session: &Session) -> AppResult<()> {
+    pub async fn logout(&self, session: &Session) -> AuthResult<()> {
         session.flush().await?;
         Ok(())
     }

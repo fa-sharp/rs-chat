@@ -2088,6 +2088,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "subtle",
+ "thiserror",
  "tokio",
  "tower",
  "tower-http 0.7.0",

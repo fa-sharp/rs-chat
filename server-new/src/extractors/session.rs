@@ -32,8 +32,13 @@ impl OptionalFromRequestParts<AppState> for UserSession {
         let session = Session::from_request_parts(parts, state)
             .await
             .map_err(|(_, msg)| AppError::internal(anyhow::anyhow!(msg)))?;
+        let user_session = state
+            .auth_service()
+            .session()
+            .user_session(&session)
+            .await?;
 
-        state.auth_service().session().user_session(&session).await
+        Ok(user_session)
     }
 }
 

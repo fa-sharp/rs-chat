@@ -3,8 +3,7 @@ use serde::Deserialize;
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    error::AppResult,
-    services::auth::oauth::OAuthProvider,
+    services::auth::{AuthError, AuthResult, oauth::OAuthProvider},
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -50,8 +49,10 @@ impl OAuthProvider for DiscordOAuthProvider {
         self.config.client_secret.clone()
     }
 
-    fn extract_user_data(&self, user_info: serde_json::Value) -> anyhow::Result<super::UserData> {
-        let user_info: DiscordUserInfo = serde_json::from_value(user_info)?;
+    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<super::UserData> {
+        let user_info: DiscordUserInfo = serde_json::from_value(user_info).map_err(|err| {
+            AuthError::Provider(anyhow::Error::from(err).context("parse user info"))
+        })?;
         let avatar_url = user_info.avatar.as_ref().map(|avatar| {
             format!(
                 "https://cdn.discordapp.com/avatars/{}/{}.png",
@@ -70,7 +71,7 @@ impl OAuthProvider for DiscordOAuthProvider {
         &self,
         db: &'a mut crate::db::DbService,
         user_data: &'a super::UserData,
-    ) -> BoxFuture<'a, AppResult<Option<ChatRsUser>>> {
+    ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>> {
         Box::pin(async move {
             let user = db.users().find_by_discord_id(&user_data.id).await?;
             Ok(user)

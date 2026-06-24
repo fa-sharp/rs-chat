@@ -49,6 +49,7 @@ serde_with = {
   features = ["macros"]
 }
 subtle = "2.6.1"
+thiserror = "2.0.18"
 tokio = {
   version = "1.52.3",
   default-features = false,
