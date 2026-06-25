@@ -60,7 +60,11 @@ pub struct RedisConfig {
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Config").on_init(async |mut state| {
         let config = extract_config()?;
-        tracing::info!(log_level = config.server.log_level, "Config loaded!");
+        tracing::info!(
+            log_level = config.server.log_level,
+            base_url = config.server.base_url,
+            "Config loaded!"
+        );
         state.insert(config);
         Ok(state)
     })
