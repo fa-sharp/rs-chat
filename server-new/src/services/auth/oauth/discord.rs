@@ -1,9 +1,10 @@
 use futures::future::BoxFuture;
 use serde::Deserialize;
+use simple_oauth::{common::discord::Discord, types::UserInfo};
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    services::auth::{AuthError, AuthResult, oauth::OAuthProvider},
+    services::auth::{AuthResult, oauth::OAuthProvider},
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -25,52 +26,17 @@ impl DiscordOAuthProvider {
 }
 
 impl OAuthProvider for DiscordOAuthProvider {
-    fn get_authorize_url(&self) -> &str {
-        "https://discord.com/oauth2/authorize"
-    }
-
-    fn get_token_url(&self) -> &str {
-        "https://discord.com/api/oauth2/token"
-    }
-
-    fn get_scopes(&self) -> Vec<&str> {
-        vec!["identify"]
-    }
-
-    fn get_user_info_url(&self) -> &str {
-        "https://discord.com/api/v9/users/@me"
-    }
-
-    fn get_client_id(&self) -> String {
-        self.config.client_id.to_string()
-    }
-
-    fn get_client_secret(&self) -> String {
-        self.config.client_secret.clone()
-    }
-
-    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<super::UserData> {
-        let user_info: DiscordUserInfo = serde_json::from_value(user_info).map_err(|err| {
-            AuthError::Provider(anyhow::Error::from(err).context("parse user info"))
-        })?;
-        let avatar_url = user_info.avatar.as_ref().map(|avatar| {
-            format!(
-                "https://cdn.discordapp.com/avatars/{}/{}.png",
-                user_info.id, avatar
-            )
-        });
-
-        Ok(super::UserData {
-            id: user_info.id,
-            name: user_info.global_name.unwrap_or_else(|| user_info.username),
-            avatar_url,
-        })
+    fn get_inner_provider(&self) -> Box<dyn simple_oauth::SimpleOAuthProvider> {
+        Box::new(Discord::new(
+            self.config.client_id,
+            &self.config.client_secret,
+        ))
     }
 
     fn find_linked_user<'a>(
         &self,
         db: &'a mut crate::db::DbService,
-        user_data: &'a super::UserData,
+        user_data: &'a UserInfo,
     ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>> {
         Box::pin(async move {
             let user = db.users().find_by_discord_id(&user_data.id).await?;
@@ -82,14 +48,14 @@ impl OAuthProvider for DiscordOAuthProvider {
         user.discord_id.is_some()
     }
 
-    fn create_update_user<'a>(&self, user_data: &'a super::UserData) -> UpdateChatRsUser<'a> {
+    fn create_update_user<'a>(&self, user_data: &'a UserInfo) -> UpdateChatRsUser<'a> {
         UpdateChatRsUser {
             discord_id: Some(&user_data.id),
             ..Default::default()
         }
     }
 
-    fn create_new_user<'a>(&self, user_data: &'a super::UserData) -> NewChatRsUser<'a> {
+    fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             discord_id: Some(&user_data.id),
             name: &user_data.name,
@@ -97,13 +63,4 @@ impl OAuthProvider for DiscordOAuthProvider {
             ..Default::default()
         }
     }
-}
-
-/// User info returned from Discord API
-#[derive(Debug, Deserialize)]
-pub struct DiscordUserInfo {
-    id: String,
-    username: String,
-    global_name: Option<String>,
-    avatar: Option<String>,
 }

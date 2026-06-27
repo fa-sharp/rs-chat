@@ -7,7 +7,6 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.102"
-async-oauth2 = "0.6.0"
 async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["json", "query"] }
 axum-helmet = "1.0.2"
@@ -29,7 +28,7 @@ diesel-async = {
   version = "0.9.2",
   features = ["deadpool", "migrations", "postgres"]
 }
-diesel-jsonb-derive = { path = "./crates/diesel-jsonb-derive" }
+diesel-jsonb-derive = { path = "crates/diesel-jsonb-derive" }
 diesel_migrations = { version = "2.3.2", features = ["postgres"] }
 dotenvy = "0.15.7"
 figment = { version = "0.10.19", features = ["env", "toml"] }
@@ -40,7 +39,11 @@ fred = {
 }
 futures = "0.3.32"
 hex = "0.4.3"
-reqwest = { version = "0.13.4", features = ["json"] }
+reqwest = {
+  version = "0.13.4",
+  default-features = false,
+  features = ["default-tls", "json"]
+}
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 serde_with = {
@@ -48,6 +51,7 @@ serde_with = {
   default-features = false,
   features = ["macros"]
 }
+simple-oauth = { path = "crates/simple-oauth/", features = ["default-tls"] }
 subtle = "2.6.1"
 thiserror = "2.0.18"
 tokio = {

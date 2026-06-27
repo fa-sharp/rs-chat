@@ -1,26 +1,16 @@
 use futures::future::BoxFuture;
 use serde::Deserialize;
+use simple_oauth::{common::google::Google, types::UserInfo};
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
-    services::auth::{
-        AuthError, AuthResult,
-        oauth::{OAuthProvider, UserData},
-    },
+    services::auth::{AuthResult, oauth::OAuthProvider},
 };
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct GoogleOAuthConfig {
     client_id: String,
     client_secret: String,
-}
-
-/// User info from Google API
-#[derive(Debug, Deserialize)]
-pub struct GoogleUserInfo {
-    sub: String,
-    name: String,
-    picture: Option<String>,
 }
 
 pub struct GoogleOAuthProvider {
@@ -36,46 +26,17 @@ impl GoogleOAuthProvider {
 }
 
 impl OAuthProvider for GoogleOAuthProvider {
-    fn get_scopes(&self) -> Vec<&str> {
-        vec!["openid", "profile"]
-    }
-
-    fn get_authorize_url(&self) -> &str {
-        "https://accounts.google.com/o/oauth2/v2/auth"
-    }
-
-    fn get_token_url(&self) -> &str {
-        "https://oauth2.googleapis.com/token"
-    }
-
-    fn get_user_info_url(&self) -> &str {
-        "https://www.googleapis.com/oauth2/v3/userinfo"
-    }
-
-    fn get_client_id(&self) -> String {
-        self.config.client_id.clone()
-    }
-
-    fn get_client_secret(&self) -> String {
-        self.config.client_secret.clone()
-    }
-
-    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<UserData> {
-        let user_info: GoogleUserInfo = serde_json::from_value(user_info).map_err(|err| {
-            AuthError::Provider(anyhow::Error::from(err).context("parse user info"))
-        })?;
-
-        Ok(UserData {
-            id: user_info.sub,
-            name: user_info.name,
-            avatar_url: user_info.picture,
-        })
+    fn get_inner_provider(&self) -> Box<dyn simple_oauth::SimpleOAuthProvider> {
+        Box::new(Google::new(
+            &self.config.client_id,
+            &self.config.client_secret,
+        ))
     }
 
     fn find_linked_user<'a>(
         &self,
         db: &'a mut crate::db::DbService,
-        user_data: &'a super::UserData,
+        user_data: &'a UserInfo,
     ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>> {
         Box::pin(async move {
             let user = db.users().find_by_google_id(&user_data.id).await?;
@@ -87,14 +48,14 @@ impl OAuthProvider for GoogleOAuthProvider {
         user.google_id.is_some()
     }
 
-    fn create_update_user<'a>(&self, user_data: &'a super::UserData) -> UpdateChatRsUser<'a> {
+    fn create_update_user<'a>(&self, user_data: &'a UserInfo) -> UpdateChatRsUser<'a> {
         UpdateChatRsUser {
             google_id: Some(&user_data.id),
             ..Default::default()
         }
     }
 
-    fn create_new_user<'a>(&self, user_data: &'a super::UserData) -> NewChatRsUser<'a> {
+    fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             google_id: Some(&user_data.id),
             name: &user_data.name,

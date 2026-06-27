@@ -1,5 +1,9 @@
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
+use simple_oauth::{
+    SimpleOAuthProvider,
+    types::{AuthorizeUrl, StandardTokenResponse, UserInfo},
+};
 use subtle::ConstantTimeEq;
 use tower_sessions::Session;
 
@@ -40,37 +44,15 @@ impl OAuthProviderEnum {
 
 /// Trait for all OAuth providers
 pub trait OAuthProvider: Send + Sync {
-    fn get_scopes(&self) -> Vec<&str>;
-    fn get_authorize_url(&self) -> &str;
-    fn get_token_url(&self) -> &str;
-    fn get_user_info_url(&self) -> &str;
-    fn get_client_id(&self) -> String;
-    fn get_client_secret(&self) -> String;
-    fn create_request_headers(&self) -> Vec<(&'static str, &'static str)> {
-        vec![]
-    }
-    fn extract_user_data(&self, user_info: serde_json::Value) -> AuthResult<UserData>;
+    fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider>;
     fn find_linked_user<'a>(
         &self,
         db: &'a mut DbService,
-        user_data: &'a UserData,
+        user_info: &'a UserInfo,
     ) -> BoxFuture<'a, AuthResult<Option<ChatRsUser>>>;
     fn is_user_linked(&self, user: &ChatRsUser) -> bool;
-    fn create_update_user<'a>(&self, user_data: &'a UserData) -> UpdateChatRsUser<'a>;
-    fn create_new_user<'a>(&self, user_data: &'a UserData) -> NewChatRsUser<'a>;
-}
-
-/// Common OAuth user data structure
-#[derive(Debug)]
-pub struct UserData {
-    pub id: String,
-    pub name: String,
-    pub avatar_url: Option<String>,
-}
-
-#[derive(Deserialize)]
-pub struct TokenResponse {
-    access_token: String,
+    fn create_update_user<'a>(&self, user_info: &'a UserInfo) -> UpdateChatRsUser<'a>;
+    fn create_new_user<'a>(&self, user_info: &'a UserInfo) -> NewChatRsUser<'a>;
 }
 
 /// OAuth functions
@@ -101,21 +83,23 @@ impl<'a> OAuthService<'a> {
         provider: OAuthProviderEnum,
         callback_path: &str,
         session: &Session,
-    ) -> AuthResult<oauth2::Url> {
+    ) -> AuthResult<reqwest::Url> {
         let provider = self.get_provider(provider)?;
-        let client = self.get_oauth_client(provider.as_ref(), callback_path)?;
+        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
 
-        let state = oauth2::State::new_random();
-        let pkce_verifier = oauth2::PkceCodeVerifierS256::new_random();
-        let mut auth_url = client.authorize_url(&state);
-        auth_url
-            .query_pairs_mut()
-            .extend_pairs(pkce_verifier.authorize_url_params());
-
+        let AuthorizeUrl {
+            url,
+            state,
+            pkce_verifier,
+        } = client.authorize_url(
+            provider.get_inner_provider().as_ref(),
+            &self.get_redirect_url(callback_path),
+            None,
+        )?;
         session.insert(Self::SESS_STATE_FIELD, state).await?;
         session.insert(Self::SESS_PKCE_FIELD, pkce_verifier).await?;
 
-        Ok(auth_url)
+        Ok(url)
     }
 
     pub async fn exchange_code(
@@ -125,15 +109,14 @@ impl<'a> OAuthService<'a> {
         session: &Session,
         code: &str,
         state: &str,
-    ) -> AuthResult<TokenResponse> {
+    ) -> AuthResult<StandardTokenResponse> {
         // Get saved state and code verifier from session
         let saved_state = session
-            .remove::<oauth2::State>(Self::SESS_STATE_FIELD)
+            .remove::<String>(Self::SESS_STATE_FIELD)
             .await?
-            .ok_or(AuthError::Unauthorized("missing state in session"))?
-            .to_base64();
+            .ok_or(AuthError::Unauthorized("missing state in session"))?;
         let pkce_verifier = session
-            .remove::<oauth2::PkceCodeVerifierS256>(Self::SESS_PKCE_FIELD)
+            .remove::<String>(Self::SESS_PKCE_FIELD)
             .await?
             .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
@@ -144,16 +127,15 @@ impl<'a> OAuthService<'a> {
 
         // Exchange code for token
         let provider = self.get_provider(provider)?;
-        let client = self.get_oauth_client(provider.as_ref(), callback_path)?;
+        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
         let response = client
-            .exchange_code(code)
-            .param("code_verifier", String::from(pkce_verifier))
-            .with_reqwest_client(&self.http_client)
-            .execute::<TokenResponse>()
-            .await
-            .map_err(|err| {
-                AuthError::Provider(anyhow::Error::from(err).context("token exchange"))
-            })?;
+            .exchange_code(
+                provider.get_inner_provider().as_ref(),
+                &self.get_redirect_url(callback_path),
+                code,
+                Some(&pkce_verifier),
+            )
+            .await?;
 
         Ok(response)
     }
@@ -161,29 +143,20 @@ impl<'a> OAuthService<'a> {
     pub async fn get_user(
         &self,
         provider: OAuthProviderEnum,
-        token: &TokenResponse,
+        token: &StandardTokenResponse,
         active_session: Option<UserSession>,
     ) -> AuthResult<ChatRsUser> {
         let provider = self.get_provider(provider)?;
+        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
 
         // Get user info from provider
-        let mut user_info_request = self
-            .http_client
-            .get(provider.get_user_info_url())
-            .bearer_auth(&token.access_token);
-        for (name, value) in provider.create_request_headers() {
-            user_info_request = user_info_request.header(name, value);
-        }
-        let user_info_response = user_info_request.send().await?;
-        if !user_info_response.status().is_success() {
-            let error = anyhow::anyhow!("couldn't get user: {:?}", user_info_response.text().await);
-            return Err(AuthError::Provider(error));
-        }
-        let user_data = provider.extract_user_data(user_info_response.json().await?)?;
+        let user_info = client
+            .get_user_info(provider.get_inner_provider().as_ref(), &token.access_token)
+            .await?;
 
         // Check for existing user, or create new user
         let mut db = DbService::from_pool(self.db).await?;
-        let user = match provider.find_linked_user(&mut db, &user_data).await? {
+        let user = match provider.find_linked_user(&mut db, &user_info).await? {
             Some(existing_user) => {
                 if active_session.is_some_and(|sess| sess.user_id != existing_user.id) {
                     return Err(AuthError::Unauthorized("cannot switch users via OAuth"));
@@ -193,7 +166,7 @@ impl<'a> OAuthService<'a> {
             }
             None => match active_session {
                 None => {
-                    let new_user = provider.create_new_user(&user_data);
+                    let new_user = provider.create_new_user(&user_info);
                     db.users().create(new_user).await?
                 }
                 Some(sess) => match db.users().find_by_id(&sess.user_id).await? {
@@ -202,7 +175,7 @@ impl<'a> OAuthService<'a> {
                     }
                     Some(user) => {
                         // Link logged-in user to new provider
-                        let update_user = provider.create_update_user(&user_data);
+                        let update_user = provider.create_update_user(&user_info);
                         db.users().update(&user.id, update_user).await?;
                         user
                     }
@@ -214,6 +187,10 @@ impl<'a> OAuthService<'a> {
         };
 
         Ok(user)
+    }
+
+    fn get_redirect_url(&self, callback_path: &str) -> String {
+        format!("{}{}", &self.config.server.base_url, callback_path)
     }
 
     fn get_provider(&self, provider: OAuthProviderEnum) -> AuthResult<Box<dyn OAuthProvider>> {
@@ -233,26 +210,5 @@ impl<'a> OAuthService<'a> {
         };
 
         provider.ok_or(AuthError::BadRequest("unsupported OAuth provider"))
-    }
-
-    fn get_oauth_client(
-        &self,
-        provider: &dyn OAuthProvider,
-        callback_path: &str,
-    ) -> anyhow::Result<oauth2::Client> {
-        let mut client = oauth2::Client::new(
-            provider.get_client_id(),
-            provider.get_authorize_url().parse()?,
-            provider.get_token_url().parse()?,
-        );
-        client.set_client_secret(provider.get_client_secret());
-        client.set_redirect_url(
-            format!("{}{}", &self.config.server.base_url, callback_path).parse()?,
-        );
-        for scope in provider.get_scopes() {
-            client.add_scope(scope);
-        }
-
-        Ok(client)
     }
 }

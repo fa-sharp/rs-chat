@@ -9,8 +9,8 @@ pub enum AuthError {
     Unauthorized(&'static str),
     #[error("{0}")]
     BadRequest(&'static str),
-    #[error(transparent)]
-    Provider(#[from] anyhow::Error),
+    #[error("OAuth error: {0}")]
+    OAuth(#[from] simple_oauth::SimpleOAuthError),
     #[error("user not found")]
     UserNotFound,
     #[error("database error: {0}")]
@@ -19,8 +19,6 @@ pub enum AuthError {
     DatabasePool(#[from] DbPoolError),
     #[error("session error: {0}")]
     Session(#[from] tower_sessions::session::Error),
-    #[error("request error: {0}")]
-    Request(#[from] reqwest::Error),
 }
 
 // Conversion to HTTP API errors
@@ -29,7 +27,6 @@ impl From<AuthError> for AppError {
         match error {
             AuthError::Unauthorized(reason) => Self::unauthorized(reason),
             AuthError::BadRequest(reason) => Self::bad_request(reason),
-            AuthError::Provider(error) => Self::internal(error.context("OAuth error")),
             error => Self::internal(error.into()),
         }
     }
