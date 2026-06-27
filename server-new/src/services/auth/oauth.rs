@@ -1,8 +1,8 @@
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use simple_oauth::{
-    SimpleOAuthProvider,
-    types::{AuthorizeUrl, StandardTokenResponse, UserInfo},
+    SimpleOAuthClient, SimpleOAuthProvider,
+    types::{AuthorizeUrl, OAuthCredentials, StandardTokenResponse, UserInfo},
 };
 use subtle::ConstantTimeEq;
 use tower_sessions::Session;
@@ -45,6 +45,7 @@ impl OAuthProviderEnum {
 /// Trait for all OAuth providers
 pub trait OAuthProvider: Send + Sync {
     fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider>;
+    fn get_credentials(&self) -> OAuthCredentials<'_>;
     fn find_linked_user<'a>(
         &self,
         db: &'a mut DbService,
@@ -85,14 +86,14 @@ impl<'a> OAuthService<'a> {
         session: &Session,
     ) -> AuthResult<reqwest::Url> {
         let provider = self.get_provider(provider)?;
-        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
-
+        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
         let AuthorizeUrl {
             url,
             state,
             pkce_verifier,
         } = client.authorize_url(
             provider.get_inner_provider().as_ref(),
+            provider.get_credentials(),
             &self.get_redirect_url(callback_path),
             None,
         )?;
@@ -127,10 +128,11 @@ impl<'a> OAuthService<'a> {
 
         // Exchange code for token
         let provider = self.get_provider(provider)?;
-        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
+        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
         let response = client
             .exchange_code(
                 provider.get_inner_provider().as_ref(),
+                provider.get_credentials(),
                 &self.get_redirect_url(callback_path),
                 code,
                 Some(&pkce_verifier),
@@ -147,7 +149,7 @@ impl<'a> OAuthService<'a> {
         active_session: Option<UserSession>,
     ) -> AuthResult<ChatRsUser> {
         let provider = self.get_provider(provider)?;
-        let client = simple_oauth::SimpleOAuthClient::with_http_client(self.http_client.clone());
+        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
 
         // Get user info from provider
         let user_info = client

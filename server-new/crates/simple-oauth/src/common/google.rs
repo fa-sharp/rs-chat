@@ -2,51 +2,35 @@ use serde::Deserialize;
 
 use crate::{SimpleOAuthProvider, types::UserInfo};
 
-pub struct Google {
-    client_id: String,
-    client_secret: String,
-}
-
-impl Google {
-    pub fn new(client_id: impl Into<String>, client_secret: impl Into<String>) -> Self {
-        Self {
-            client_id: client_id.into(),
-            client_secret: client_secret.into(),
-        }
-    }
-}
+#[derive(Debug)]
+pub struct Google;
 
 /// User info from Google API
 #[derive(Debug, Deserialize)]
-pub struct GoogleUserInfo {
+struct GoogleUserInfo {
     sub: String,
-    name: String,
+    name: Option<String>,
+    preferred_username: Option<String>,
+    email: Option<String>,
+    email_verified: Option<bool>,
     picture: Option<String>,
 }
 
 impl SimpleOAuthProvider for Google {
-    fn get_scopes(&self) -> Vec<String> {
-        vec!["openid".into(), "profile".into()]
+    fn default_scopes(&self) -> Vec<&str> {
+        vec!["openid", "profile"]
     }
 
-    fn get_authorize_url(&self) -> String {
-        "https://accounts.google.com/o/oauth2/v2/auth".into()
+    fn authorize_url(&self) -> &str {
+        "https://accounts.google.com/o/oauth2/v2/auth"
     }
 
-    fn get_token_url(&self) -> String {
-        "https://oauth2.googleapis.com/token".into()
+    fn token_url(&self) -> &str {
+        "https://oauth2.googleapis.com/token"
     }
 
-    fn get_user_info_url(&self) -> String {
-        "https://www.googleapis.com/oauth2/v3/userinfo".into()
-    }
-
-    fn get_client_id(&self) -> String {
-        self.client_id.clone()
-    }
-
-    fn get_client_secret(&self) -> String {
-        self.client_secret.clone()
+    fn user_info_url(&self) -> &str {
+        "https://www.googleapis.com/oauth2/v3/userinfo"
     }
 
     fn extract_user_info(&self, val: serde_json::Value) -> Result<UserInfo, serde_json::Error> {
@@ -54,7 +38,9 @@ impl SimpleOAuthProvider for Google {
 
         Ok(UserInfo {
             id: user_info.sub,
-            name: user_info.name,
+            name: user_info.name.or(user_info.preferred_username),
+            email: user_info.email,
+            email_verified: user_info.email_verified,
             avatar_url: user_info.picture,
         })
     }

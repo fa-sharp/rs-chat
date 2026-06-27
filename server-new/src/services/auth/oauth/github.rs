@@ -1,6 +1,9 @@
 use futures::future::BoxFuture;
 use serde::Deserialize;
-use simple_oauth::{SimpleOAuthProvider, common::github::GitHub, types::UserInfo};
+use simple_oauth::{
+    SimpleOAuthProvider,
+    types::{OAuthCredentials, UserInfo},
+};
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
@@ -27,11 +30,11 @@ impl GitHubOAuthProvider {
 
 impl OAuthProvider for GitHubOAuthProvider {
     fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider> {
-        Box::new(GitHub::new(
-            &self.config.client_id,
-            &self.config.client_secret,
-            "fa-sharp/rs-chat",
-        ))
+        Box::new(simple_oauth::common::github::GitHub)
+    }
+
+    fn get_credentials(&self) -> OAuthCredentials<'_> {
+        OAuthCredentials::new(&self.config.client_id, &self.config.client_secret)
     }
 
     fn find_linked_user<'a>(
@@ -59,7 +62,7 @@ impl OAuthProvider for GitHubOAuthProvider {
     fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             github_id: Some(&user_data.id),
-            name: &user_data.name,
+            name: &user_data.name.as_deref().unwrap_or_default(),
             avatar_url: user_data.avatar_url.as_deref(),
             ..Default::default()
         }

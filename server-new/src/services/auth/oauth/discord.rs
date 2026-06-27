@@ -1,6 +1,6 @@
 use futures::future::BoxFuture;
 use serde::Deserialize;
-use simple_oauth::{common::discord::Discord, types::UserInfo};
+use simple_oauth::types::{OAuthCredentials, UserInfo};
 
 use crate::{
     db::models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
@@ -27,10 +27,14 @@ impl DiscordOAuthProvider {
 
 impl OAuthProvider for DiscordOAuthProvider {
     fn get_inner_provider(&self) -> Box<dyn simple_oauth::SimpleOAuthProvider> {
-        Box::new(Discord::new(
-            self.config.client_id,
+        Box::new(simple_oauth::common::discord::Discord)
+    }
+
+    fn get_credentials(&self) -> OAuthCredentials<'_> {
+        OAuthCredentials::new(
+            self.config.client_id.to_string(),
             &self.config.client_secret,
-        ))
+        )
     }
 
     fn find_linked_user<'a>(
@@ -58,7 +62,7 @@ impl OAuthProvider for DiscordOAuthProvider {
     fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             discord_id: Some(&user_data.id),
-            name: &user_data.name,
+            name: &user_data.name.as_deref().unwrap_or_default(),
             avatar_url: user_data.avatar_url.as_deref(),
             ..Default::default()
         }

@@ -2,52 +2,35 @@ use serde::Deserialize;
 
 use crate::{SimpleOAuthProvider, types::UserInfo};
 
-pub struct Discord {
-    client_id: u64,
-    client_secret: String,
-}
-
-impl Discord {
-    pub fn new(client_id: u64, client_secret: impl Into<String>) -> Self {
-        Self {
-            client_id,
-            client_secret: client_secret.into(),
-        }
-    }
-}
+#[derive(Debug)]
+pub struct Discord;
 
 /// User info returned from Discord API
 #[derive(Debug, Deserialize)]
-pub struct DiscordUserInfo {
+struct DiscordUserInfo {
     id: String,
     username: String,
     global_name: Option<String>,
+    email: Option<String>,
+    verified: Option<bool>,
     avatar: Option<String>,
 }
 
 impl SimpleOAuthProvider for Discord {
-    fn get_authorize_url(&self) -> String {
-        "https://discord.com/oauth2/authorize".to_owned()
+    fn authorize_url(&self) -> &str {
+        "https://discord.com/oauth2/authorize"
     }
 
-    fn get_token_url(&self) -> String {
-        "https://discord.com/api/oauth2/token".to_owned()
+    fn token_url(&self) -> &str {
+        "https://discord.com/api/oauth2/token"
     }
 
-    fn get_scopes(&self) -> Vec<String> {
-        vec!["identify".to_owned()]
+    fn default_scopes(&self) -> Vec<&str> {
+        vec!["identify"]
     }
 
-    fn get_user_info_url(&self) -> String {
-        "https://discord.com/api/v9/users/@me".to_owned()
-    }
-
-    fn get_client_id(&self) -> String {
-        self.client_id.to_string()
-    }
-
-    fn get_client_secret(&self) -> String {
-        self.client_secret.clone()
+    fn user_info_url(&self) -> &str {
+        "https://discord.com/api/v9/users/@me"
     }
 
     fn extract_user_info(&self, val: serde_json::Value) -> Result<UserInfo, serde_json::Error> {
@@ -61,7 +44,9 @@ impl SimpleOAuthProvider for Discord {
 
         Ok(UserInfo {
             id: user_info.id,
-            name: user_info.global_name.unwrap_or_else(|| user_info.username),
+            email: user_info.email,
+            email_verified: user_info.verified,
+            name: user_info.global_name.or(Some(user_info.username)),
             avatar_url,
         })
     }
