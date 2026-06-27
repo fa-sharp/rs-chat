@@ -71,7 +71,14 @@ impl<'a> SessionRepository<'a> {
     /// Delete a session by ID. Won't return an error if it does not exist.
     pub async fn delete_by_id(&mut self, session_id: &Uuid) -> QueryResult<usize> {
         diesel::delete(auth_sessions::table.find(session_id))
-            .returning(auth_sessions::id)
+            .execute(self.db)
+            .await
+    }
+
+    /// Delete all expired sessions
+    pub async fn delete_expired(&mut self) -> QueryResult<usize> {
+        diesel::delete(auth_sessions::table)
+            .filter(auth_sessions::expires_at.le(diesel::dsl::now))
             .execute(self.db)
             .await
     }

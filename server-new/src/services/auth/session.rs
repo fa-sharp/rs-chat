@@ -7,9 +7,12 @@ use tower_sessions::{
 };
 use uuid::Uuid;
 
-use crate::services::auth::{
-    AuthResult,
-    types::{SessionMeta, UserSession},
+use crate::{
+    db::{DbPool, DbService},
+    services::auth::{
+        AuthResult,
+        types::{SessionMeta, UserSession},
+    },
 };
 
 /// The field used to store the user ID in the session.
@@ -34,7 +37,7 @@ impl AuthSessionService {
         meta: &SessionMeta,
         user_id: &Uuid,
     ) -> AuthResult<()> {
-        session.cycle_id().await?;
+        session.cycle_id().await?; // ensures that the user id is saved to the database
         session.insert(USER_ID_FIELD, user_id).await?;
         session.insert(META_FIELD, meta).await?;
         session.set_expiry(Some(Expiry::OnInactivity(Duration::seconds(
@@ -52,8 +55,14 @@ impl AuthSessionService {
 
     /// Logout the user, deleting the current session.
     pub async fn logout(&self, session: &Session) -> AuthResult<()> {
-        session.flush().await?;
-        Ok(())
+        Ok(session.flush().await?)
+    }
+
+    // Cleanup expired sessions
+    #[tracing::instrument(skip(db_pool), level = "debug")]
+    pub async fn session_cleanup(db_pool: &DbPool) -> AuthResult<usize> {
+        let mut db = DbService::from_pool(&db_pool).await?;
+        Ok(db.sessions().delete_expired().await?)
     }
 }
 
