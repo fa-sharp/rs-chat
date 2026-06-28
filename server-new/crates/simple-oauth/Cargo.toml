@@ -2,7 +2,7 @@
 name = "simple-oauth"
 version = "0.1.0"
 edition = "2024"
-description = "Simple OAuth2 authorization crate"
+description = "Simple OAuth2 login and authorization"
 
 [dependencies]
 oauth2 = { version = "5", default-features = false }

@@ -17,8 +17,8 @@ struct GoogleUserInfo {
 }
 
 impl SimpleOAuthProvider for Google {
-    fn default_scopes(&self) -> Vec<&str> {
-        vec!["openid", "profile"]
+    fn default_scopes(&self) -> &'static [&'static str] {
+        &["openid", "profile"]
     }
 
     fn authorize_url(&self) -> &str {

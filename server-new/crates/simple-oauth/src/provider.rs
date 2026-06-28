@@ -7,7 +7,7 @@ pub trait SimpleOAuthProvider: Debug + Send + Sync {
     fn authorize_url(&self) -> &str;
     fn token_url(&self) -> &str;
     fn user_info_url(&self) -> &str;
-    fn default_scopes(&self) -> Vec<&str>;
+    fn default_scopes(&self) -> &'static [&'static str];
     fn create_request_headers(&self) -> Vec<(String, String)> {
         vec![]
     }

@@ -52,7 +52,7 @@ impl SimpleOAuthClient {
         provider: &P,
         credentials: OAuthCredentials<'_>,
         redirect_url: &str,
-        scopes: Option<Vec<&str>>,
+        custom_scopes: Option<&[&str]>,
     ) -> Result<AuthorizeUrl, SimpleOAuthError> {
         let oauth_client =
             BasicClient::new(oauth2::ClientId::new(credentials.client_id.into_owned()))
@@ -65,10 +65,10 @@ impl SimpleOAuthClient {
         let (url, state) = oauth_client
             .authorize_url(CsrfToken::new_random)
             .add_scopes(
-                scopes
-                    .unwrap_or_else(|| provider.default_scopes())
+                custom_scopes
+                    .unwrap_or(provider.default_scopes())
                     .into_iter()
-                    .map(|s| oauth2::Scope::new(s.into())),
+                    .map(|s| oauth2::Scope::new((*s).to_owned())),
             )
             .set_pkce_challenge(pkce_challenge)
             .url();

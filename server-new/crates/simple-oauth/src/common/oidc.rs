@@ -67,8 +67,8 @@ impl SimpleOAuthProvider for Oidc {
         &self.userinfo_endpoint
     }
 
-    fn default_scopes(&self) -> Vec<&str> {
-        vec!["openid", "profile"]
+    fn default_scopes(&self) -> &'static [&'static str] {
+        &["openid", "profile"]
     }
 
     fn extract_user_info(&self, val: serde_json::Value) -> Result<UserInfo, serde_json::Error> {

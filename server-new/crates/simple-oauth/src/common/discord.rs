@@ -25,8 +25,8 @@ impl SimpleOAuthProvider for Discord {
         "https://discord.com/api/oauth2/token"
     }
 
-    fn default_scopes(&self) -> Vec<&str> {
-        vec!["identify"]
+    fn default_scopes(&self) -> &'static [&'static str] {
+        &["identify"]
     }
 
     fn user_info_url(&self) -> &str {

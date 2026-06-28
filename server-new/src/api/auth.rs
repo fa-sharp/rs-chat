@@ -19,7 +19,7 @@ pub fn routes() -> axum::Router<AppState> {
         .route("/login/{provider}", routing::get(login_handler))
         .route("/login/{provider}/callback", routing::get(callback_handler))
         .route("/user", routing::get(get_user_handler))
-        .route("/logout", routing::post(logout_handler))
+        .route("/logout", routing::get(logout_handler).post(logout_handler))
 }
 
 fn callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {

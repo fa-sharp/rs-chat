@@ -24,8 +24,8 @@ impl SimpleOAuthProvider for GitHub {
         "https://github.com/login/oauth/access_token"
     }
 
-    fn default_scopes(&self) -> Vec<&str> {
-        vec!["read:user"]
+    fn default_scopes(&self) -> &'static [&'static str] {
+        &["read:user"]
     }
 
     fn user_info_url(&self) -> &str {

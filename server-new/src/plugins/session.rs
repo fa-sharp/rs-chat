@@ -2,10 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Context, bail};
 use axum_plugin::AdHocPlugin;
-use tower_sessions::{
-    CachingSessionStore, Expiry, SessionManagerLayer,
-    cookie::{Key, SameSite},
-};
+use tower_sessions::{CachingSessionStore, Expiry, SessionManagerLayer, cookie};
 use tower_sessions_redis_store::RedisStore;
 
 use crate::{
@@ -54,12 +51,12 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             // Add session / cookie management to router
             let session_layer = SessionManagerLayer::new(session_store)
                 .with_name(state.config.auth.cookie_name.clone())
-                .with_expiry(Expiry::OnSessionEnd)
-                .with_private(Key::derive_from(&cookie_key))
+                .with_expiry(Expiry::OnInactivity(cookie::time::Duration::minutes(15))) // default short session for login/OAuth
+                .with_private(cookie::Key::derive_from(&cookie_key))
                 .with_path("/")
                 .with_secure(true)
                 .with_http_only(true)
-                .with_same_site(SameSite::Lax);
+                .with_same_site(cookie::SameSite::Lax);
 
             Ok(router.layer(session_layer))
         })
