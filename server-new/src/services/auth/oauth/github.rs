@@ -30,10 +30,10 @@ impl GitHubOAuthProvider {
 
 impl OAuthProvider for GitHubOAuthProvider {
     fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider> {
-        Box::new(simple_oauth::common::github::GitHub)
+        Box::new(simple_oauth::common::GitHub)
     }
 
-    fn get_credentials(&self) -> OAuthCredentials<'_> {
+    fn get_credentials(&self) -> OAuthCredentials {
         OAuthCredentials::new(&self.config.client_id, &self.config.client_secret)
     }
 
@@ -62,7 +62,11 @@ impl OAuthProvider for GitHubOAuthProvider {
     fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             github_id: Some(&user_data.id),
-            name: &user_data.name.as_deref().unwrap_or_default(),
+            name: &user_data
+                .name
+                .as_deref()
+                .or(user_data.username.as_deref())
+                .unwrap_or_default(),
             avatar_url: user_data.avatar_url.as_deref(),
             ..Default::default()
         }

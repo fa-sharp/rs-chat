@@ -2,9 +2,8 @@ use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use simple_oauth::{
     SimpleOAuthClient, SimpleOAuthProvider,
-    types::{AuthorizeUrl, OAuthCredentials, StandardTokenResponse, UserInfo},
+    types::{OAuthCredentials, StandardTokenResponse, UserInfo},
 };
-use subtle::ConstantTimeEq;
 use tower_sessions::Session;
 
 use crate::{
@@ -45,7 +44,7 @@ impl OAuthProviderEnum {
 /// Trait for all OAuth providers
 pub trait OAuthProvider: Send + Sync {
     fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider>;
-    fn get_credentials(&self) -> OAuthCredentials<'_>;
+    fn get_credentials(&self) -> OAuthCredentials;
     fn find_linked_user<'a>(
         &self,
         db: &'a mut DbService,
@@ -85,22 +84,18 @@ impl<'a> OAuthService<'a> {
         callback_path: &str,
         session: &Session,
     ) -> AuthResult<reqwest::Url> {
-        let provider = self.get_provider(provider)?;
-        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
-        let AuthorizeUrl {
-            url,
-            state,
-            pkce_verifier,
-        } = client.authorize_url(
-            provider.get_inner_provider().as_ref(),
-            provider.get_credentials(),
-            &self.get_redirect_url(callback_path),
-            None,
-        )?;
-        session.insert(Self::SESS_STATE_FIELD, state).await?;
-        session.insert(Self::SESS_PKCE_FIELD, pkce_verifier).await?;
+        let (client, _) = self.get_client(provider)?;
+        let auth = client
+            .authorize_url()
+            .redirect_url(self.get_redirect_url(callback_path))
+            .build()?;
 
-        Ok(url)
+        session.insert(Self::SESS_STATE_FIELD, auth.state).await?;
+        session
+            .insert(Self::SESS_PKCE_FIELD, auth.pkce_verifier)
+            .await?;
+
+        Ok(auth.url)
     }
 
     pub async fn exchange_code(
@@ -112,7 +107,7 @@ impl<'a> OAuthService<'a> {
         state: &str,
     ) -> AuthResult<StandardTokenResponse> {
         // Get saved state and code verifier from session
-        let saved_state = session
+        let initial_state = session
             .remove::<String>(Self::SESS_STATE_FIELD)
             .await?
             .ok_or(AuthError::Unauthorized("missing state in session"))?;
@@ -121,22 +116,16 @@ impl<'a> OAuthService<'a> {
             .await?
             .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
-        // Verify state
-        if saved_state.as_bytes().ct_ne(state.as_bytes()).into() {
-            return Err(AuthError::Unauthorized("OAuth state mismatch"));
-        }
-
         // Exchange code for token
-        let provider = self.get_provider(provider)?;
-        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
+        let (client, _) = self.get_client(provider)?;
         let response = client
-            .exchange_code(
-                provider.get_inner_provider().as_ref(),
-                provider.get_credentials(),
-                &self.get_redirect_url(callback_path),
-                code,
-                Some(&pkce_verifier),
-            )
+            .exchange_code()
+            .redirect_url(self.get_redirect_url(callback_path))
+            .code(code)
+            .state(state)
+            .initial_state(&initial_state)
+            .pkce_verifier(pkce_verifier)
+            .build()
             .await?;
 
         Ok(response)
@@ -148,13 +137,9 @@ impl<'a> OAuthService<'a> {
         token: &StandardTokenResponse,
         active_session: Option<UserSession>,
     ) -> AuthResult<ChatRsUser> {
-        let provider = self.get_provider(provider)?;
-        let client = SimpleOAuthClient::with_http_client(self.http_client.clone());
-
         // Get user info from provider
-        let user_info = client
-            .get_user_info(provider.get_inner_provider().as_ref(), &token.access_token)
-            .await?;
+        let (client, provider) = self.get_client(provider)?;
+        let user_info = client.get_user_info(&token.access_token).await?;
 
         // Check for existing user, or create new user
         let mut db = DbService::from_pool(self.db).await?;
@@ -195,7 +180,13 @@ impl<'a> OAuthService<'a> {
         format!("{}{}", &self.config.server.base_url, callback_path)
     }
 
-    fn get_provider(&self, provider: OAuthProviderEnum) -> AuthResult<Box<dyn OAuthProvider>> {
+    fn get_client(
+        &self,
+        provider: OAuthProviderEnum,
+    ) -> AuthResult<(
+        SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>,
+        Box<dyn OAuthProvider>,
+    )> {
         let provider: Option<Box<dyn OAuthProvider>> = match provider {
             OAuthProviderEnum::Github => match self.config.auth.github {
                 Some(ref c) => Some(Box::new(github::GitHubOAuthProvider::new(c))),
@@ -211,6 +202,13 @@ impl<'a> OAuthService<'a> {
             },
         };
 
-        provider.ok_or(AuthError::BadRequest("unsupported OAuth provider"))
+        let provider = provider.ok_or(AuthError::BadRequest("unsupported OAuth provider"))?;
+        let client = SimpleOAuthClient::builder()
+            .provider(provider.get_inner_provider())
+            .credentials(provider.get_credentials())
+            .http_client(self.http_client)
+            .build()?;
+
+        Ok((client, provider))
     }
 }

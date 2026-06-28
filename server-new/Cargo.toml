@@ -51,8 +51,11 @@ serde_with = {
   default-features = false,
   features = ["macros"]
 }
-simple-oauth = { path = "crates/simple-oauth/", features = ["default-tls"] }
-subtle = "2.6.1"
+simple-oauth = {
+  git = "https://github.com/fa-sharp/simple-oauth-rs",
+  rev = "45ab590",
+  features = ["default-tls"]
+}
 thiserror = "2.0.18"
 tokio = {
   version = "1.52.3",
