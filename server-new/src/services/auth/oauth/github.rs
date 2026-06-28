@@ -16,11 +16,11 @@ pub struct GitHubOAuthConfig {
     client_secret: String,
 }
 
-pub struct GitHubOAuthProvider {
+pub struct GitHubProvider {
     config: GitHubOAuthConfig,
 }
 
-impl GitHubOAuthProvider {
+impl GitHubProvider {
     pub fn new(config: &GitHubOAuthConfig) -> Self {
         Self {
             config: config.clone(),
@@ -28,7 +28,7 @@ impl GitHubOAuthProvider {
     }
 }
 
-impl OAuthProvider for GitHubOAuthProvider {
+impl OAuthProvider for GitHubProvider {
     fn get_inner_provider(&self) -> Box<dyn SimpleOAuthProvider> {
         Box::new(simple_oauth::common::GitHub)
     }

@@ -13,11 +13,11 @@ pub struct GoogleOAuthConfig {
     client_secret: String,
 }
 
-pub struct GoogleOAuthProvider {
+pub struct GoogleProvider {
     config: GoogleOAuthConfig,
 }
 
-impl GoogleOAuthProvider {
+impl GoogleProvider {
     pub fn new(config: &GoogleOAuthConfig) -> Self {
         Self {
             config: config.clone(),
@@ -25,7 +25,7 @@ impl GoogleOAuthProvider {
     }
 }
 
-impl OAuthProvider for GoogleOAuthProvider {
+impl OAuthProvider for GoogleProvider {
     fn get_inner_provider(&self) -> Box<dyn simple_oauth::SimpleOAuthProvider> {
         Box::new(simple_oauth::common::Google)
     }

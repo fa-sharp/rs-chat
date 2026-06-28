@@ -6,19 +6,26 @@ use tower_sessions::{CachingSessionStore, Expiry, SessionManagerLayer, cookie};
 use tower_sessions_redis_store::RedisStore;
 
 use crate::{
+    config::AppConfig,
     db::DbPool,
-    services::auth::{session::AuthSessionService, session_store::SessionDbStore},
+    services::auth::{
+        oauth::OAuthService, session::AuthSessionService, session_store::SessionDbStore,
+    },
     state::AppState,
 };
 
 const REDIS_PREFIX: &str = "rs-chat:sess:";
 const CLEANUP_INTERVAL: Duration = Duration::from_mins(15);
 
-/// Add session handling to the server. Sessions are stored in Postgres and cached in Redis.
+/// Add auth & session handling to the server. Sessions are stored in Postgres and cached in Redis.
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Session")
-        .on_init(async |state| {
+        .on_init(async |mut state| {
+            let config = state.get::<AppConfig>().context("no config")?;
             let db_pool = state.get::<DbPool>().context("no db pool")?.clone();
+
+            // Build configured OAuth providers
+            state.insert(OAuthService::build_provider_map(&config.auth));
 
             // Session cleanup task
             tokio::task::spawn(async move {

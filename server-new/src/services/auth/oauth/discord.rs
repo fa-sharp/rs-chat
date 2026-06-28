@@ -13,11 +13,11 @@ pub struct DiscordOAuthConfig {
     client_secret: String,
 }
 
-pub struct DiscordOAuthProvider {
+pub struct DiscordProvider {
     config: DiscordOAuthConfig,
 }
 
-impl DiscordOAuthProvider {
+impl DiscordProvider {
     pub fn new(config: &DiscordOAuthConfig) -> Self {
         Self {
             config: config.clone(),
@@ -25,7 +25,7 @@ impl DiscordOAuthProvider {
     }
 }
 
-impl OAuthProvider for DiscordOAuthProvider {
+impl OAuthProvider for DiscordProvider {
     fn get_inner_provider(&self) -> Box<dyn simple_oauth::SimpleOAuthProvider> {
         Box::new(simple_oauth::common::Discord)
     }

@@ -21,7 +21,7 @@ pub async fn create_app() -> anyhow::Result<InitializedApp<AppState>> {
         .register(plugins::database::plugin()) // Initialize database
         .register(plugins::redis::plugin()) // Initialize Redis
         .register(api::plugin()) // Add API routes
-        .register(plugins::session::plugin()) // Setup sessions
+        .register(plugins::auth::plugin()) // Setup auth & sessions
         .register(plugins::logging::plugin()) // Request logging
         .register(plugins::security::plugin()) // Body limit, security headers, etc.
         .init()

@@ -14,17 +14,24 @@ pub use error::{AuthError, AuthResult};
 pub use types::*;
 
 pub struct AuthService<'a> {
-    config: &'a AppConfig,
     db: &'a DbPool,
+    config: &'a AppConfig,
     http_client: &'a reqwest::Client,
+    oauth_providers: &'a oauth::OAuthProviderMap,
 }
 
 impl<'a> AuthService<'a> {
-    pub fn new(config: &'a AppConfig, http_client: &'a reqwest::Client, db: &'a DbPool) -> Self {
+    pub fn new(
+        db: &'a DbPool,
+        config: &'a AppConfig,
+        http_client: &'a reqwest::Client,
+        oauth_providers: &'a oauth::OAuthProviderMap,
+    ) -> Self {
         Self {
+            db,
             config,
             http_client,
-            db,
+            oauth_providers,
         }
     }
 
@@ -45,6 +52,6 @@ impl<'a> AuthService<'a> {
 
     /// Access OAuth functions
     pub fn oauth(self) -> oauth::OAuthService<'a> {
-        oauth::OAuthService::new(self.config, self.db, self.http_client)
+        oauth::OAuthService::new(self.config, self.db, self.http_client, self.oauth_providers)
     }
 }

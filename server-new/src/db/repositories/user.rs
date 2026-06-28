@@ -70,16 +70,16 @@ impl<'a> UserRepository<'a> {
         Ok(user)
     }
 
-    // pub async fn find_by_oidc_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
-    //     let user = users::table
-    //         .filter(users::oidc_id.eq(id))
-    //         .select(ChatRsUser::as_select())
-    //         .first(self.db)
-    //         .await
-    //         .optional()?;
+    pub async fn find_by_oidc_id(&mut self, id: &str) -> Result<Option<ChatRsUser>, Error> {
+        let user = users::table
+            .filter(users::oidc_id.eq(id))
+            .select(ChatRsUser::as_select())
+            .first(self.db)
+            .await
+            .optional()?;
 
-    //     Ok(user)
-    // }
+        Ok(user)
+    }
 
     // pub async fn find_by_sso_username(&mut self, username: &str) -> Result<Option<Uuid>, Error> {
     //     let user_id = users::table

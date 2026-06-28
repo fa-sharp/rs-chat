@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use simple_oauth::{
@@ -18,10 +20,15 @@ use crate::{
 mod discord;
 mod github;
 mod google;
+mod oidc;
 
 pub use discord::DiscordOAuthConfig;
 pub use github::GitHubOAuthConfig;
 pub use google::GoogleOAuthConfig;
+pub use oidc::OidcConfig;
+
+/// Map of configured OAuth providers stored in state
+pub type OAuthProviderMap = HashMap<OAuthProviderEnum, Box<dyn OAuthProvider>>;
 
 /// Supported OAuth providers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -30,6 +37,7 @@ pub enum OAuthProviderEnum {
     Github,
     Discord,
     Google,
+    Oidc,
 }
 impl OAuthProviderEnum {
     pub fn as_str(&self) -> &str {
@@ -37,6 +45,7 @@ impl OAuthProviderEnum {
             OAuthProviderEnum::Github => "github",
             OAuthProviderEnum::Discord => "discord",
             OAuthProviderEnum::Google => "google",
+            OAuthProviderEnum::Oidc => "oidc",
         }
     }
 }
@@ -60,6 +69,7 @@ pub struct OAuthService<'a> {
     config: &'a AppConfig,
     db: &'a DbPool,
     http_client: &'a reqwest::Client,
+    provider_map: &'a OAuthProviderMap,
 }
 
 impl<'a> OAuthService<'a> {
@@ -70,11 +80,13 @@ impl<'a> OAuthService<'a> {
         config: &'a AppConfig,
         db: &'a DbPool,
         http_client: &'a reqwest::Client,
+        provider_map: &'a OAuthProviderMap,
     ) -> Self {
         Self {
             config,
             db,
             http_client,
+            provider_map,
         }
     }
 
@@ -84,8 +96,9 @@ impl<'a> OAuthService<'a> {
         callback_path: &str,
         session: &Session,
     ) -> AuthResult<reqwest::Url> {
-        let (client, _) = self.get_client(provider)?;
-        let auth = client
+        let oauth_provider = self.oauth_provider(provider)?;
+        let auth = self
+            .oauth_client(oauth_provider)?
             .authorize_url()
             .redirect_url(self.get_redirect_url(callback_path))
             .build()?;
@@ -117,8 +130,9 @@ impl<'a> OAuthService<'a> {
             .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
         // Exchange code for token
-        let (client, _) = self.get_client(provider)?;
-        let response = client
+        let oauth_provider = self.oauth_provider(provider)?;
+        let response = self
+            .oauth_client(oauth_provider)?
             .exchange_code()
             .redirect_url(self.get_redirect_url(callback_path))
             .code(code)
@@ -138,12 +152,15 @@ impl<'a> OAuthService<'a> {
         active_session: Option<UserSession>,
     ) -> AuthResult<ChatRsUser> {
         // Get user info from provider
-        let (client, provider) = self.get_client(provider)?;
-        let user_info = client.get_user_info(&token.access_token).await?;
+        let oauth_provider = self.oauth_provider(provider)?;
+        let user_info = self
+            .oauth_client(oauth_provider)?
+            .get_user_info(&token.access_token)
+            .await?;
 
         // Check for existing user, or create new user
         let mut db = DbService::from_pool(self.db).await?;
-        let user = match provider.find_linked_user(&mut db, &user_info).await? {
+        let user = match oauth_provider.find_linked_user(&mut db, &user_info).await? {
             Some(existing_user) => {
                 if active_session.is_some_and(|sess| sess.user_id != existing_user.id) {
                     return Err(AuthError::Unauthorized("cannot switch users via OAuth"));
@@ -153,16 +170,16 @@ impl<'a> OAuthService<'a> {
             }
             None => match active_session {
                 None => {
-                    let new_user = provider.create_new_user(&user_info);
+                    let new_user = oauth_provider.create_new_user(&user_info);
                     db.users().create(new_user).await?
                 }
                 Some(sess) => match db.users().find_by_id(&sess.user_id).await? {
-                    Some(user) if provider.is_user_linked(&user) => {
+                    Some(user) if oauth_provider.is_user_linked(&user) => {
                         return Err(AuthError::BadRequest("user already linked to provider"));
                     }
                     Some(user) => {
                         // Link logged-in user to new provider
-                        let update_user = provider.create_update_user(&user_info);
+                        let update_user = oauth_provider.create_update_user(&user_info);
                         db.users().update(&user.id, update_user).await?;
                         user
                     }
@@ -180,35 +197,47 @@ impl<'a> OAuthService<'a> {
         format!("{}{}", &self.config.server.base_url, callback_path)
     }
 
-    fn get_client(
-        &self,
-        provider: OAuthProviderEnum,
-    ) -> AuthResult<(
-        SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>,
-        Box<dyn OAuthProvider>,
-    )> {
-        let provider: Option<Box<dyn OAuthProvider>> = match provider {
-            OAuthProviderEnum::Github => match self.config.auth.github {
-                Some(ref c) => Some(Box::new(github::GitHubOAuthProvider::new(c))),
-                None => None,
-            },
-            OAuthProviderEnum::Discord => match self.config.auth.discord {
-                Some(ref c) => Some(Box::new(discord::DiscordOAuthProvider::new(c))),
-                None => None,
-            },
-            OAuthProviderEnum::Google => match self.config.auth.google {
-                Some(ref c) => Some(Box::new(google::GoogleOAuthProvider::new(c))),
-                None => None,
-            },
-        };
+    fn oauth_provider(&self, provider: OAuthProviderEnum) -> AuthResult<&dyn OAuthProvider> {
+        let provider = self
+            .provider_map
+            .get(&provider)
+            .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
+        Ok(provider.as_ref())
+    }
 
-        let provider = provider.ok_or(AuthError::BadRequest("unsupported OAuth provider"))?;
-        let client = SimpleOAuthClient::builder()
+    fn oauth_client(
+        &self,
+        provider: &dyn OAuthProvider,
+    ) -> Result<SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>, AuthError> {
+        Ok(simple_oauth::SimpleOAuthClient::builder()
             .provider(provider.get_inner_provider())
             .credentials(provider.get_credentials())
             .http_client(self.http_client)
-            .build()?;
+            .build()?)
+    }
 
-        Ok((client, provider))
+    pub fn build_provider_map(config: &crate::config::AuthConfig) -> OAuthProviderMap {
+        use {
+            discord::DiscordProvider, github::GitHubProvider, google::GoogleProvider,
+            oidc::OidcProvider,
+        };
+        let mut map: OAuthProviderMap = HashMap::new();
+        if let Some(ref c) = config.github {
+            map.insert(OAuthProviderEnum::Github, Box::new(GitHubProvider::new(c)));
+        }
+        if let Some(ref c) = config.discord {
+            map.insert(
+                OAuthProviderEnum::Discord,
+                Box::new(DiscordProvider::new(c)),
+            );
+        }
+        if let Some(ref c) = config.google {
+            map.insert(OAuthProviderEnum::Google, Box::new(GoogleProvider::new(c)));
+        }
+        if let Some(ref c) = config.oidc {
+            map.insert(OAuthProviderEnum::Oidc, Box::new(OidcProvider::new(c)));
+        }
+
+        map
     }
 }

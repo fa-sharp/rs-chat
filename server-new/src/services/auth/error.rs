@@ -15,7 +15,7 @@ pub enum AuthError {
     UserNotFound,
     #[error("database error: {0}")]
     Database(#[from] diesel::result::Error),
-    #[error("database error: {0}")]
+    #[error("database pool error: {0}")]
     DatabasePool(#[from] DbPoolError),
     #[error("session error: {0}")]
     Session(#[from] tower_sessions::session::Error),
