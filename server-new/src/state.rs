@@ -7,7 +7,10 @@ use axum_plugin::{AppState, TypeMap};
 use crate::{
     config::AppConfig,
     db::DbPool,
-    services::auth::{AuthService, oauth::OAuthProviderMap},
+    services::{
+        auth::{AuthService, oauth::OAuthProviderMap},
+        chat::ChatService,
+    },
 };
 
 /// App state stored in the Axum router
@@ -31,6 +34,10 @@ impl AppState {
             &self.http_client,
             &self.oauth_providers,
         )
+    }
+
+    pub fn chat_service(&self) -> ChatService<'_> {
+        ChatService::new(&self.http_client, self.redis.next())
     }
 }
 
