@@ -11,6 +11,10 @@ url = "postgres://localhost"
 [redis]
 url = "redis://localhost:6379"
 
+[services]
+streamer_url = "http://localhost:8081"
+streamer_api_key = "dev-streamer-api-key"
+
 [auth]
 cookie_name = "auth-rs-chat"
 session_length = 604800

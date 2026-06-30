@@ -221,6 +221,7 @@ impl<'a> OAuthService<'a> {
             discord::DiscordProvider, github::GitHubProvider, google::GoogleProvider,
             oidc::OidcProvider,
         };
+
         let mut map: OAuthProviderMap = HashMap::new();
         if let Some(ref c) = config.github {
             map.insert(OAuthProviderEnum::Github, Box::new(GitHubProvider::new(c)));

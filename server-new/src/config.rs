@@ -16,6 +16,7 @@ pub struct AppConfig {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub auth: AuthConfig,
+    pub services: ServiceConfig,
     pub security: SecurityConfig,
     pub redis: RedisConfig,
 }
@@ -33,6 +34,12 @@ pub struct ServerConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct DatabaseConfig {
     pub url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServiceConfig {
+    pub streamer_url: String,
+    pub streamer_api_key: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

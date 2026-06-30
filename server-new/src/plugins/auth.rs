@@ -19,16 +19,16 @@ const CLEANUP_INTERVAL: Duration = Duration::from_mins(15);
 
 /// Add auth & session handling to the server. Sessions are stored in Postgres and cached in Redis.
 pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Session")
+    AdHocPlugin::named("Auth")
         .on_init(async |mut state| {
             let config = state.get::<AppConfig>().context("no config")?;
-            let db_pool = state.get::<DbPool>().context("no db pool")?.clone();
+            let db_pool = state.get::<DbPool>().context("no db pool")?.to_owned();
 
             // Build configured OAuth providers
             state.insert(OAuthService::build_provider_map(&config.auth));
 
             // Session cleanup task
-            tokio::task::spawn(async move {
+            tokio::spawn(async move {
                 let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
                 interval.tick().await;
 
