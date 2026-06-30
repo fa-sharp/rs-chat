@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-use crate::services::llm::{error::LlmStreamError, interface::LlmStreamChunk, types::LlmUsage};
+use crate::llm::{error::LlmStreamChunkError, interface::LlmStreamChunk, types::LlmUsage};
 
 /// Parse chunks from an OpenAI SSE event
 pub fn parse_openai_event(
     mut event: OpenAIStreamResponse,
-    tool_calls: &mut Vec<OpenAIStreamToolCall>,
-) -> Vec<Result<LlmStreamChunk, LlmStreamError>> {
+    _tool_calls: &mut Vec<OpenAIStreamToolCall>,
+) -> Vec<Result<LlmStreamChunk, LlmStreamChunkError>> {
     let mut chunks = Vec::with_capacity(1);
     if let Some(delta) = event.choices.pop().and_then(|c| c.delta) {
         if let Some(text) = delta.content {

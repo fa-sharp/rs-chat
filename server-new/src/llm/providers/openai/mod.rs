@@ -2,7 +2,7 @@
 
 use futures::StreamExt;
 
-use crate::services::llm::{
+use crate::llm::{
     error::LlmRequestError,
     interface::{LlmProvider, LlmStreamingResponse},
     providers::utils,
@@ -17,76 +17,187 @@ use {request::*, response::*};
 const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
-/// OpenAI chat provider
+/// OpenAI-compatible provider behavior variants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenAIProviderFlavor {
+    OpenAI,
+    OpenRouter,
+}
+impl OpenAIProviderFlavor {
+    fn name(self) -> &'static str {
+        match self {
+            Self::OpenAI => "OpenAI",
+            Self::OpenRouter => "OpenRouter",
+        }
+    }
+    fn default_base_url(self) -> &'static str {
+        match self {
+            Self::OpenAI => OPENAI_API_BASE_URL,
+            Self::OpenRouter => OPENROUTER_API_BASE_URL,
+        }
+    }
+    fn use_max_completion_tokens(self) -> bool {
+        self == Self::OpenAI
+    }
+    fn include_store_false(self) -> bool {
+        self == Self::OpenAI
+    }
+    fn include_usage_stream_options(self) -> bool {
+        true
+    }
+}
+
+/// Configuration for OpenAI-compatible providers.
+#[derive(Debug, Clone)]
+pub struct OpenAIProviderConfig {
+    flavor: OpenAIProviderFlavor,
+    api_key: String,
+    base_url: String,
+}
+
+impl OpenAIProviderConfig {
+    pub fn openai(api_key: impl Into<String>) -> Self {
+        Self::new(OpenAIProviderFlavor::OpenAI, api_key, None::<String>)
+    }
+
+    pub fn openrouter(api_key: impl Into<String>) -> Self {
+        Self::new(OpenAIProviderFlavor::OpenRouter, api_key, None::<String>)
+    }
+
+    pub fn new(
+        flavor: OpenAIProviderFlavor,
+        api_key: impl Into<String>,
+        base_url: Option<impl Into<String>>,
+    ) -> Self {
+        Self {
+            flavor,
+            api_key: api_key.into(),
+            base_url: base_url
+                .map(Into::into)
+                .unwrap_or_else(|| flavor.default_base_url().to_owned())
+                .trim_end_matches('/')
+                .to_owned(),
+        }
+    }
+}
+
+/// OpenAI-compatible chat provider.
 #[derive(Debug, Clone)]
 pub struct OpenAIProvider {
     client: reqwest::Client,
-    redis: fred::clients::Client,
-    api_key: String,
-    base_url: String,
+    _redis: fred::clients::Client,
+    config: OpenAIProviderConfig,
 }
 
 impl OpenAIProvider {
     pub fn new(
         http_client: &reqwest::Client,
         redis: &fred::clients::Client,
-        api_key: &str,
-        base_url: Option<&str>,
+        config: OpenAIProviderConfig,
     ) -> Self {
         Self {
             client: http_client.clone(),
-            redis: redis.clone(),
-            api_key: api_key.to_owned(),
-            base_url: base_url.unwrap_or(OPENAI_API_BASE_URL).to_owned(),
+            _redis: redis.clone(),
+            config,
         }
+    }
+
+    pub fn openai(
+        http_client: &reqwest::Client,
+        redis: &fred::clients::Client,
+        api_key: impl Into<String>,
+    ) -> Self {
+        Self::new(http_client, redis, OpenAIProviderConfig::openai(api_key))
+    }
+
+    pub fn openrouter(
+        http_client: &reqwest::Client,
+        redis: &fred::clients::Client,
+        api_key: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            http_client,
+            redis,
+            OpenAIProviderConfig::openrouter(api_key),
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct OpenAIRequestPolicy {
+    flavor: OpenAIProviderFlavor,
+}
+
+impl OpenAIRequestPolicy {
+    fn new(flavor: OpenAIProviderFlavor) -> Self {
+        Self { flavor }
+    }
+
+    fn max_tokens(self, max_tokens: Option<u32>) -> Option<u32> {
+        (!self.flavor.use_max_completion_tokens())
+            .then_some(max_tokens)
+            .flatten()
+    }
+
+    fn max_completion_tokens(self, max_tokens: Option<u32>) -> Option<u32> {
+        self.flavor
+            .use_max_completion_tokens()
+            .then_some(max_tokens)
+            .flatten()
+    }
+
+    fn store(self) -> Option<bool> {
+        self.flavor.include_store_false().then_some(false)
+    }
+
+    fn stream_options(self) -> Option<OpenAIStreamOptions> {
+        self.flavor
+            .include_usage_stream_options()
+            .then_some(OpenAIStreamOptions {
+                include_usage: true,
+            })
     }
 }
 
 impl LlmProvider for OpenAIProvider {
-    fn stream_chat<'r>(&'r self, req: &'r LlmChatRequest) -> LlmStreamingResponse<'r> {
+    fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
+        let policy = OpenAIRequestPolicy::new(self.config.flavor);
         let openai_messages = build_openai_messages(&req.messages);
         // let openai_tools = tools.as_ref().map(|t| build_openai_tools(t));
         //
         let request = OpenAIRequest {
             model: &req.options.model,
             messages: openai_messages,
-            // OpenAI official API deprecated `max_tokens` for `max_completion_tokens`
-            max_tokens: match req.options.max_tokens {
-                Some(max_tokens) if self.base_url != OPENAI_API_BASE_URL => Some(max_tokens),
-                _ => None,
-            },
-            max_completion_tokens: match req.options.max_tokens {
-                Some(max_tokens) if self.base_url == OPENAI_API_BASE_URL => Some(max_tokens),
-                _ => None,
-            },
+            max_tokens: policy.max_tokens(req.options.max_tokens),
+            max_completion_tokens: policy.max_completion_tokens(req.options.max_tokens),
             temperature: req.options.temperature,
-            store: (self.base_url == OPENAI_API_BASE_URL).then_some(false),
+            store: policy.store(),
             stream: Some(true),
-            stream_options: Some(OpenAIStreamOptions {
-                include_usage: true,
-            }),
+            stream_options: policy.stream_options(),
             // tools: openai_tools,
             // modalities: options.modalities.as_ref(),
             ..Default::default()
         };
+        let provider_name = self.config.flavor.name();
 
         Box::pin(async move {
             let response = self
                 .client
-                .post(format!("{}/chat/completions", self.base_url))
-                .header("authorization", format!("Bearer {}", self.api_key))
+                .post(format!("{}/chat/completions", self.config.base_url))
+                .header("authorization", format!("Bearer {}", self.config.api_key))
                 .header("content-type", "application/json")
                 .json(&request)
                 .send()
                 .await
-                .map_err(|e| LlmRequestError::Provider(format!("OpenAI request failed: {}", e)))?;
+                .map_err(|e| {
+                    LlmRequestError::Provider(format!("{provider_name} request failed: {e}"))
+                })?;
 
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
                 return Err(LlmRequestError::Provider(format!(
-                    "OpenAI API error {}: {}",
-                    status, error_text
+                    "{provider_name} API error {status}: {error_text}",
                 )));
             }
 

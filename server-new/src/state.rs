@@ -10,6 +10,7 @@ use crate::{
     services::{
         auth::{AuthService, oauth::OAuthProviderMap},
         chat::ChatService,
+        stream::tinistream::TinistreamClient,
     },
 };
 
@@ -23,6 +24,7 @@ pub struct AppStateInner {
     pub http_client: reqwest::Client,
     pub db_pool: DbPool,
     pub redis: fred::prelude::Pool,
+    pub tinistream: TinistreamClient,
     pub oauth_providers: OAuthProviderMap,
 }
 
@@ -37,7 +39,7 @@ impl AppState {
     }
 
     pub fn chat_service(&self) -> ChatService<'_> {
-        ChatService::new(&self.http_client, self.redis.next())
+        ChatService::new(&self.db_pool, &self.tinistream)
     }
 }
 

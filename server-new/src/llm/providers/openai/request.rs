@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::services::llm::{
+use crate::llm::{
     providers::utils,
     types::{LlmFileType, LlmMessage},
 };

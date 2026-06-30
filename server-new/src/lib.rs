@@ -7,6 +7,7 @@ mod config;
 mod db;
 mod error;
 mod extractors;
+mod llm;
 mod plugins;
 mod services;
 mod state;
