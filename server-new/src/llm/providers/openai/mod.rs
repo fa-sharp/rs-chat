@@ -4,9 +4,9 @@ use futures::StreamExt;
 
 use crate::llm::{
     error::LlmRequestError,
-    interface::{LlmProvider, LlmStreamingResponse},
+    interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
     providers::utils,
-    types::LlmChatRequest,
+    types::{LlmChatRequest, LlmPrompt, LlmUsage},
 };
 
 mod request;
@@ -85,41 +85,23 @@ impl OpenAIProviderConfig {
 #[derive(Debug, Clone)]
 pub struct OpenAIProvider {
     client: reqwest::Client,
-    _redis: fred::clients::Client,
     config: OpenAIProviderConfig,
 }
 
 impl OpenAIProvider {
-    pub fn new(
-        http_client: &reqwest::Client,
-        redis: &fred::clients::Client,
-        config: OpenAIProviderConfig,
-    ) -> Self {
+    pub fn new(http_client: &reqwest::Client, config: OpenAIProviderConfig) -> Self {
         Self {
             client: http_client.clone(),
-            _redis: redis.clone(),
             config,
         }
     }
 
-    pub fn openai(
-        http_client: &reqwest::Client,
-        redis: &fred::clients::Client,
-        api_key: impl Into<String>,
-    ) -> Self {
-        Self::new(http_client, redis, OpenAIProviderConfig::openai(api_key))
+    pub fn openai(http_client: &reqwest::Client, api_key: impl Into<String>) -> Self {
+        Self::new(http_client, OpenAIProviderConfig::openai(api_key))
     }
 
-    pub fn openrouter(
-        http_client: &reqwest::Client,
-        redis: &fred::clients::Client,
-        api_key: impl Into<String>,
-    ) -> Self {
-        Self::new(
-            http_client,
-            redis,
-            OpenAIProviderConfig::openrouter(api_key),
-        )
+    pub fn openrouter(http_client: &reqwest::Client, api_key: impl Into<String>) -> Self {
+        Self::new(http_client, OpenAIProviderConfig::openrouter(api_key))
     }
 }
 
@@ -160,6 +142,59 @@ impl OpenAIRequestPolicy {
 }
 
 impl LlmProvider for OpenAIProvider {
+    fn prompt<'r>(&'r self, prompt: LlmPrompt<'r>) -> LlmPromptResponse<'r> {
+        let policy = OpenAIRequestPolicy::new(self.config.flavor);
+        let request = OpenAIRequest {
+            model: &prompt.options.model,
+            messages: vec![OpenAIMessage {
+                role: "user",
+                content: Some(vec![OpenAIContent::Text { text: prompt.text }]),
+                ..Default::default()
+            }],
+            max_tokens: policy.max_tokens(prompt.options.max_tokens),
+            max_completion_tokens: policy.max_completion_tokens(prompt.options.max_tokens),
+            store: policy.store(),
+            ..Default::default()
+        };
+
+        Box::pin(async move {
+            let provider_name = self.config.flavor.name();
+            let response = self
+                .client
+                .post(format!("{}/chat/completions", self.config.base_url))
+                .bearer_auth(&self.config.api_key)
+                .json(&request)
+                .send()
+                .await
+                .map_err(|err| {
+                    LlmRequestError::Provider(format!("{provider_name} request failed: {err}"))
+                })?;
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(LlmRequestError::Provider(format!(
+                    "{provider_name} API error {status}: {error_text}",
+                )));
+            }
+
+            let mut openai_response: OpenAIResponse = response.json().await.map_err(|err| {
+                LlmRequestError::Provider(format!("Failed to parse response: {err}"))
+            })?;
+            let text = openai_response
+                .choices
+                .get_mut(0)
+                .and_then(|choice| choice.message.as_mut())
+                .and_then(|message| message.content.take())
+                .ok_or(LlmRequestError::NoContent)?;
+            if let Some(usage) = openai_response.usage {
+                let usage: LlmUsage = usage.into();
+                tracing::info!("Prompt usage: {usage:?}");
+            }
+
+            Ok(text)
+        })
+    }
+
     fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
         let policy = OpenAIRequestPolicy::new(self.config.flavor);
         let openai_messages = build_openai_messages(&req.messages);
@@ -184,15 +219,13 @@ impl LlmProvider for OpenAIProvider {
             let response = self
                 .client
                 .post(format!("{}/chat/completions", self.config.base_url))
-                .header("authorization", format!("Bearer {}", self.config.api_key))
-                .header("content-type", "application/json")
+                .bearer_auth(&self.config.api_key)
                 .json(&request)
                 .send()
                 .await
                 .map_err(|e| {
                     LlmRequestError::Provider(format!("{provider_name} request failed: {e}"))
                 })?;
-
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
@@ -228,63 +261,6 @@ impl LlmProvider for OpenAIProvider {
             Ok(stream.boxed())
         })
     }
-
-    // async fn prompt(
-    //     &self,
-    //     message: &str,
-    //     options: &LlmProviderOptions,
-    // ) -> Result<String, LlmError> {
-    //     let request = OpenAIRequest {
-    //         model: &options.model,
-    //         messages: vec![OpenAIMessage {
-    //             role: "user",
-    //             content: Some(vec![OpenAIContent::Text { text: message }]),
-    //             ..Default::default()
-    //         }],
-    //         max_tokens: options.max_tokens,
-    //         temperature: options.temperature,
-    //         store: (self.base_url == OPENAI_API_BASE_URL).then_some(false),
-    //         ..Default::default()
-    //     };
-
-    //     let response = self
-    //         .client
-    //         .post(format!("{}/chat/completions", self.base_url))
-    //         .header("authorization", format!("Bearer {}", self.api_key))
-    //         .header("content-type", "application/json")
-    //         .json(&request)
-    //         .send()
-    //         .await
-    //         .map_err(|e| LlmError::ProviderError(format!("OpenAI request failed: {}", e)))?;
-
-    //     if !response.status().is_success() {
-    //         let status = response.status();
-    //         let error_text = response.text().await.unwrap_or_default();
-    //         return Err(LlmError::ProviderError(format!(
-    //             "OpenAI API error {}: {}",
-    //             status, error_text
-    //         )));
-    //     }
-
-    //     let mut openai_response: OpenAIResponse = response
-    //         .json()
-    //         .await
-    //         .map_err(|e| LlmError::ProviderError(format!("Failed to parse response: {}", e)))?;
-
-    //     let text = openai_response
-    //         .choices
-    //         .get_mut(0)
-    //         .and_then(|choice| choice.message.as_mut())
-    //         .and_then(|message| message.content.take())
-    //         .ok_or(LlmError::NoResponse)?;
-
-    //     if let Some(usage) = openai_response.usage {
-    //         let usage: LlmUsage = usage.into();
-    //         println!("Prompt usage: {:?}", usage);
-    //     }
-
-    //     Ok(text)
-    // }
 
     // async fn list_models(&self) -> Result<Vec<LlmModel>, LlmError> {
     //     let models = models::ModelsDevService::new(&self.redis, &self.client)

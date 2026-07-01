@@ -1,4 +1,4 @@
-/// Errors that can occur during streaming
+/// Streaming infrastructure errors
 #[derive(Debug, thiserror::Error)]
 pub enum StreamingError {
     #[error("Client streaming error: {0}")]

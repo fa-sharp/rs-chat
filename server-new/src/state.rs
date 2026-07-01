@@ -8,8 +8,9 @@ use crate::{
     config::AppConfig,
     db::DbPool,
     services::{
-        auth::{AuthService, oauth::OAuthProviderMap},
+        auth::{AuthService, encryption::Encryptor, oauth::OAuthProviderMap},
         chat::ChatService,
+        provider::ProviderService,
         stream::tinistream::TinistreamClient,
     },
 };
@@ -21,25 +22,23 @@ pub struct AppState(Arc<AppStateInner>);
 #[derive(AppState)]
 pub struct AppStateInner {
     pub config: AppConfig,
-    pub http_client: reqwest::Client,
     pub db_pool: DbPool,
+    pub encryptor: Encryptor,
+    pub http_client: reqwest::Client,
+    pub oauth_providers: OAuthProviderMap,
     pub redis: fred::prelude::Pool,
     pub tinistream: TinistreamClient,
-    pub oauth_providers: OAuthProviderMap,
 }
 
 impl AppState {
     pub fn auth_service(&self) -> AuthService<'_> {
-        AuthService::new(
-            &self.db_pool,
-            &self.config,
-            &self.http_client,
-            &self.oauth_providers,
-        )
+        AuthService::new(&self.config, &self.http_client, &self.oauth_providers)
     }
-
     pub fn chat_service(&self) -> ChatService<'_> {
         ChatService::new(&self.db_pool, &self.tinistream)
+    }
+    pub fn provider_service(&self) -> ProviderService<'_> {
+        ProviderService::new(&self.encryptor, &self.http_client)
     }
 }
 

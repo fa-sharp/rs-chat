@@ -1,4 +1,4 @@
-use crate::{db::DbPoolError, error::AppError};
+use crate::error::AppError;
 
 pub type AuthResult<T> = Result<T, AuthError>;
 
@@ -16,7 +16,7 @@ pub enum AuthError {
     #[error("database error: {0}")]
     Database(#[from] diesel::result::Error),
     #[error("database pool error: {0}")]
-    DatabasePool(#[from] DbPoolError),
+    DatabasePool(#[from] crate::db::DbPoolError),
     #[error("session error: {0}")]
     Session(#[from] tower_sessions::session::Error),
 }

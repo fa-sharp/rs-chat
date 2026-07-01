@@ -11,10 +11,11 @@ use tower_sessions::Session;
 use crate::{
     config::AppConfig,
     db::{
-        DbPool, DbService,
+        DbService,
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
     },
-    services::auth::{AuthError, AuthResult, UserSession},
+    extractors::session::UserSession,
+    services::auth::{AuthError, AuthResult},
 };
 
 mod discord;
@@ -67,7 +68,6 @@ pub trait OAuthProvider: Send + Sync {
 /// OAuth functions
 pub struct OAuthService<'a> {
     config: &'a AppConfig,
-    db: &'a DbPool,
     http_client: &'a reqwest::Client,
     provider_map: &'a OAuthProviderMap,
 }
@@ -78,13 +78,11 @@ impl<'a> OAuthService<'a> {
 
     pub(super) fn new(
         config: &'a AppConfig,
-        db: &'a DbPool,
         http_client: &'a reqwest::Client,
         provider_map: &'a OAuthProviderMap,
     ) -> Self {
         Self {
             config,
-            db,
             http_client,
             provider_map,
         }
@@ -147,6 +145,7 @@ impl<'a> OAuthService<'a> {
 
     pub async fn get_user(
         &self,
+        db: &mut DbService,
         provider: OAuthProviderEnum,
         token: &StandardTokenResponse,
         active_session: Option<UserSession>,
@@ -159,8 +158,7 @@ impl<'a> OAuthService<'a> {
             .await?;
 
         // Check for existing user, or create new user
-        let mut db = DbService::from_pool(self.db).await?;
-        let user = match oauth_provider.find_linked_user(&mut db, &user_info).await? {
+        let user = match oauth_provider.find_linked_user(db, &user_info).await? {
             Some(existing_user) => {
                 if active_session.is_some_and(|sess| sess.user_id != existing_user.id) {
                     return Err(AuthError::Unauthorized("cannot switch users via OAuth"));

@@ -52,6 +52,11 @@ impl<'r> StreamingService<'r> {
         format!("user:{}:chat:", user_id)
     }
 
+    /// Check for existing client stream in `tinistream`
+    pub async fn exists_stream(&self, stream_key: &str) -> Result<bool, StreamingError> {
+        Ok(self.tinistream.stream_exists(&stream_key).await?)
+    }
+
     /// Start the client stream in `tinistream`, and return a WebSocket writer and reader for it
     pub async fn create_stream(
         &self,

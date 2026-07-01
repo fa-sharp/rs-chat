@@ -9,10 +9,8 @@ use uuid::Uuid;
 
 use crate::{
     db::{DbPool, DbService},
-    services::auth::{
-        AuthResult,
-        types::{SessionMeta, UserSession},
-    },
+    extractors::session::{SessionMeta, UserSession},
+    services::auth::AuthResult,
 };
 
 /// The field used to store the user ID in the session.
@@ -62,7 +60,7 @@ impl AuthSessionService {
     #[tracing::instrument(skip(db_pool), level = "debug")]
     pub async fn session_cleanup(db_pool: &DbPool) -> AuthResult<usize> {
         let mut db = DbService::from_pool(&db_pool).await?;
-        Ok(db.sessions().delete_expired().await?)
+        Ok(db.auth_sessions().delete_expired().await?)
     }
 }
 

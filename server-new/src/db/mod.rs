@@ -21,7 +21,7 @@ pub struct DbConnection(Object<AsyncPgConnection>);
 impl Deref for DbConnection {
     type Target = AsyncPgConnection;
     fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
+        &self.0
     }
 }
 impl DerefMut for DbConnection {
@@ -51,10 +51,13 @@ impl DbService {
     pub fn users(&mut self) -> repositories::UserRepository<'_> {
         repositories::UserRepository::new(&mut self.cxn)
     }
-    pub fn sessions(&mut self) -> repositories::SessionRepository<'_> {
+    pub fn auth_sessions(&mut self) -> repositories::SessionRepository<'_> {
         repositories::SessionRepository::new(&mut self.cxn)
     }
     pub fn chats(&mut self) -> repositories::ChatRepository<'_> {
         repositories::ChatRepository::new(&mut self.cxn)
+    }
+    pub fn providers(&mut self) -> repositories::ProviderRepository<'_> {
+        repositories::ProviderRepository::new(&mut self.cxn)
     }
 }

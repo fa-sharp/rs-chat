@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tinistream_client::types::StreamAccessResponse;
 use uuid::Uuid;
 
@@ -21,6 +23,9 @@ use crate::{
 
 mod error;
 mod messages;
+mod titles;
+
+const DEFAULT_SESSION_TITLE: &str = "New Chat";
 
 pub struct ChatService<'r> {
     db_pool: &'r DbPool,
@@ -37,44 +42,64 @@ impl<'r> ChatService<'r> {
 
     pub async fn stream_user_chat(
         &self,
+        db: &mut DbService,
         user_id: Uuid,
         session_id: Uuid,
-        provider: &dyn LlmProvider,
         provider_id: i32,
-        user_message: LlmUserMessage,
+        provider: Arc<dyn LlmProvider>,
+        user_message: Option<LlmUserMessage>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        // Check for existing chat session, then save the new user message to it
-        let mut db = DbService::from_pool(self.db_pool).await?;
-        let (_existing_session, mut session_messages) = db
+        let stream_key = StreamingService::chat_stream_key(&user_id, &session_id);
+        let stream_service = StreamingService::new(self.tinistream);
+
+        // Get session and message history
+        let (chat_session, mut session_messages) = db
             .chats()
-            .get_session_with_messages(&user_id, &session_id)
+            .find_session_with_messages(&user_id, &session_id)
             .await?;
-        let new_message = db
-            .chats()
-            .save_message(NewChatRsMessage {
-                session_id: &session_id,
-                role: ChatRsMessageRole::User,
-                content: &user_message.text,
-                meta: ChatRsMessageMeta::new_user(UserMeta::default()),
-            })
-            .await?;
-        session_messages.push(new_message);
+        let chat_session = chat_session.ok_or(ChatError::SessionNotFound)?;
+
+        // Check that we're not already streaming a response for this chat session
+        if stream_service.exists_stream(&stream_key).await? {
+            return Err(ChatError::AlreadyStreaming);
+        }
+
+        // Save user message, and generate session title if needed
+        if let Some(user_message) = user_message {
+            if session_messages.is_empty() && chat_session.title == DEFAULT_SESSION_TITLE {
+                titles::generate_title(
+                    user_id,
+                    session_id,
+                    &user_message.text,
+                    &provider,
+                    &chat_options.model,
+                    self.db_pool,
+                );
+            }
+            let new_message = db
+                .chats()
+                .save_message(NewChatRsMessage {
+                    content: &user_message.text,
+                    session_id: &session_id,
+                    role: ChatRsMessageRole::User,
+                    meta: ChatRsMessageMeta::new_user(UserMeta::default()),
+                })
+                .await?;
+            session_messages.push(new_message);
+        }
 
         // Send the request to the LLM provider and get the streaming response
-        let llm_messages = messages::build_llm_messages(session_messages)?;
         let stream = provider
             .stream_chat(LlmChatRequest {
-                messages: &llm_messages,
+                messages: &messages::build_llm_messages(session_messages)?,
                 options: &chat_options,
             })
             .await?;
 
         // Create a new client stream in `tinistream` to stream the response to the user
-        let stream_key = StreamingService::chat_stream_key(&user_id, &session_id);
-        let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
-            .create_stream(&stream_key)
-            .await?;
+        let (stream_access, ws_writer, ws_reader) =
+            stream_service.create_stream(&stream_key).await?;
 
         // Spawn task to process and save the streaming response
         let db_pool = self.db_pool.to_owned();
@@ -88,6 +113,7 @@ impl<'r> ChatService<'r> {
             {
                 tracing::error!("Failed to save assistant response: {err}");
             }
+
             if !stream_cancelled {
                 let _ = StreamingService::new(&tinistream_client)
                     .end_stream(&stream_key)

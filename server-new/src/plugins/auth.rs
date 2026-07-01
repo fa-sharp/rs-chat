@@ -9,7 +9,8 @@ use crate::{
     config::AppConfig,
     db::DbPool,
     services::auth::{
-        oauth::OAuthService, session::AuthSessionService, session_store::SessionDbStore,
+        encryption::Encryptor, oauth::OAuthService, session::AuthSessionService,
+        session_store::SessionDbStore,
     },
     state::AppState,
 };
@@ -24,10 +25,21 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             let config = state.get::<AppConfig>().context("no config")?;
             let db_pool = state.get::<DbPool>().context("no db pool")?.to_owned();
 
-            // Build configured OAuth providers
-            state.insert(OAuthService::build_provider_map(&config.auth));
+            // Verify encryption key and build encryptor
+            let encryption_key = hex::decode(&config.auth.encryption_key)
+                .context("encryption_key must be hex value")?;
+            if encryption_key.len() != 32 {
+                bail!("encryption_key must be 32 bytes");
+            }
+            let encryptor = Encryptor::new(&encryption_key)?;
 
-            // Session cleanup task
+            // Build configured OAuth providers
+            let oauth_providers = OAuthService::build_provider_map(&config.auth);
+
+            state.insert(encryptor);
+            state.insert(oauth_providers);
+
+            // Start session cleanup task
             tokio::spawn(async move {
                 let mut interval = tokio::time::interval(CLEANUP_INTERVAL);
                 interval.tick().await;
@@ -44,12 +56,6 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             Ok(state)
         })
         .on_setup(|router, state: &AppState| {
-            let cookie_key = hex::decode(&state.config.auth.cookie_key)
-                .context("cookie_key must be hex value")?;
-            if cookie_key.len() < 32 {
-                bail!("cookie_key must be at least 32 bytes");
-            }
-
             // Session persistence
             let redis_store = RedisStore::with_prefix(state.redis.clone(), REDIS_PREFIX.to_owned());
             let db_store = SessionDbStore::new(state.db_pool.clone());
@@ -59,7 +65,9 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             let session_layer = SessionManagerLayer::new(session_store)
                 .with_name(state.config.auth.cookie_name.clone())
                 .with_expiry(Expiry::OnInactivity(cookie::time::Duration::minutes(15))) // default short session for login/OAuth
-                .with_private(cookie::Key::derive_from(&cookie_key))
+                .with_private(cookie::Key::derive_from(&hex::decode(
+                    &state.config.auth.encryption_key,
+                )?))
                 .with_path("/")
                 .with_secure(true)
                 .with_http_only(true)

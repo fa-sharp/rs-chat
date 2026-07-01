@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-/// Generic chat request for all LLM providers
+/// Generic LLM prompt
+pub struct LlmPrompt<'r> {
+    pub text: &'r str,
+    pub options: &'r LlmChatOptions,
+}
+
+/// Generic LLM chat request
 pub struct LlmChatRequest<'r> {
     pub messages: &'r [LlmMessage],
     // tools: Option<Vec<LlmTool>>,

@@ -10,7 +10,11 @@ use serde::Deserialize;
 use crate::{
     api::RoutePrefix,
     error::AppResult,
-    services::auth::{SessionMeta, UserSession, oauth::OAuthProviderEnum},
+    extractors::{
+        database::Database,
+        session::{SessionMeta, UserSession},
+    },
+    services::auth::oauth::OAuthProviderEnum,
     state::AppState,
 };
 
@@ -50,6 +54,7 @@ async fn callback_handler(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
+    Database(mut db): Database,
     State(state): State<AppState>,
     session: tower_sessions::Session,
     meta: SessionMeta,
@@ -65,22 +70,24 @@ async fn callback_handler(
             &query.state,
         )
         .await?;
-    let user = oauth.get_user(provider, &token, maybe_user).await?;
+    let user = oauth
+        .get_user(&mut db, provider, &token, maybe_user)
+        .await?;
     state
         .auth_service()
         .session()
         .login(&session, &meta, &user.id)
         .await?;
 
-    Ok(Redirect::to("/api/auth/user"))
-    // Ok(Redirect::to(&state.config.server.base_url))
+    Ok(Redirect::to(&state.config.server.base_url))
 }
 
 async fn get_user_handler(
     UserSession { user_id }: UserSession,
+    Database(mut db): Database,
     State(state): State<AppState>,
 ) -> AppResult<impl IntoResponse> {
-    let user = state.auth_service().get_user(&user_id).await?;
+    let user = state.auth_service().get_user(&mut db, &user_id).await?;
     Ok(Json(user))
 }
 

@@ -9,19 +9,38 @@ use axum::{
 };
 use tower_sessions::Session;
 
-use crate::{
-    error::AppError,
-    services::auth::{SessionMeta, UserSession},
-    state::AppState,
-};
+use crate::{error::AppError, state::AppState};
 
-/// Active user session data.
-///
-/// This can be used as an extractor in route handlers:
-/// - If used as `Option<UserSession>`, will be `Some` if there is an active session
-/// and `None` otherwise.
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::db::UtcDateTime;
+
+/// Represents an active user session. This can be used as an extractor in route handlers:
 /// - If used as `UserSession`, request will automatically return an unauthorized error
 /// if there is no active session.
+/// - If used as `Option<UserSession>`, will be `Some` if there is an active session
+/// and `None` otherwise.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserSession {
+    pub user_id: Uuid,
+}
+
+impl UserSession {
+    pub fn new(user_id: Uuid) -> Self {
+        Self { user_id }
+    }
+}
+
+/// Session metadata extracted on login.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionMeta {
+    pub start_time: UtcDateTime,
+    pub ip: Option<IpAddr>,
+    pub user_agent: Option<String>,
+}
+
+/// Active user session data.
 impl OptionalFromRequestParts<AppState> for UserSession {
     type Rejection = AppError;
 

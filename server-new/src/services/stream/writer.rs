@@ -50,8 +50,8 @@ struct ChunkState {
 #[serde(tag = "event", content = "data", rename_all = "snake_case")]
 pub(super) enum RedisStreamChunk {
     Text(String),
-    ToolCall(String),
-    PendingToolCall(String),
+    // ToolCall(String),
+    // PendingToolCall(String),
     Error(String),
 }
 

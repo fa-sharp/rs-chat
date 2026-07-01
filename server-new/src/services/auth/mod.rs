@@ -1,20 +1,18 @@
 use crate::{
     config::AppConfig,
-    db::{DbPool, DbService, models::ChatRsUser},
+    db::{DbService, models::ChatRsUser},
 };
 use uuid::Uuid;
 
+pub mod encryption;
 mod error;
 pub mod oauth;
 pub mod session;
 pub mod session_store;
-mod types;
 
-pub use error::{AuthError, AuthResult};
-pub use types::*;
+use error::{AuthError, AuthResult};
 
 pub struct AuthService<'a> {
-    db: &'a DbPool,
     config: &'a AppConfig,
     http_client: &'a reqwest::Client,
     oauth_providers: &'a oauth::OAuthProviderMap,
@@ -22,13 +20,11 @@ pub struct AuthService<'a> {
 
 impl<'a> AuthService<'a> {
     pub fn new(
-        db: &'a DbPool,
         config: &'a AppConfig,
         http_client: &'a reqwest::Client,
         oauth_providers: &'a oauth::OAuthProviderMap,
     ) -> Self {
         Self {
-            db,
             config,
             http_client,
             oauth_providers,
@@ -37,8 +33,7 @@ impl<'a> AuthService<'a> {
 
     /// Get the user from the database with the given ID, or return
     /// an internal error if not found
-    pub async fn get_user(&self, id: &Uuid) -> AuthResult<ChatRsUser> {
-        let mut db = DbService::from_pool(&self.db).await?;
+    pub async fn get_user(&self, db: &mut DbService, id: &Uuid) -> AuthResult<ChatRsUser> {
         match db.users().find_by_id(id).await? {
             None => Err(AuthError::UserNotFound),
             Some(user) => Ok(user),
@@ -52,6 +47,6 @@ impl<'a> AuthService<'a> {
 
     /// Access OAuth functions
     pub fn oauth(self) -> oauth::OAuthService<'a> {
-        oauth::OAuthService::new(self.config, self.db, self.http_client, self.oauth_providers)
+        oauth::OAuthService::new(self.config, self.http_client, self.oauth_providers)
     }
 }

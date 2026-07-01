@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
@@ -86,7 +84,7 @@ impl<'a> ChatRepository<'a> {
         Ok(id.to_string())
     }
 
-    pub async fn get_all_sessions(
+    pub async fn get_recent_sessions(
         &mut self,
         user_id: &Uuid,
     ) -> Result<Vec<ChatRsSession>, diesel::result::Error> {
@@ -101,27 +99,28 @@ impl<'a> ChatRepository<'a> {
         Ok(sessions)
     }
 
-    pub async fn get_session(
+    pub async fn find_session(
         &mut self,
         user_id: &Uuid,
         session_id: &Uuid,
-    ) -> Result<ChatRsSession, diesel::result::Error> {
+    ) -> Result<Option<ChatRsSession>, diesel::result::Error> {
         let session = chat_sessions::table
             .filter(chat_sessions::user_id.eq(user_id))
             .filter(chat_sessions::id.eq(session_id))
             .select(ChatRsSession::as_select())
             .first(self.db)
-            .await?;
+            .await
+            .optional()?;
 
         Ok(session)
     }
 
-    pub async fn get_session_with_messages(
+    pub async fn find_session_with_messages(
         &mut self,
         user_id: &Uuid,
         session_id: &Uuid,
-    ) -> Result<(ChatRsSession, Vec<ChatRsMessage>), diesel::result::Error> {
-        let (session, messages) = futures::future::try_join(
+    ) -> Result<(Option<ChatRsSession>, Vec<ChatRsMessage>), diesel::result::Error> {
+        let (session, messages) = futures::future::join(
             chat_sessions::table
                 .filter(chat_sessions::user_id.eq(user_id))
                 .filter(chat_sessions::id.eq(session_id))
@@ -133,9 +132,9 @@ impl<'a> ChatRepository<'a> {
                 .order_by(chat_messages::created_at.asc())
                 .load(&mut &**self.db),
         )
-        .await?;
+        .await;
 
-        Ok((session, messages))
+        Ok((session.optional()?, messages?))
     }
 
     pub async fn search_sessions(

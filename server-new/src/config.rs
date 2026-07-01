@@ -44,7 +44,7 @@ pub struct ServiceConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthConfig {
-    pub cookie_key: String,
+    pub encryption_key: String,
     pub cookie_name: String,
     pub session_length: i64,
     pub github: Option<GitHubOAuthConfig>,
@@ -78,7 +78,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
     })
 }
 
-/// Extract configuration from config.toml, then environment overrides.
+/// Extract configuration from config.toml, then environment variables.
 fn extract_config() -> anyhow::Result<AppConfig> {
     let config = figment::Figment::new()
         .merge(Toml::file("config.toml"))

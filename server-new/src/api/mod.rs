@@ -4,8 +4,8 @@ use axum_plugin::AdHocPlugin;
 use crate::state::AppState;
 
 pub mod auth;
+pub mod chat;
 pub mod health;
-pub mod hello;
 
 /// Adds all API routes to the server under `/api`
 pub fn plugin() -> AdHocPlugin<AppState> {
@@ -15,7 +15,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
                 "/auth",
                 auth::routes().layer(Extension(RoutePrefix("/api/auth"))),
             )
-            .nest("/hello", hello::routes())
+            .nest("/chat", chat::routes())
             .nest("/health", health::routes());
 
         Ok(router.nest("/api", api_routes))

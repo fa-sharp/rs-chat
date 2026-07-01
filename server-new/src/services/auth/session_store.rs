@@ -50,7 +50,7 @@ impl SessionStore for SessionDbStore {
         let expires_at = Self::convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;
-        db.sessions()
+        db.auth_sessions()
             .create(&session_id, user_id.as_ref(), &record.data, expires_at)
             .await
             .map_err(|err| Error::Backend(err.to_string()))?;
@@ -66,7 +66,7 @@ impl SessionStore for SessionDbStore {
         let expires_at = Self::convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;
-        db.sessions()
+        db.auth_sessions()
             .update(&session_id, &record.data, expires_at)
             .await
             .map_err(|err| Error::Backend(err.to_string()))?;
@@ -83,7 +83,7 @@ impl SessionStore for SessionDbStore {
         let session_id = Self::get_session_uuid(&session_id);
         let mut db = self.get_db().await?;
 
-        match db.sessions().find_active_by_id(&session_id).await {
+        match db.auth_sessions().find_active_by_id(&session_id).await {
             Ok(Some(session)) => Ok(Some(Record {
                 id: Id(i128::from_be_bytes(session.id.into_bytes())),
                 data: session.data.0,
@@ -102,7 +102,7 @@ impl SessionStore for SessionDbStore {
         let session_id = Self::get_session_uuid(session_id);
         let mut db = self.get_db().await?;
 
-        db.sessions()
+        db.auth_sessions()
             .delete_by_id(&session_id)
             .await
             .map_err(|err| Error::Backend(err.to_string()))?;
