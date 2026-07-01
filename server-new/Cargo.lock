@@ -2597,7 +2597,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 [[package]]
 name = "simple-oauth"
 version = "0.1.0"
-source = "git+https://github.com/fa-sharp/simple-oauth-rs?rev=45ab590#45ab590710c4830d509c8b5b1781fd19d381525b"
+source = "git+https://github.com/fa-sharp/simple-oauth-rs?rev=9eebc3e#9eebc3ec19dddf83643e2796b14336bb92ccedd0"
 dependencies = [
  "bon",
  "oauth2",

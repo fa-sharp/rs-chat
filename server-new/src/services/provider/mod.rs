@@ -7,7 +7,10 @@ use crate::{
         DbService,
         models::{ChatRsProvider, ChatRsProviderType, ChatRsSecret},
     },
-    llm::{interface::LlmProvider, providers::OpenAIProvider},
+    llm::{
+        interface::LlmProvider,
+        providers::{LoremProvider, OpenAIProvider},
+    },
     services::{auth::encryption::Encryptor, provider::error::ProviderError},
 };
 
@@ -57,7 +60,8 @@ impl<'r> ProviderService<'r> {
             })
             .transpose()?;
 
-        let llm_provider = match provider_type {
+        let llm_provider: Arc<dyn LlmProvider> = match provider_type {
+            ChatRsProviderType::Lorem => Arc::new(LoremProvider::new()),
             ChatRsProviderType::Openai => Arc::new(OpenAIProvider::openai(
                 self.http_client,
                 api_key.ok_or(ProviderError::MissingApiKey)?,
@@ -72,7 +76,6 @@ impl<'r> ProviderService<'r> {
             //     http_client,
             //     base_url.unwrap_or("http://localhost:11434"),
             // )),
-            // ChatRsProviderType::Lorem => Box::new(LoremProvider::new()),
         };
 
         Ok(llm_provider)

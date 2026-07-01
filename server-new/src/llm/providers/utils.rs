@@ -1,14 +1,14 @@
 //! Utilities for working with LLM requests and responses
 
 use futures::TryStreamExt;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::{
     codec::{FramedRead, LinesCodec},
     io::StreamReader,
 };
 
-use crate::llm::error::LlmStreamChunkError;
+use crate::llm::error::{LlmRequestError, LlmStreamChunkError};
 
 /// Max allowed length of stream lines (5 KB)
 const MAX_LINE_LEN: usize = 5 * 1024;
@@ -54,4 +54,30 @@ pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
         Ok(line) => serde_json::from_str::<T>(&line).map_err(LlmStreamChunkError::Parsing),
         Err(e) => Err(LlmStreamChunkError::Decoding(e)),
     })
+}
+
+/// Convenience function to make an API request to an LLM provider
+pub async fn llm_api_request<Req: Serialize>(
+    client: &reqwest::Client,
+    provider_name: &str,
+    url: &str,
+    token: &str,
+    request: &Req,
+) -> Result<reqwest::Response, LlmRequestError> {
+    let response = client
+        .post(url)
+        .bearer_auth(token)
+        .json(&request)
+        .send()
+        .await
+        .map_err(|e| LlmRequestError::Provider(format!("{provider_name} request failed: {e}")))?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        return Err(LlmRequestError::Provider(format!(
+            "{provider_name} API error status {status}: {error_text}",
+        )));
+    }
+
+    Ok(response)
 }

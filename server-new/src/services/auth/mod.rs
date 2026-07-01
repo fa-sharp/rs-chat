@@ -14,19 +14,13 @@ use error::{AuthError, AuthResult};
 
 pub struct AuthService<'a> {
     config: &'a AppConfig,
-    http_client: &'a reqwest::Client,
     oauth_providers: &'a oauth::OAuthProviderMap,
 }
 
 impl<'a> AuthService<'a> {
-    pub fn new(
-        config: &'a AppConfig,
-        http_client: &'a reqwest::Client,
-        oauth_providers: &'a oauth::OAuthProviderMap,
-    ) -> Self {
+    pub fn new(config: &'a AppConfig, oauth_providers: &'a oauth::OAuthProviderMap) -> Self {
         Self {
             config,
-            http_client,
             oauth_providers,
         }
     }
@@ -47,6 +41,6 @@ impl<'a> AuthService<'a> {
 
     /// Access OAuth functions
     pub fn oauth(self) -> oauth::OAuthService<'a> {
-        oauth::OAuthService::new(self.config, self.http_client, self.oauth_providers)
+        oauth::OAuthService::new(self.config, self.oauth_providers)
     }
 }

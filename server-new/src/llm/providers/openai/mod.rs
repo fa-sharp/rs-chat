@@ -5,7 +5,7 @@ use futures::StreamExt;
 use crate::llm::{
     error::LlmRequestError,
     interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
-    providers::utils,
+    providers::utils::{self, llm_api_request},
     types::{LlmChatRequest, LlmPrompt, LlmUsage},
 };
 
@@ -159,34 +159,25 @@ impl LlmProvider for OpenAIProvider {
 
         Box::pin(async move {
             let provider_name = self.config.flavor.name();
-            let response = self
-                .client
-                .post(format!("{}/chat/completions", self.config.base_url))
-                .bearer_auth(&self.config.api_key)
-                .json(&request)
-                .send()
-                .await
-                .map_err(|err| {
-                    LlmRequestError::Provider(format!("{provider_name} request failed: {err}"))
-                })?;
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
-                return Err(LlmRequestError::Provider(format!(
-                    "{provider_name} API error {status}: {error_text}",
-                )));
-            }
-
-            let mut openai_response: OpenAIResponse = response.json().await.map_err(|err| {
+            let response = llm_api_request(
+                &self.client,
+                provider_name,
+                &format!("{}/chat/completions", self.config.base_url),
+                &self.config.api_key,
+                &request,
+            )
+            .await?;
+            let mut response: OpenAIResponse = response.json().await.map_err(|err| {
                 LlmRequestError::Provider(format!("Failed to parse response: {err}"))
             })?;
-            let text = openai_response
+
+            let text = response
                 .choices
                 .get_mut(0)
                 .and_then(|choice| choice.message.as_mut())
                 .and_then(|message| message.content.take())
                 .ok_or(LlmRequestError::NoContent)?;
-            if let Some(usage) = openai_response.usage {
+            if let Some(usage) = response.usage {
                 let usage: LlmUsage = usage.into();
                 tracing::info!("Prompt usage: {usage:?}");
             }
@@ -216,23 +207,14 @@ impl LlmProvider for OpenAIProvider {
         let provider_name = self.config.flavor.name();
 
         Box::pin(async move {
-            let response = self
-                .client
-                .post(format!("{}/chat/completions", self.config.base_url))
-                .bearer_auth(&self.config.api_key)
-                .json(&request)
-                .send()
-                .await
-                .map_err(|e| {
-                    LlmRequestError::Provider(format!("{provider_name} request failed: {e}"))
-                })?;
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
-                return Err(LlmRequestError::Provider(format!(
-                    "{provider_name} API error {status}: {error_text}",
-                )));
-            }
+            let response = llm_api_request(
+                &self.client,
+                provider_name,
+                &format!("{}/chat/completions", self.config.base_url),
+                &self.config.api_key,
+                &request,
+            )
+            .await?;
 
             let stream = async_stream::stream! {
                 let mut sse_event_stream = utils::get_sse_events(response);

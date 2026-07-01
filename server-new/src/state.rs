@@ -32,7 +32,7 @@ pub struct AppStateInner {
 
 impl AppState {
     pub fn auth_service(&self) -> AuthService<'_> {
-        AuthService::new(&self.config, &self.http_client, &self.oauth_providers)
+        AuthService::new(&self.config, &self.oauth_providers)
     }
     pub fn chat_service(&self) -> ChatService<'_> {
         ChatService::new(&self.db_pool, &self.tinistream)

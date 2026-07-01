@@ -57,7 +57,7 @@ serde_with = {
 }
 simple-oauth = {
   git = "https://github.com/fa-sharp/simple-oauth-rs",
-  rev = "45ab590",
+  rev = "9eebc3e",
   features = ["default-tls"]
 }
 thiserror = "2.0.18"

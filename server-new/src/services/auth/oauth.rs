@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use simple_oauth::{
-    SimpleOAuthClient, SimpleOAuthProvider,
+    SimpleOAuthClient, SimpleOAuthError, SimpleOAuthProvider,
     types::{OAuthCredentials, StandardTokenResponse, UserInfo},
 };
 use tower_sessions::Session;
@@ -29,7 +29,9 @@ pub use google::GoogleOAuthConfig;
 pub use oidc::OidcConfig;
 
 /// Map of configured OAuth providers stored in state
-pub type OAuthProviderMap = HashMap<OAuthProviderEnum, Box<dyn OAuthProvider>>;
+pub type OAuthProviderMap = HashMap<OAuthProviderEnum, (OAuthClient, Box<dyn OAuthProvider>)>;
+/// Type of the OAuth client stored in state
+pub type OAuthClient = SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>;
 
 /// Supported OAuth providers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,7 +70,6 @@ pub trait OAuthProvider: Send + Sync {
 /// OAuth functions
 pub struct OAuthService<'a> {
     config: &'a AppConfig,
-    http_client: &'a reqwest::Client,
     provider_map: &'a OAuthProviderMap,
 }
 
@@ -76,16 +77,26 @@ impl<'a> OAuthService<'a> {
     const SESS_STATE_FIELD: &'static str = "oauth_state";
     const SESS_PKCE_FIELD: &'static str = "oauth_verifier";
 
-    pub(super) fn new(
-        config: &'a AppConfig,
-        http_client: &'a reqwest::Client,
-        provider_map: &'a OAuthProviderMap,
-    ) -> Self {
+    pub(super) fn new(config: &'a AppConfig, provider_map: &'a OAuthProviderMap) -> Self {
         Self {
             config,
-            http_client,
             provider_map,
         }
+    }
+
+    fn oauth_provider(
+        &self,
+        provider: OAuthProviderEnum,
+    ) -> AuthResult<(&OAuthClient, &dyn OAuthProvider)> {
+        let (client, provider) = self
+            .provider_map
+            .get(&provider)
+            .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
+        Ok((client, provider.as_ref()))
+    }
+
+    fn get_redirect_url(&self, callback_path: &str) -> String {
+        format!("{}{}", &self.config.server.base_url, callback_path)
     }
 
     pub async fn authorize_url(
@@ -94,9 +105,8 @@ impl<'a> OAuthService<'a> {
         callback_path: &str,
         session: &Session,
     ) -> AuthResult<reqwest::Url> {
-        let oauth_provider = self.oauth_provider(provider)?;
-        let auth = self
-            .oauth_client(oauth_provider)?
+        let (oauth_client, _) = self.oauth_provider(provider)?;
+        let auth = oauth_client
             .authorize_url()
             .redirect_url(self.get_redirect_url(callback_path))
             .build()?;
@@ -128,9 +138,8 @@ impl<'a> OAuthService<'a> {
             .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
         // Exchange code for token
-        let oauth_provider = self.oauth_provider(provider)?;
-        let response = self
-            .oauth_client(oauth_provider)?
+        let (oauth_client, _) = self.oauth_provider(provider)?;
+        let response = oauth_client
             .exchange_code()
             .redirect_url(self.get_redirect_url(callback_path))
             .code(code)
@@ -151,11 +160,8 @@ impl<'a> OAuthService<'a> {
         active_session: Option<UserSession>,
     ) -> AuthResult<ChatRsUser> {
         // Get user info from provider
-        let oauth_provider = self.oauth_provider(provider)?;
-        let user_info = self
-            .oauth_client(oauth_provider)?
-            .get_user_info(&token.access_token)
-            .await?;
+        let (oauth_client, oauth_provider) = self.oauth_provider(provider)?;
+        let user_info = oauth_client.get_user_info(&token.access_token).await?;
 
         // Check for existing user, or create new user
         let user = match oauth_provider.find_linked_user(db, &user_info).await? {
@@ -191,52 +197,50 @@ impl<'a> OAuthService<'a> {
         Ok(user)
     }
 
-    fn get_redirect_url(&self, callback_path: &str) -> String {
-        format!("{}{}", &self.config.server.base_url, callback_path)
-    }
-
-    fn oauth_provider(&self, provider: OAuthProviderEnum) -> AuthResult<&dyn OAuthProvider> {
-        let provider = self
-            .provider_map
-            .get(&provider)
-            .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
-        Ok(provider.as_ref())
-    }
-
-    fn oauth_client(
-        &self,
-        provider: &dyn OAuthProvider,
-    ) -> Result<SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>, AuthError> {
-        Ok(simple_oauth::SimpleOAuthClient::builder()
-            .provider(provider.get_inner_provider())
-            .credentials(provider.get_credentials())
-            .http_client(self.http_client)
-            .build()?)
-    }
-
-    pub fn build_provider_map(config: &crate::config::AuthConfig) -> OAuthProviderMap {
+    pub fn build_provider_map(
+        config: &crate::config::AppConfig,
+        http_client: &reqwest::Client,
+    ) -> Result<OAuthProviderMap, SimpleOAuthError> {
         use {
             discord::DiscordProvider, github::GitHubProvider, google::GoogleProvider,
             oidc::OidcProvider,
         };
 
         let mut map: OAuthProviderMap = HashMap::new();
-        if let Some(ref c) = config.github {
-            map.insert(OAuthProviderEnum::Github, Box::new(GitHubProvider::new(c)));
+        if let Some(ref c) = config.auth.github {
+            let provider = Box::new(GitHubProvider::new(c));
+            let client = Self::build_oauth_client(http_client, &*provider)?;
+            map.insert(OAuthProviderEnum::Github, (client, provider));
         }
-        if let Some(ref c) = config.discord {
-            map.insert(
-                OAuthProviderEnum::Discord,
-                Box::new(DiscordProvider::new(c)),
-            );
+        if let Some(ref c) = config.auth.discord {
+            let provider = Box::new(DiscordProvider::new(c));
+            let client = Self::build_oauth_client(http_client, &*provider)?;
+            map.insert(OAuthProviderEnum::Discord, (client, provider));
         }
-        if let Some(ref c) = config.google {
-            map.insert(OAuthProviderEnum::Google, Box::new(GoogleProvider::new(c)));
+        if let Some(ref c) = config.auth.google {
+            let provider = Box::new(GoogleProvider::new(c));
+            let client = Self::build_oauth_client(http_client, &*provider)?;
+            map.insert(OAuthProviderEnum::Google, (client, provider));
         }
-        if let Some(ref c) = config.oidc {
-            map.insert(OAuthProviderEnum::Oidc, Box::new(OidcProvider::new(c)));
+        if let Some(ref c) = config.auth.oidc {
+            let provider = Box::new(OidcProvider::new(c));
+            let client = Self::build_oauth_client(http_client, &*provider)?;
+            map.insert(OAuthProviderEnum::Oidc, (client, provider));
         }
 
-        map
+        Ok(map)
+    }
+
+    fn build_oauth_client(
+        http_client: &reqwest::Client,
+        provider: &dyn OAuthProvider,
+    ) -> Result<SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>, SimpleOAuthError> {
+        let oauth_client = SimpleOAuthClient::builder()
+            .credentials(provider.get_credentials())
+            .redirect_url("http://example.com/should-be-overridden")
+            .provider(provider.get_inner_provider())
+            .http_client(http_client)
+            .build()?;
+        Ok(oauth_client)
     }
 }

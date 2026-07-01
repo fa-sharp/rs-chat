@@ -23,6 +23,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("Auth")
         .on_init(async |mut state| {
             let config = state.get::<AppConfig>().context("no config")?;
+            let http_client = state.get::<reqwest::Client>().context("no HTTP client")?;
             let db_pool = state.get::<DbPool>().context("no db pool")?.to_owned();
 
             // Verify encryption key and build encryptor
@@ -34,7 +35,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             let encryptor = Encryptor::new(&encryption_key)?;
 
             // Build configured OAuth providers
-            let oauth_providers = OAuthService::build_provider_map(&config.auth);
+            let oauth_providers = OAuthService::build_provider_map(config, http_client);
 
             state.insert(encryptor);
             state.insert(oauth_providers);
