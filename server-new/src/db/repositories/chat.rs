@@ -127,6 +127,10 @@ impl<'a> ChatRepository<'a> {
                 .select(ChatRsSession::as_select())
                 .first(&mut &**self.db),
             chat_messages::table
+                .inner_join(
+                    chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)),
+                )
+                .filter(chat_sessions::user_id.eq(user_id))
                 .filter(chat_messages::session_id.eq(session_id))
                 .select(ChatRsMessage::as_select())
                 .order_by(chat_messages::created_at.asc())
