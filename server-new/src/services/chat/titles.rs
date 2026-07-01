@@ -27,7 +27,7 @@ pub fn generate_title(
 
     tokio::spawn(async move {
         if let Err(err) = generate(user_id, session_id, user_message, provider, model, pool).await {
-            tracing::warn!("Failed to generate title: {}", err);
+            tracing::warn!("Failed to generate title: {err}");
         }
     });
 }

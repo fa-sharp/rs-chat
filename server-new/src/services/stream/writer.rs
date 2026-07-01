@@ -147,7 +147,7 @@ impl LlmStreamWriter {
     fn process_text(&mut self, text: &str) {
         self.current_chunk
             .text
-            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE))
+            .get_or_insert_with(|| String::with_capacity(MAX_CHUNK_SIZE * 2))
             .push_str(text);
         self.complete_text
             .get_or_insert_with(|| String::with_capacity(1024))

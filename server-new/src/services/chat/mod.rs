@@ -50,9 +50,6 @@ impl<'r> ChatService<'r> {
         user_message: Option<LlmUserMessage>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let stream_key = StreamingService::chat_stream_key(&user_id, &session_id);
-        let stream_service = StreamingService::new(self.tinistream);
-
         // Get session and message history
         let (chat_session, mut session_messages) = db
             .chats()
@@ -61,6 +58,8 @@ impl<'r> ChatService<'r> {
         let chat_session = chat_session.ok_or(ChatError::SessionNotFound)?;
 
         // Check that we're not already streaming a response for this chat session
+        let stream_key = StreamingService::chat_stream_key(&user_id, &session_id);
+        let stream_service = StreamingService::new(self.tinistream);
         if stream_service.exists_stream(&stream_key).await? {
             return Err(ChatError::AlreadyStreaming);
         }
@@ -89,7 +88,7 @@ impl<'r> ChatService<'r> {
             session_messages.push(new_message);
         }
 
-        // Send the request to the LLM provider and get the streaming response
+        // Send the request to the LLM provider and get the stream response
         let stream = provider
             .stream_chat(LlmChatRequest {
                 messages: &messages::build_llm_messages(session_messages)?,

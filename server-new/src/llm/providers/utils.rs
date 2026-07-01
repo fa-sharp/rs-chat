@@ -10,6 +10,9 @@ use tokio_util::{
 
 use crate::llm::error::LlmStreamChunkError;
 
+/// Max allowed length of stream lines (5 KB)
+const MAX_LINE_LEN: usize = 5 * 1024;
+
 /// Create a data URI
 pub fn create_data_uri(content_type: &str, b64_string: &str) -> String {
     format!("data:{content_type};base64,{b64_string}")
@@ -20,7 +23,7 @@ pub fn get_sse_events<T: DeserializeOwned + Send + 'static>(
     response: reqwest::Response,
 ) -> impl Stream<Item = Result<T, LlmStreamChunkError>> {
     let stream_reader = StreamReader::new(response.bytes_stream().map_err(std::io::Error::other));
-    let line_reader = FramedRead::new(stream_reader, LinesCodec::new());
+    let line_reader = FramedRead::new(stream_reader, LinesCodec::new_with_max_length(MAX_LINE_LEN));
 
     line_reader.filter_map(|line_result| {
         match line_result {
@@ -46,7 +49,7 @@ pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
     response: reqwest::Response,
 ) -> impl Stream<Item = Result<T, LlmStreamChunkError>> {
     let stream_reader = StreamReader::new(response.bytes_stream().map_err(std::io::Error::other));
-    let line_reader = FramedRead::new(stream_reader, LinesCodec::new());
+    let line_reader = FramedRead::new(stream_reader, LinesCodec::new_with_max_length(MAX_LINE_LEN));
     line_reader.map(|line_result| match line_result {
         Ok(line) => serde_json::from_str::<T>(&line).map_err(LlmStreamChunkError::Parsing),
         Err(e) => Err(LlmStreamChunkError::Decoding(e)),

@@ -13,7 +13,7 @@ pub struct TinistreamClient {
 pub type TiniResult<T> = Result<T, TiniError>;
 
 #[derive(Debug, thiserror::Error)]
-#[error("{message}")]
+#[error("{status} {message}")]
 pub struct TiniError {
     pub status: u16,
     pub code: String,
