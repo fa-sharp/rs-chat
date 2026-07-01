@@ -87,12 +87,12 @@ impl<'a> OAuthService<'a> {
     fn oauth_provider(
         &self,
         provider: OAuthProviderEnum,
-    ) -> AuthResult<(&OAuthClient, &dyn OAuthProvider)> {
+    ) -> AuthResult<(&OAuthClient, &Box<dyn OAuthProvider>)> {
         let (client, provider) = self
             .provider_map
             .get(&provider)
             .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
-        Ok((client, provider.as_ref()))
+        Ok((client, provider))
     }
 
     fn get_redirect_url(&self, callback_path: &str) -> String {
@@ -208,24 +208,24 @@ impl<'a> OAuthService<'a> {
 
         let mut map: OAuthProviderMap = HashMap::new();
         if let Some(ref c) = config.auth.github {
-            let provider = Box::new(GitHubProvider::new(c));
-            let client = Self::build_oauth_client(http_client, &*provider)?;
-            map.insert(OAuthProviderEnum::Github, (client, provider));
+            let provider = GitHubProvider::new(c);
+            let client = Self::build_oauth_client(http_client, &provider)?;
+            map.insert(OAuthProviderEnum::Github, (client, Box::new(provider)));
         }
         if let Some(ref c) = config.auth.discord {
-            let provider = Box::new(DiscordProvider::new(c));
-            let client = Self::build_oauth_client(http_client, &*provider)?;
-            map.insert(OAuthProviderEnum::Discord, (client, provider));
+            let provider = DiscordProvider::new(c);
+            let client = Self::build_oauth_client(http_client, &provider)?;
+            map.insert(OAuthProviderEnum::Discord, (client, Box::new(provider)));
         }
         if let Some(ref c) = config.auth.google {
-            let provider = Box::new(GoogleProvider::new(c));
-            let client = Self::build_oauth_client(http_client, &*provider)?;
-            map.insert(OAuthProviderEnum::Google, (client, provider));
+            let provider = GoogleProvider::new(c);
+            let client = Self::build_oauth_client(http_client, &provider)?;
+            map.insert(OAuthProviderEnum::Google, (client, Box::new(provider)));
         }
         if let Some(ref c) = config.auth.oidc {
-            let provider = Box::new(OidcProvider::new(c));
-            let client = Self::build_oauth_client(http_client, &*provider)?;
-            map.insert(OAuthProviderEnum::Oidc, (client, provider));
+            let provider = OidcProvider::new(c);
+            let client = Self::build_oauth_client(http_client, &provider)?;
+            map.insert(OAuthProviderEnum::Oidc, (client, Box::new(provider)));
         }
 
         Ok(map)
@@ -233,12 +233,12 @@ impl<'a> OAuthService<'a> {
 
     fn build_oauth_client(
         http_client: &reqwest::Client,
-        provider: &dyn OAuthProvider,
+        provider: &impl OAuthProvider,
     ) -> Result<SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>, SimpleOAuthError> {
         let oauth_client = SimpleOAuthClient::builder()
+            .provider(provider.get_inner_provider())
             .credentials(provider.get_credentials())
             .redirect_url("http://example.com/should-be-overridden")
-            .provider(provider.get_inner_provider())
             .http_client(http_client)
             .build()?;
         Ok(oauth_client)
