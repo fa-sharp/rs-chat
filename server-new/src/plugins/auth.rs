@@ -35,7 +35,8 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             let encryptor = Encryptor::new(&encryption_key)?;
 
             // Build configured OAuth providers
-            let oauth_providers = OAuthService::build_provider_map(config, http_client);
+            let oauth_providers = OAuthService::build_provider_map(config, http_client)
+                .context("build OAuth providers")?;
 
             state.insert(encryptor);
             state.insert(oauth_providers);
