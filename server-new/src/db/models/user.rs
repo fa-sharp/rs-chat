@@ -1,12 +1,11 @@
 use diesel::prelude::*;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::db::UtcDateTime;
-
 #[skip_serializing_none]
-#[derive(Identifiable, Queryable, Selectable, Serialize)]
+#[derive(Identifiable, Queryable, Selectable, Serialize, ToSchema)]
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,
@@ -18,7 +17,7 @@ pub struct ChatRsUser {
     pub oidc_id: Option<String>,
     pub sso_username: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: UtcDateTime,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Insertable, Default)]

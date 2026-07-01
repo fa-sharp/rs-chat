@@ -89,4 +89,7 @@ tower-sessions-redis-store = {
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
+utoipa = { version = "5.5.0", features = ["chrono", "uuid"] }
+utoipa-axum = "0.2.0"
+utoipa-scalar = { version = "0.3.0", features = ["axum"] }
 uuid = { version = "1.23.3", features = ["serde", "v4"] }

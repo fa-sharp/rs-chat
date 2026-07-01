@@ -2,9 +2,10 @@ use axum::{
     Json,
     extract::{Path, State},
     response::IntoResponse,
-    routing,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
@@ -14,8 +15,8 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new().route("/{session_id}", routing::post(chat_stream))
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().routes(routes!(chat_stream))
 }
 
 #[derive(Debug, Deserialize)]
@@ -28,6 +29,7 @@ struct ChatInput {
     options: LlmChatOptions,
 }
 
+#[utoipa::path(get, path = "/{session_id}", params(("session_id" = Uuid, Path)), responses((status = OK, body = StreamAccess)))]
 async fn chat_stream(
     UserSession { user_id }: UserSession,
     Path(session_id): Path<Uuid>,
@@ -54,5 +56,14 @@ async fn chat_stream(
         )
         .await?;
 
-    Ok(Json(stream_access))
+    Ok(Json(StreamAccess {
+        url: stream_access.sse_url,
+        token: stream_access.token,
+    }))
+}
+
+#[derive(Serialize, ToSchema)]
+struct StreamAccess {
+    url: String,
+    token: String,
 }

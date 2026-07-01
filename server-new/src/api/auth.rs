@@ -3,12 +3,13 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Redirect},
-    routing,
 };
 use serde::Deserialize;
+use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     api::RoutePrefix,
+    db::models::ChatRsUser,
     error::AppResult,
     extractors::{
         database::Database,
@@ -18,18 +19,18 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> axum::Router<AppState> {
-    axum::Router::new()
-        .route("/login/{provider}", routing::get(login_handler))
-        .route("/login/{provider}/callback", routing::get(callback_handler))
-        .route("/user", routing::get(get_user_handler))
-        .route("/logout", routing::get(logout_handler).post(logout_handler))
+pub fn routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(login_handler, logout_handler))
+        .routes(routes!(login_callback_handler))
+        .routes(routes!(get_user_handler))
 }
 
 fn callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {
     format!("{route_prefix}/login/{}/callback", provider.as_str())
 }
 
+#[utoipa::path(get, path = "/login/{provider}", params(("provider" = OAuthProviderEnum, Path)), responses((status = OK)))]
 async fn login_handler(
     Path(provider): Path<OAuthProviderEnum>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
@@ -50,7 +51,8 @@ struct OAuthCallbackQuery {
     state: String,
 }
 
-async fn callback_handler(
+#[utoipa::path(get, path = "/login/{provider}/callback", params(("provider" = OAuthProviderEnum, Path)), responses((status = OK)))]
+async fn login_callback_handler(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
@@ -82,6 +84,7 @@ async fn callback_handler(
     Ok(Redirect::to(&state.config.server.base_url))
 }
 
+#[utoipa::path(get, path = "/user", responses((status = OK, body = ChatRsUser)))]
 async fn get_user_handler(
     UserSession { user_id }: UserSession,
     Database(mut db): Database,
@@ -91,6 +94,7 @@ async fn get_user_handler(
     Ok(Json(user))
 }
 
+#[utoipa::path(get, post, path = "/logout", responses((status = NO_CONTENT)))]
 async fn logout_handler(
     session: tower_sessions::Session,
     State(state): State<AppState>,

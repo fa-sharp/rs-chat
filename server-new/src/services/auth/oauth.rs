@@ -7,6 +7,7 @@ use simple_oauth::{
     types::{OAuthCredentials, StandardTokenResponse, UserInfo},
 };
 use tower_sessions::Session;
+use utoipa::ToSchema;
 
 use crate::{
     config::AppConfig,
@@ -34,7 +35,7 @@ pub type OAuthProviderMap = HashMap<OAuthProviderEnum, (OAuthClient, Box<dyn OAu
 pub type OAuthClient = SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>;
 
 /// Supported OAuth providers
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum OAuthProviderEnum {
     Github,
