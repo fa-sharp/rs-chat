@@ -3,4 +3,4 @@ mod openai;
 mod utils;
 
 pub use lorem::LoremProvider;
-pub use openai::{OpenAIProvider, OpenAIProviderConfig, OpenAIProviderFlavor};
+pub use openai::{OpenAIProvider, OpenAIProviderConfig};

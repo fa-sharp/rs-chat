@@ -94,6 +94,7 @@ diesel::table! {
         default_model -> Text,
         api_key_id -> Nullable<Uuid>,
         created_at -> Timestamptz,
+        openai_subtype -> Nullable<Text>,
     }
 }
 

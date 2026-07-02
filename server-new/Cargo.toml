@@ -55,10 +55,11 @@ serde_with = {
   default-features = false,
   features = ["macros"]
 }
-simple-oauth = {
-  git = "https://github.com/fa-sharp/simple-oauth-rs",
-  rev = "9eebc3e",
-  features = ["default-tls"]
+simple-oauth = { version = "0.1.0-beta", features = ["default-tls"] }
+strum = {
+  version = "0.28.0",
+  default-features = false,
+  features = ["derive", "std"]
 }
 thiserror = "2.0.18"
 tinistream-client = {

@@ -5,7 +5,7 @@ use crate::llm::{error::LlmStreamChunkError, interface::LlmStreamChunk, types::L
 /// Parse chunks from an OpenAI SSE event
 pub fn parse_openai_event(
     mut event: OpenAIStreamResponse,
-    _tool_calls: &mut Vec<OpenAIStreamToolCall>,
+    // _tool_calls: &mut Vec<OpenAIStreamToolCall>,
 ) -> Vec<Result<LlmStreamChunk, LlmStreamChunkError>> {
     let mut chunks = Vec::with_capacity(1);
     if let Some(delta) = event.choices.pop().and_then(|c| c.delta) {
@@ -98,13 +98,13 @@ pub struct OpenAIResponseDelta {
     // pub images: Option<Vec<OpenRouterImage>>,
 }
 
-/// OpenAI streaming tool call
-#[derive(Debug, Deserialize)]
-pub struct OpenAIStreamToolCall {
-    id: Option<String>,
-    index: usize,
-    function: OpenAIStreamToolCallFunction,
-}
+// /// OpenAI streaming tool call
+// #[derive(Debug, Deserialize)]
+// pub struct OpenAIStreamToolCall {
+//     id: Option<String>,
+//     index: usize,
+//     function: OpenAIStreamToolCallFunction,
+// }
 
 // impl OpenAIStreamToolCall {
 //     /// Convert OpenAI tool call format to ChatRsToolCall, add tool ID
@@ -125,12 +125,12 @@ pub struct OpenAIStreamToolCall {
 //     }
 // }
 
-/// OpenAI streaming tool call function
-#[derive(Debug, Deserialize)]
-struct OpenAIStreamToolCallFunction {
-    name: Option<String>,
-    arguments: Option<String>,
-}
+// /// OpenAI streaming tool call function
+// #[derive(Debug, Deserialize)]
+// struct OpenAIStreamToolCallFunction {
+//     name: Option<String>,
+//     arguments: Option<String>,
+// }
 
 // /// OpenRouter image
 // #[derive(Debug, Deserialize)]

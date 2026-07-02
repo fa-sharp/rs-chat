@@ -1,6 +1,4 @@
-use crate::{
-    db::models::ParseProviderTypeError, error::AppError, services::auth::encryption::EncryptorError,
-};
+use crate::{error::AppError, services::auth::encryption::EncryptorError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProviderError {
@@ -8,8 +6,8 @@ pub enum ProviderError {
     NotFound,
     #[error("missing API key")]
     MissingApiKey,
-    #[error(transparent)]
-    InvalidProviderType(#[from] ParseProviderTypeError),
+    #[error("invalid provider type: {0}")]
+    InvalidProviderType(#[from] strum::ParseError),
     #[error("error reading/writing API keys: {0}")]
     Encryption(#[from] EncryptorError),
     #[error("database error: {0}")]

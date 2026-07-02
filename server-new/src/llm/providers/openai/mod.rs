@@ -2,11 +2,14 @@
 
 use futures::StreamExt;
 
-use crate::llm::{
-    error::LlmRequestError,
-    interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
-    providers::utils::{self, llm_api_request},
-    types::{LlmChatRequest, LlmPrompt, LlmUsage},
+use crate::{
+    db::models::OpenAISubtype,
+    llm::{
+        error::LlmRequestError,
+        interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
+        providers::utils,
+        types::{LlmChatRequest, LlmPrompt, LlmUsage},
+    },
 };
 
 mod request;
@@ -17,13 +20,7 @@ use {request::*, response::*};
 const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
-/// OpenAI-compatible provider behavior variants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OpenAIProviderFlavor {
-    OpenAI,
-    OpenRouter,
-}
-impl OpenAIProviderFlavor {
+impl OpenAISubtype {
     fn name(self) -> &'static str {
         match self {
             Self::OpenAI => "OpenAI",
@@ -50,31 +47,23 @@ impl OpenAIProviderFlavor {
 /// Configuration for OpenAI-compatible providers.
 #[derive(Debug, Clone)]
 pub struct OpenAIProviderConfig {
-    flavor: OpenAIProviderFlavor,
+    subtype: OpenAISubtype,
     api_key: String,
     base_url: String,
 }
 
 impl OpenAIProviderConfig {
-    pub fn openai(api_key: impl Into<String>) -> Self {
-        Self::new(OpenAIProviderFlavor::OpenAI, api_key, None::<String>)
-    }
-
-    pub fn openrouter(api_key: impl Into<String>) -> Self {
-        Self::new(OpenAIProviderFlavor::OpenRouter, api_key, None::<String>)
-    }
-
     pub fn new(
-        flavor: OpenAIProviderFlavor,
+        subtype: OpenAISubtype,
         api_key: impl Into<String>,
         base_url: Option<impl Into<String>>,
     ) -> Self {
         Self {
-            flavor,
+            subtype,
             api_key: api_key.into(),
             base_url: base_url
                 .map(Into::into)
-                .unwrap_or_else(|| flavor.default_base_url().to_owned())
+                .unwrap_or_else(|| subtype.default_base_url().to_owned())
                 .trim_end_matches('/')
                 .to_owned(),
         }
@@ -95,45 +84,37 @@ impl OpenAIProvider {
             config,
         }
     }
-
-    pub fn openai(http_client: &reqwest::Client, api_key: impl Into<String>) -> Self {
-        Self::new(http_client, OpenAIProviderConfig::openai(api_key))
-    }
-
-    pub fn openrouter(http_client: &reqwest::Client, api_key: impl Into<String>) -> Self {
-        Self::new(http_client, OpenAIProviderConfig::openrouter(api_key))
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
 struct OpenAIRequestPolicy {
-    flavor: OpenAIProviderFlavor,
+    subtype: OpenAISubtype,
 }
 
 impl OpenAIRequestPolicy {
-    fn new(flavor: OpenAIProviderFlavor) -> Self {
-        Self { flavor }
+    fn new(subtype: OpenAISubtype) -> Self {
+        Self { subtype }
     }
 
     fn max_tokens(self, max_tokens: Option<u32>) -> Option<u32> {
-        (!self.flavor.use_max_completion_tokens())
+        (!self.subtype.use_max_completion_tokens())
             .then_some(max_tokens)
             .flatten()
     }
 
     fn max_completion_tokens(self, max_tokens: Option<u32>) -> Option<u32> {
-        self.flavor
+        self.subtype
             .use_max_completion_tokens()
             .then_some(max_tokens)
             .flatten()
     }
 
     fn store(self) -> Option<bool> {
-        self.flavor.include_store_false().then_some(false)
+        self.subtype.include_store_false().then_some(false)
     }
 
     fn stream_options(self) -> Option<OpenAIStreamOptions> {
-        self.flavor
+        self.subtype
             .include_usage_stream_options()
             .then_some(OpenAIStreamOptions {
                 include_usage: true,
@@ -143,7 +124,7 @@ impl OpenAIRequestPolicy {
 
 impl LlmProvider for OpenAIProvider {
     fn prompt<'r>(&'r self, prompt: LlmPrompt<'r>) -> LlmPromptResponse<'r> {
-        let policy = OpenAIRequestPolicy::new(self.config.flavor);
+        let policy = OpenAIRequestPolicy::new(self.config.subtype);
         let request = OpenAIRequest {
             model: &prompt.options.model,
             messages: vec![OpenAIMessage {
@@ -158,8 +139,8 @@ impl LlmProvider for OpenAIProvider {
         };
 
         Box::pin(async move {
-            let provider_name = self.config.flavor.name();
-            let response = llm_api_request(
+            let provider_name = self.config.subtype.name();
+            let response = utils::llm_api_request(
                 &self.client,
                 provider_name,
                 &format!("{}/chat/completions", self.config.base_url),
@@ -187,7 +168,7 @@ impl LlmProvider for OpenAIProvider {
     }
 
     fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
-        let policy = OpenAIRequestPolicy::new(self.config.flavor);
+        let policy = OpenAIRequestPolicy::new(self.config.subtype);
         let openai_messages = build_openai_messages(&req.messages);
         // let openai_tools = tools.as_ref().map(|t| build_openai_tools(t));
         //
@@ -204,10 +185,10 @@ impl LlmProvider for OpenAIProvider {
             // modalities: options.modalities.as_ref(),
             ..Default::default()
         };
-        let provider_name = self.config.flavor.name();
+        let provider_name = self.config.subtype.name();
 
         Box::pin(async move {
-            let response = llm_api_request(
+            let response = utils::llm_api_request(
                 &self.client,
                 provider_name,
                 &format!("{}/chat/completions", self.config.base_url),
@@ -218,11 +199,11 @@ impl LlmProvider for OpenAIProvider {
 
             let stream = async_stream::stream! {
                 let mut sse_event_stream = utils::get_sse_events(response);
-                let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
+                // let mut tool_calls: Vec<OpenAIStreamToolCall> = Vec::new();
                 while let Some(event) = sse_event_stream.next().await {
                     match event {
                         Ok(event) => {
-                            for chunk in parse_openai_event(event, &mut tool_calls) {
+                            for chunk in parse_openai_event(event) {
                                 yield chunk;
                             }
                         }

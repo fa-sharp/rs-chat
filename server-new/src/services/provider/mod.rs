@@ -5,11 +5,11 @@ use uuid::Uuid;
 use crate::{
     db::{
         DbService,
-        models::{ChatRsProvider, ChatRsProviderType, ChatRsSecret},
+        models::{ChatRsProvider, ChatRsProviderType, ChatRsSecret, OpenAISubtype},
     },
     llm::{
         interface::LlmProvider,
-        providers::{LoremProvider, OpenAIProvider},
+        providers::{LoremProvider, OpenAIProvider, OpenAIProviderConfig},
     },
     services::{auth::encryption::Encryptor, provider::error::ProviderError},
 };
@@ -40,7 +40,7 @@ impl<'r> ProviderService<'r> {
             .find_by_id(user_id, provider_id)
             .await?
             .ok_or(ProviderError::NotFound)?;
-        let provider_type = ChatRsProviderType::from_str(provider.provider_type.as_str())?;
+        let provider_type = ChatRsProviderType::from_str(&provider.provider_type)?;
 
         Ok((provider, provider_type, api_key_secret))
     }
@@ -51,7 +51,7 @@ impl<'r> ProviderService<'r> {
         user_id: &Uuid,
         provider_id: i32,
     ) -> Result<Arc<dyn LlmProvider>, ProviderError> {
-        let (_provider, provider_type, api_key_secret) =
+        let (provider, provider_type, api_key_secret) =
             self.get_provider(db, user_id, provider_id).await?;
         let api_key = api_key_secret
             .map(|secret| {
@@ -62,9 +62,16 @@ impl<'r> ProviderService<'r> {
 
         let llm_provider: Arc<dyn LlmProvider> = match provider_type {
             ChatRsProviderType::Lorem => Arc::new(LoremProvider::new()),
-            ChatRsProviderType::Openai => Arc::new(OpenAIProvider::openai(
+            ChatRsProviderType::OpenAI => Arc::new(OpenAIProvider::new(
                 self.http_client,
-                api_key.ok_or(ProviderError::MissingApiKey)?,
+                OpenAIProviderConfig::new(
+                    provider
+                        .openai_subtype
+                        .and_then(|s| OpenAISubtype::from_str(&s).ok())
+                        .unwrap_or_default(),
+                    api_key.ok_or(ProviderError::MissingApiKey)?,
+                    provider.base_url,
+                ),
             )),
             _ => todo!(),
             // ChatRsProviderType::Anthropic => Box::new(AnthropicProvider::new(

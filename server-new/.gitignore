@@ -1,5 +1,6 @@
 # Rust
 /target
+.diesel_lock
 
 # Env files
 .env*

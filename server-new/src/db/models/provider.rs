@@ -1,8 +1,7 @@
-use std::str::FromStr;
-
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use strum::{EnumString, IntoStaticStr};
 use uuid::Uuid;
 
 use crate::db::models::ChatRsUser;
@@ -16,7 +15,7 @@ pub struct ChatRsProvider {
     // #[schemars(with = "ChatRsProviderType")]
     pub provider_type: String,
     // #[schemars(with = "OpenaiSubtype")]
-    // pub openai_subtype: Option<String>,
+    pub openai_subtype: Option<String>,
     #[serde(skip)]
     pub user_id: Uuid,
     pub default_model: String,
@@ -30,6 +29,7 @@ pub struct ChatRsProvider {
 pub struct NewChatRsProvider<'a> {
     pub name: &'a str,
     pub provider_type: &'a str,
+    pub openai_subtype: &'a str,
     pub user_id: &'a Uuid,
     pub base_url: Option<&'a str>,
     pub default_model: &'a str,
@@ -46,50 +46,20 @@ pub struct UpdateChatRsProvider<'a> {
 }
 
 /// The API type of the provider
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
 pub enum ChatRsProviderType {
     Anthropic,
-    Openai,
+    OpenAI,
     Ollama,
     Lorem,
 }
 
 /// The subtype for OpenAI-compatible providers
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum OpenaiSubtype {
-    Openai,
-    Google,
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, EnumString, IntoStaticStr)]
+#[strum(serialize_all = "lowercase")]
+pub enum OpenAISubtype {
+    #[default]
+    OpenAI,
     OpenRouter,
-    LlmGateway,
-}
-
-#[derive(Debug, thiserror::Error)]
-#[error("invalid provider type: '{0}'")]
-pub struct ParseProviderTypeError(String);
-
-impl FromStr for ChatRsProviderType {
-    type Err = ParseProviderTypeError;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "anthropic" => Ok(ChatRsProviderType::Anthropic),
-            "openai" => Ok(ChatRsProviderType::Openai),
-            "ollama" => Ok(ChatRsProviderType::Ollama),
-            "lorem" => Ok(ChatRsProviderType::Lorem),
-            provider => Err(ParseProviderTypeError(provider.into())),
-        }
-    }
-}
-
-impl From<&ChatRsProviderType> for &str {
-    fn from(value: &ChatRsProviderType) -> Self {
-        match value {
-            ChatRsProviderType::Anthropic => "anthropic",
-            ChatRsProviderType::Openai => "openai",
-            ChatRsProviderType::Ollama => "ollama",
-            ChatRsProviderType::Lorem => "lorem",
-        }
-    }
 }
