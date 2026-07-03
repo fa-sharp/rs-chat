@@ -10,6 +10,8 @@ url = "postgres://localhost"
 
 [redis]
 url = "redis://localhost:6379"
+pool_size = 4
+timeout = 10
 
 [services]
 streamer_url = "http://localhost:8081"

@@ -62,6 +62,8 @@ pub struct SecurityConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RedisConfig {
     pub url: String,
+    pub pool_size: usize,
+    pub timeout: u64,
 }
 
 /// Plugin that reads and validates configuration, and adds it to server state

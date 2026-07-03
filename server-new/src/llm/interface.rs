@@ -1,10 +1,8 @@
 use futures::{future::BoxFuture, stream::BoxStream};
 
-use crate::llm::types::LlmPrompt;
-
 use super::{
     error::{LlmRequestError, LlmStreamChunkError},
-    types::{LlmChatRequest, LlmUsage},
+    types::{LlmChatRequest, LlmPrompt, LlmUsage},
 };
 
 /// Trait representing an LLM provider
