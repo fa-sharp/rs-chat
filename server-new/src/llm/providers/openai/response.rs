@@ -1,61 +1,71 @@
 use serde::Deserialize;
 
-use crate::llm::{error::LlmStreamChunkError, interface::LlmStreamChunk, types::LlmUsage};
+use crate::llm::{
+    interface::{LlmStreamChunk, LlmStreamChunkResult},
+    types::LlmUsage,
+};
 
 /// Parse chunks from an OpenAI SSE event
 pub fn parse_openai_event(
-    mut event: OpenAIStreamResponse,
+    event: OpenAIStreamResponse,
     // _tool_calls: &mut Vec<OpenAIStreamToolCall>,
-) -> Vec<Result<LlmStreamChunk, LlmStreamChunkError>> {
-    let mut chunks = Vec::with_capacity(1);
-    if let Some(delta) = event.choices.pop().and_then(|c| c.delta) {
-        if let Some(text) = delta.content {
-            chunks.push(Ok(LlmStreamChunk::Text(text)));
-        }
-        // if let Some(tool_calls_delta) = delta.tool_calls {
-        //     for tool_call_delta in tool_calls_delta {
-        //         if let Some(tc) = tool_calls
-        //             .iter_mut()
-        //             .find(|tc| tc.index == tool_call_delta.index)
-        //         {
-        //             if let Some(function_arguments) = tool_call_delta.function.arguments {
-        //                 *tc.function.arguments.get_or_insert_default() += &function_arguments;
-        //             }
-        //             if let Some(ref tool_name) = tc.function.name {
-        //                 let chunk = LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
-        //                     index: tool_call_delta.index,
-        //                     tool_name: tool_name.clone(),
-        //                 });
-        //                 chunks.push(Ok(chunk));
-        //             }
-        //         } else {
-        //             if let Some(ref tool_name) = tool_call_delta.function.name {
-        //                 let chunk = LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
-        //                     index: tool_call_delta.index,
-        //                     tool_name: tool_name.clone(),
-        //                 });
-        //                 chunks.push(Ok(chunk));
-        //             }
-        //             tool_calls.push(tool_call_delta);
-        //         }
-        //     }
-        // }
-        // if let Some(images) = delta.images {
-        //     chunks.push(Ok(LlmStreamChunk::Images(
-        //         images
-        //             .into_iter()
-        //             .map(|image| LlmImage {
-        //                 base64_url: image.image_url.url,
-        //             })
-        //             .collect(),
-        //     )));
-        // }
-    }
-    if let Some(usage) = event.usage {
-        chunks.push(Ok(LlmStreamChunk::Usage(usage.into())));
-    }
+) -> impl Iterator<Item = LlmStreamChunkResult> {
+    let OpenAIStreamResponse { mut choices, usage } = event;
+    let text = choices
+        .pop()
+        .and_then(|choice| choice.delta)
+        .and_then(|delta| delta.content)
+        .map(|text| Ok(LlmStreamChunk::Text(text)));
+    let usage = usage.map(|usage| Ok(LlmStreamChunk::Usage(usage.into())));
 
-    chunks
+    [text, usage].into_iter().flatten()
+
+    // if let Some(delta) = event.choices.pop().and_then(|c| c.delta) {
+    //     if let Some(text) = delta.content {
+    //         chunks.push(Ok(LlmStreamChunk::Text(text)));
+    //     }
+    //     // if let Some(tool_calls_delta) = delta.tool_calls {
+    //     //     for tool_call_delta in tool_calls_delta {
+    //     //         if let Some(tc) = tool_calls
+    //     //             .iter_mut()
+    //     //             .find(|tc| tc.index == tool_call_delta.index)
+    //     //         {
+    //     //             if let Some(function_arguments) = tool_call_delta.function.arguments {
+    //     //                 *tc.function.arguments.get_or_insert_default() += &function_arguments;
+    //     //             }
+    //     //             if let Some(ref tool_name) = tc.function.name {
+    //     //                 let chunk = LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
+    //     //                     index: tool_call_delta.index,
+    //     //                     tool_name: tool_name.clone(),
+    //     //                 });
+    //     //                 chunks.push(Ok(chunk));
+    //     //             }
+    //     //         } else {
+    //     //             if let Some(ref tool_name) = tool_call_delta.function.name {
+    //     //                 let chunk = LlmStreamChunk::PendingToolCall(LlmPendingToolCall {
+    //     //                     index: tool_call_delta.index,
+    //     //                     tool_name: tool_name.clone(),
+    //     //                 });
+    //     //                 chunks.push(Ok(chunk));
+    //     //             }
+    //     //             tool_calls.push(tool_call_delta);
+    //     //         }
+    //     //     }
+    //     // }
+    //     // if let Some(images) = delta.images {
+    //     //     chunks.push(Ok(LlmStreamChunk::Images(
+    //     //         images
+    //     //             .into_iter()
+    //     //             .map(|image| LlmImage {
+    //     //                 base64_url: image.image_url.url,
+    //     //             })
+    //     //             .collect(),
+    //     //     )));
+    //     // }
+    // }
+    // if let Some(usage) = event.usage {
+    //     chunks.push(Ok(LlmStreamChunk::Usage(usage.into())));
+    // }
 }
 
 /// OpenAI API response
