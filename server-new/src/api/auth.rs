@@ -12,6 +12,7 @@ use crate::{
     db::models::ChatRsUser,
     error::AppResult,
     extractors::{
+        auth_config::PublicAuthConfig,
         database::Database,
         session::{SessionMeta, UserSession},
     },
@@ -21,9 +22,25 @@ use crate::{
 
 pub fn routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
+        .routes(routes!(get_user_handler))
+        .routes(routes!(get_config_handler))
         .routes(routes!(login_handler, logout_handler))
         .routes(routes!(login_callback_handler))
-        .routes(routes!(get_user_handler))
+}
+
+#[utoipa::path(get, path = "/user", responses((status = OK, body = ChatRsUser)))]
+async fn get_user_handler(
+    UserSession { user_id }: UserSession,
+    Database(mut db): Database,
+    State(state): State<AppState>,
+) -> AppResult<impl IntoResponse> {
+    let user = state.auth_service().get_user(&mut db, &user_id).await?;
+    Ok(Json(user))
+}
+
+#[utoipa::path(get, path = "/config", responses((status = OK, body = PublicAuthConfig)))]
+async fn get_config_handler(auth_config: PublicAuthConfig) -> impl IntoResponse {
+    Json(auth_config)
 }
 
 fn callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {
@@ -82,16 +99,6 @@ async fn login_callback_handler(
         .await?;
 
     Ok(Redirect::to(&state.config.server.base_url))
-}
-
-#[utoipa::path(get, path = "/user", responses((status = OK, body = ChatRsUser)))]
-async fn get_user_handler(
-    UserSession { user_id }: UserSession,
-    Database(mut db): Database,
-    State(state): State<AppState>,
-) -> AppResult<impl IntoResponse> {
-    let user = state.auth_service().get_user(&mut db, &user_id).await?;
-    Ok(Json(user))
 }
 
 #[utoipa::path(get, post, path = "/logout", responses((status = NO_CONTENT)))]

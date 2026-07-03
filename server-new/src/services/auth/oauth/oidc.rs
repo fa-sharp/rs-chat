@@ -14,7 +14,7 @@ use super::OAuthProvider;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct OidcConfig {
-    name: Option<String>,
+    pub name: Option<String>,
     client_id: String,
     client_secret: String,
     auth_endpoint: String,
