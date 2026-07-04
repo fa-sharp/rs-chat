@@ -6,6 +6,7 @@ use simple_oauth::{
     SimpleOAuthClient, SimpleOAuthError, SimpleOAuthProvider,
     types::{OAuthCredentials, StandardTokenResponse, UserInfo},
 };
+use strum::Display;
 use tower_sessions::Session;
 use utoipa::ToSchema;
 
@@ -15,7 +16,7 @@ use crate::{
         DbService,
         models::{ChatRsUser, NewChatRsUser, UpdateChatRsUser},
     },
-    extractors::session::UserSession,
+    extractors::CurrentUser,
     services::auth::{AuthError, AuthResult},
 };
 
@@ -34,24 +35,15 @@ pub type OAuthProviderMap = HashMap<OAuthProviderEnum, (OAuthClient, Box<dyn OAu
 /// Type of the OAuth client stored in state
 pub type OAuthClient = SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>;
 
-/// Supported OAuth providers
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+/// Supported OAuth provider
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum OAuthProviderEnum {
     Github,
     Discord,
     Google,
     Oidc,
-}
-impl OAuthProviderEnum {
-    pub fn as_str(&self) -> &str {
-        match self {
-            OAuthProviderEnum::Github => "github",
-            OAuthProviderEnum::Discord => "discord",
-            OAuthProviderEnum::Google => "google",
-            OAuthProviderEnum::Oidc => "oidc",
-        }
-    }
 }
 
 /// Trait for all OAuth providers
@@ -158,7 +150,7 @@ impl<'a> OAuthService<'a> {
         db: &mut DbService,
         provider: OAuthProviderEnum,
         token: &StandardTokenResponse,
-        active_session: Option<UserSession>,
+        active_session: Option<CurrentUser>,
     ) -> AuthResult<ChatRsUser> {
         // Get user info from provider
         let (oauth_client, oauth_provider) = self.oauth_provider(provider)?;

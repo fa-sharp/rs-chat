@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     db::{DbPool, DbService},
-    extractors::session::{SessionMeta, UserSession},
+    extractors::SessionMeta,
     services::auth::AuthResult,
 };
 
@@ -45,10 +45,10 @@ impl AuthSessionService {
         Ok(())
     }
 
-    /// Extract the current user session if this is an active user session.
-    pub async fn user_session(&self, session: &Session) -> AuthResult<Option<UserSession>> {
+    /// Extract the current user ID if this is an active user session.
+    pub async fn active_user_id(&self, session: &Session) -> AuthResult<Option<Uuid>> {
         let user_id = session.get::<Uuid>(USER_ID_FIELD).await?;
-        Ok(user_id.map(UserSession::new))
+        Ok(user_id)
     }
 
     /// Logout the user, deleting the current session.
@@ -68,7 +68,7 @@ pub(super) fn user_id_from_record_data(
     data: &HashMap<String, serde_json::Value>,
 ) -> StoreResult<Option<Uuid>> {
     data.get(USER_ID_FIELD)
-        .map(|val| serde_json::from_value::<Uuid>(val.clone()))
+        .and_then(|val| val.as_str().map(Uuid::try_parse))
         .transpose()
         .map_err(|_| StoreError::Encode("invalid user id field".to_owned()))
 }

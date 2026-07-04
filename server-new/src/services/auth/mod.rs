@@ -1,9 +1,11 @@
 use crate::{
     config::AppConfig,
     db::{DbService, models::ChatRsUser},
+    services::auth::encryption::Encryptor,
 };
 use uuid::Uuid;
 
+pub mod api_key;
 pub mod encryption;
 mod error;
 pub mod oauth;
@@ -12,15 +14,21 @@ pub mod session_store;
 
 use error::{AuthError, AuthResult};
 
-pub struct AuthService<'a> {
-    config: &'a AppConfig,
-    oauth_providers: &'a oauth::OAuthProviderMap,
+pub struct AuthService<'r> {
+    config: &'r AppConfig,
+    encryptor: &'r Encryptor,
+    oauth_providers: &'r oauth::OAuthProviderMap,
 }
 
-impl<'a> AuthService<'a> {
-    pub fn new(config: &'a AppConfig, oauth_providers: &'a oauth::OAuthProviderMap) -> Self {
+impl<'r> AuthService<'r> {
+    pub fn new(
+        config: &'r AppConfig,
+        encryptor: &'r Encryptor,
+        oauth_providers: &'r oauth::OAuthProviderMap,
+    ) -> Self {
         Self {
             config,
+            encryptor,
             oauth_providers,
         }
     }
@@ -40,7 +48,12 @@ impl<'a> AuthService<'a> {
     }
 
     /// Access OAuth functions
-    pub fn oauth(self) -> oauth::OAuthService<'a> {
+    pub fn oauth(self) -> oauth::OAuthService<'r> {
         oauth::OAuthService::new(self.config, self.oauth_providers)
+    }
+
+    /// Access API key functions
+    pub fn api_keys(self) -> api_key::ApiKeyService<'r> {
+        api_key::ApiKeyService::new(self.encryptor)
     }
 }

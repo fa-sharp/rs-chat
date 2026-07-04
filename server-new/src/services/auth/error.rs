@@ -1,4 +1,4 @@
-use crate::error::AppError;
+use crate::{error::AppError, services::auth::encryption::EncryptorError};
 
 pub type AuthResult<T> = Result<T, AuthError>;
 
@@ -13,6 +13,8 @@ pub enum AuthError {
     OAuth(#[from] simple_oauth::SimpleOAuthError),
     #[error("user not found")]
     UserNotFound,
+    #[error("encryption error: {0}")]
+    Encryption(#[from] EncryptorError),
     #[error("database error: {0}")]
     Database(#[from] diesel::result::Error),
     #[error("database pool error: {0}")]

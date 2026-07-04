@@ -5,32 +5,35 @@ use axum::{
     response::{IntoResponse, Redirect},
 };
 use serde::Deserialize;
+use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    api::RoutePrefix,
+    api::{ApiTag, RoutePrefix},
     db::models::ChatRsUser,
     error::AppResult,
-    extractors::{
-        auth_config::PublicAuthConfig,
-        database::Database,
-        session::{SessionMeta, UserSession},
-    },
+    extractors::{CurrentUser, Database, PublicAuthConfig, SessionMeta},
     services::auth::oauth::OAuthProviderEnum,
     state::AppState,
 };
 
 pub fn routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
-        .routes(routes!(get_user_handler))
-        .routes(routes!(get_config_handler))
-        .routes(routes!(login_handler, logout_handler))
-        .routes(routes!(login_callback_handler))
+        .routes(routes!(get_user))
+        .routes(routes!(get_config))
+        .routes(routes!(oauth_login))
+        .routes(routes!(oauth_login_callback))
+        .routes(routes!(logout))
 }
 
-#[utoipa::path(get, path = "/user", responses((status = OK, body = ChatRsUser)))]
-async fn get_user_handler(
-    UserSession { user_id }: UserSession,
+/// Get current user
+#[utoipa::path(
+    get, path = "/user",
+    responses((status = OK, body = ChatRsUser)),
+    tag = ApiTag::Auth.into())
+]
+async fn get_user(
+    CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
     State(state): State<AppState>,
 ) -> AppResult<impl IntoResponse> {
@@ -38,17 +41,27 @@ async fn get_user_handler(
     Ok(Json(user))
 }
 
-#[utoipa::path(get, path = "/config", responses((status = OK, body = PublicAuthConfig)))]
-async fn get_config_handler(auth_config: PublicAuthConfig) -> impl IntoResponse {
+#[utoipa::path(
+    get, path = "/config",
+    responses((status = OK, body = PublicAuthConfig)),
+    tag = ApiTag::Auth.into()
+)]
+async fn get_config(auth_config: PublicAuthConfig) -> impl IntoResponse {
     Json(auth_config)
 }
 
-fn callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {
-    format!("{route_prefix}/login/{}/callback", provider.as_str())
+fn oauth_callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {
+    format!("{route_prefix}/login/{provider}/callback")
 }
 
-#[utoipa::path(get, path = "/login/{provider}", params(("provider" = OAuthProviderEnum, Path)), responses((status = OK)))]
-async fn login_handler(
+/// OAuth login redirect
+#[utoipa::path(
+    get, path = "/login/{provider}",
+    params(("provider" = OAuthProviderEnum, Path)),
+    responses((status = OK)),
+    tag = ApiTag::Auth.into(),
+)]
+async fn oauth_login(
     Path(provider): Path<OAuthProviderEnum>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
     State(state): State<AppState>,
@@ -56,20 +69,29 @@ async fn login_handler(
 ) -> AppResult<impl IntoResponse> {
     let oauth = state.auth_service().oauth();
     let auth_url = oauth
-        .authorize_url(provider, &callback_path(prefix, provider), &session)
+        .authorize_url(provider, &oauth_callback_path(prefix, provider), &session)
         .await?;
 
     Ok(Redirect::to(auth_url.as_str()))
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
 struct OAuthCallbackQuery {
     code: String,
     state: String,
 }
 
-#[utoipa::path(get, path = "/login/{provider}/callback", params(("provider" = OAuthProviderEnum, Path)), responses((status = OK)))]
-async fn login_callback_handler(
+/// OAuth login callback
+#[utoipa::path(
+    get, path = "/login/{provider}/callback",
+    params(
+        ("query" = inline(OAuthCallbackQuery), Query),
+        ("provider" = OAuthProviderEnum, Path, description = "the OAuth provider")
+    ),
+    responses((status = OK)),
+    tag = ApiTag::Auth.into(),
+)]
+async fn oauth_login_callback(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
@@ -77,13 +99,13 @@ async fn login_callback_handler(
     State(state): State<AppState>,
     session: tower_sessions::Session,
     meta: SessionMeta,
-    maybe_user: Option<UserSession>,
+    maybe_user: Option<CurrentUser>,
 ) -> AppResult<impl IntoResponse> {
     let oauth = state.auth_service().oauth();
     let token = oauth
         .exchange_code(
             provider,
-            &callback_path(prefix, provider),
+            &oauth_callback_path(prefix, provider),
             &session,
             &query.code,
             &query.state,
@@ -101,8 +123,13 @@ async fn login_callback_handler(
     Ok(Redirect::to(&state.config.server.base_url))
 }
 
-#[utoipa::path(get, post, path = "/logout", responses((status = NO_CONTENT)))]
-async fn logout_handler(
+/// Logout
+#[utoipa::path(
+    method(get, post), path = "/logout",
+    tag = ApiTag::Auth.into(),
+    responses((status = NO_CONTENT)),
+)]
+async fn logout(
     session: tower_sessions::Session,
     State(state): State<AppState>,
 ) -> AppResult<impl IntoResponse> {

@@ -50,6 +50,12 @@ impl AppError {
     }
 }
 
+impl From<diesel::result::Error> for AppError {
+    fn from(err: diesel::result::Error) -> Self {
+        Self::internal(anyhow::Error::from(err).context("database error"))
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct ErrorResponse {
     error: ErrorBody,

@@ -9,8 +9,9 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
+    api::ApiTag,
     error::AppError,
-    extractors::{database::Database, session::UserSession},
+    extractors::{CurrentUser, Database},
     llm::types::{LlmChatOptions, LlmUserMessage},
     state::AppState,
 };
@@ -29,9 +30,17 @@ struct ChatInput {
     options: LlmChatOptions,
 }
 
-#[utoipa::path(get, path = "/{session_id}", params(("session_id" = Uuid, Path)), responses((status = OK, body = StreamAccess)))]
+/// Streaming chat
+///
+/// Send a message in a chat session and stream the response
+#[utoipa::path(
+    get, path = "/{session_id}",
+    params(("session_id" = Uuid, Path)),
+    responses((status = OK, body = StreamAccess)),
+    tag = ApiTag::Chat.into(),
+)]
 async fn chat_stream(
-    UserSession { user_id }: UserSession,
+    CurrentUser { user_id }: CurrentUser,
     Path(session_id): Path<Uuid>,
     Database(mut db): Database,
     State(state): State<AppState>,

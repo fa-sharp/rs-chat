@@ -1,10 +1,12 @@
 use axum::extract::FromRequestParts;
 use serde::Serialize;
+use serde_with::skip_serializing_none;
 use utoipa::ToSchema;
 
 use crate::state::AppState;
 
 /// The current auth configuration of the server
+#[skip_serializing_none]
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PublicAuthConfig {
     /// Whether GitHub login is enabled
