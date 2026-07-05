@@ -9,6 +9,7 @@ pub mod api_key;
 pub mod encryption;
 mod error;
 pub mod oauth;
+pub mod proxy;
 pub mod session;
 pub mod session_store;
 
@@ -52,8 +53,13 @@ impl<'r> AuthService<'r> {
         oauth::OAuthService::new(self.config, self.oauth_providers)
     }
 
+    /// Access proxy auth functions
+    pub fn proxy(&self) -> proxy::ProxyService<'r> {
+        proxy::ProxyService::new(&self.config.auth.proxy)
+    }
+
     /// Access API key functions
-    pub fn api_keys(self) -> api_key::ApiKeyService<'r> {
+    pub fn api_keys(&self) -> api_key::ApiKeyService<'r> {
         api_key::ApiKeyService::new(self.encryptor)
     }
 }

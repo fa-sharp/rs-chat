@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
 use crate::{
-    db::{DbService, models::NewChatRsApiKey},
+    db::{DbPool, DbService, models::NewChatRsApiKey},
     services::auth::{
         encryption::Encryptor,
         error::{AuthError, AuthResult},
@@ -49,11 +49,7 @@ impl<'r> ApiKeyService<'r> {
     }
 
     /// Validate the API key and get the user ID
-    pub async fn validate_api_key(
-        &self,
-        db: &mut DbService,
-        auth_header: &str,
-    ) -> AuthResult<Uuid> {
+    pub async fn validate_api_key(&self, db: &DbPool, auth_header: &str) -> AuthResult<Uuid> {
         let (nonce, ciphertext) = auth_header
             .strip_prefix(API_KEY_HEADER_PREFIX)
             .and_then(|s| s.split_once('|'))
@@ -72,6 +68,7 @@ impl<'r> ApiKeyService<'r> {
                     .map_err(|_| AuthError::Unauthorized("couldn't parse API key id"))
             })?;
 
+        let mut db = DbService::from_pool(db).await?;
         match db.api_keys().find_by_id(&api_key_id).await? {
             Some(api_key) => Ok(api_key.user_id),
             None => Err(AuthError::Unauthorized("API key not found")),

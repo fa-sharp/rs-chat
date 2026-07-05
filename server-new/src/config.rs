@@ -6,7 +6,10 @@ use figment::providers::{Env, Format, Toml};
 use serde::Deserialize;
 
 use crate::{
-    services::auth::oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
+    services::auth::{
+        oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
+        proxy::ProxyHeaderConfig,
+    },
     state::AppState,
 };
 
@@ -51,6 +54,7 @@ pub struct AuthConfig {
     pub discord: Option<DiscordOAuthConfig>,
     pub google: Option<GoogleOAuthConfig>,
     pub oidc: Option<OidcConfig>,
+    pub proxy: ProxyHeaderConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]

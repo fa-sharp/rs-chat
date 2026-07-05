@@ -21,6 +21,12 @@ streamer_api_key = "dev-streamer-api-key"
 cookie_name = "auth-rs-chat"
 session_length = 604800
 
+[auth.proxy]
+enabled = false
+username_header = "Remote-User"
+name_header = "Remote-Name"
+groups_header = "Remote-Groups"
+
 [security]
 body_limit = 2097152
 request_timeout = 120

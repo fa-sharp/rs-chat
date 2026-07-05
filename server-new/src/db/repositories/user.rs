@@ -81,16 +81,16 @@ impl<'a> UserRepository<'a> {
         Ok(user)
     }
 
-    // pub async fn find_by_sso_username(&mut self, username: &str) -> Result<Option<Uuid>, Error> {
-    //     let user_id = users::table
-    //         .filter(users::sso_username.eq(username))
-    //         .select(users::id)
-    //         .first(self.db)
-    //         .await
-    //         .optional()?;
+    pub async fn find_by_sso_username(&mut self, username: &str) -> Result<Option<Uuid>, Error> {
+        let user_id = users::table
+            .filter(users::sso_username.eq(username))
+            .select(users::id)
+            .first(self.db)
+            .await
+            .optional()?;
 
-    //     Ok(user_id)
-    // }
+        Ok(user_id)
+    }
 
     pub async fn update(
         &mut self,
