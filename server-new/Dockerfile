@@ -25,22 +25,14 @@ RUN --mount=type=cache,id=rust_target,target=/app/target \
 ### Run server ###
 FROM debian:${DEBIAN_VERSION}-slim AS run
 
-# Create non-root user
-ARG UID=10001
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/home/appuser" \
-    --shell "/sbin/nologin" \
-    --uid "${UID}" \
-    appuser
-USER appuser
+RUN apt-get update -qq && \
+    apt-get install ca-certificates -qq -y && \
+    apt-get clean
 
 # Copy server binary
 COPY --from=build --chown=appuser /app/run-server /usr/local/bin/
 
 # Run server
 WORKDIR /app
-COPY --chown=appuser config.toml ./config.toml
 ENV RS_CHAT_SERVER__HOST=0.0.0.0
 CMD ["run-server"]

@@ -1,5 +1,5 @@
 use axum::http::HeaderMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// SSO / forward auth proxy header configuration
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyHeaderConfig {
     /// Whether proxy header authentication is enabled
     pub enabled: bool,

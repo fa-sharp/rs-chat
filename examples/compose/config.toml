@@ -1,0 +1,40 @@
+[server]
+host = "0.0.0.0"
+port = 8080
+base_url = "https://example.com"  # set to domain & path where you're hosting
+log_level = "info"
+request_id_header = "x-request-id"
+
+[database]
+url = "postgres://user:pass@mydb:5432"
+
+[redis]
+url = "redis://pass@myredis:6379"
+pool_size = 4
+timeout = 10
+
+[services]
+streamer_url = "http://tinistream:8081"
+streamer_api_key = "tinistream-api-key"
+
+[auth]
+cookie_name = "auth-rs-chat"
+session_length = 604800  # seconds
+
+# Configure GitHub / Discord / Google login
+[auth.github]
+client_id = ""
+client_secret = ""
+
+# Configure forward header authentication
+# ⚠️ Only use with a secure proxy like Authelia or Tinyauth
+[auth.proxy]
+enabled = false
+username_header = "Remote-User"
+name_header = "Remote-Name"
+groups_header = "Remote-Groups"
+
+# Configure various security settings
+[security]
+body_limit = 2097152  # bytes
+request_timeout = 120  # seconds

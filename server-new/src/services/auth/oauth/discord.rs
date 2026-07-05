@@ -1,5 +1,5 @@
 use futures::future::BoxFuture;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use simple_oauth::types::{OAuthCredentials, UserInfo};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
     services::auth::{AuthResult, oauth::OAuthProvider},
 };
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscordOAuthConfig {
     client_id: u64,
     client_secret: String,

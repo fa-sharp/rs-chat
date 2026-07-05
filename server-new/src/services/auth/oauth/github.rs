@@ -1,5 +1,5 @@
 use futures::future::BoxFuture;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use simple_oauth::{
     SimpleOAuthProvider,
     types::{OAuthCredentials, UserInfo},
@@ -10,7 +10,7 @@ use crate::{
     services::auth::{AuthResult, oauth::OAuthProvider},
 };
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GitHubOAuthConfig {
     client_id: String,
     client_secret: String,

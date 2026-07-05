@@ -1,5 +1,5 @@
 use futures::future::BoxFuture;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use simple_oauth::{
     SimpleOAuthProvider,
     types::{OAuthCredentials, OidcDiscovery},
@@ -12,7 +12,7 @@ use crate::{
 
 use super::OAuthProvider;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OidcConfig {
     pub name: Option<String>,
     client_id: String,
