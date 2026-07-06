@@ -20,6 +20,8 @@ pub fn plugin() -> AdHocPlugin<AppState> {
         tracing::info!(
             log_level = config.server.log_level,
             base_url = config.server.base_url,
+            host = %config.server.host,
+            port = config.server.port,
             "Config loaded!"
         );
         state.insert(config);
