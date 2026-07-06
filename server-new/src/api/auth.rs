@@ -20,15 +20,17 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: ApiTag::Auth,
-    GET "/user" => get_user, "Get user", "Get the current user";
-    GET "/config" => get_auth_config, "Get auth config", "Get the current auth configuration of the server";
-    GET "/login/{provider}" => oauth_login, "OAuth login", "OAuth login redirect" {
+    GET "/user" => get_user, "Get current user";
+    GET "/config" => get_auth_config, "Get auth config", {
+        description: "Get the current auth configuration of the server"
+    };
+    GET "/login/{provider}" => oauth_login, "OAuth login", {
         responses: { 303: () }
     };
-    GET "/login/{provider}/callback" => oauth_callback, "OAuth login callback" {
+    GET "/login/{provider}/callback" => oauth_callback, "OAuth login callback", {
         responses: { 303: () }
     };
-    GET, POST "/logout" => logout, "Logout" {
+    GET, POST "/logout" => logout, "Logout", {
         responses: { 204: () }
     };
 }

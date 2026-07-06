@@ -18,10 +18,12 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: ApiTag::Chat,
-    POST "/prompt" => prompt, "Prompt",
-        "Send a single prompt to a provider and get the response";
-    POST "/session/{session_id}" => chat_stream, "Chat",
-        "Send a message in a chat session and stream the response";
+    POST "/prompt" => prompt, "Prompt", {
+        description: "Send a single prompt to a provider and get the response"
+    };
+    POST "/session/{session_id}" => chat_stream, "Chat", {
+        description: "Send a message in a chat session and stream the response"
+    };
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

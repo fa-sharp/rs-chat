@@ -76,7 +76,7 @@ struct ApiRoute {
     methods: Vec<RouteMethod>,
     path: LitStr,
     handler: Ident,
-    summary: LitStr,
+    summary: Option<LitStr>,
     description: Option<LitStr>,
     responses: Vec<RouteResponse>,
 }
@@ -165,36 +165,52 @@ impl Parse for ApiRoute {
         input.parse::<Token![=>]>()?;
         let handler = input.parse()?;
         input.parse::<Token![,]>()?;
-        let summary = input.parse()?;
 
-        let description = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
+        let summary = if input.peek(LitStr) {
             Some(input.parse()?)
         } else {
             None
         };
 
-        let responses = if input.peek(syn::token::Brace) {
-            input.parse::<RouteOptions>()?.responses
+        let options = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            if !input.peek(syn::token::Brace) {
+                return Err(input.error("expected route options block after summary comma"));
+            }
+            input.parse()?
+        } else if input.peek(syn::token::Brace) {
+            input.parse()?
         } else {
-            Vec::new()
+            RouteOptions::default()
         };
 
         input.parse::<Token![;]>()?;
+
+        if summary.is_none() && options.is_empty() {
+            return Err(input.error("expected summary string or route options block"));
+        }
 
         Ok(Self {
             methods,
             path,
             handler,
             summary,
-            description,
-            responses,
+            description: options.description,
+            responses: options.responses,
         })
     }
 }
 
+#[derive(Default)]
 struct RouteOptions {
+    description: Option<LitStr>,
     responses: Vec<RouteResponse>,
+}
+
+impl RouteOptions {
+    fn is_empty(&self) -> bool {
+        self.description.is_none() && self.responses.is_empty()
+    }
 }
 
 impl Parse for RouteOptions {
@@ -202,27 +218,54 @@ impl Parse for RouteOptions {
         let content;
         braced!(content in input);
 
-        parse_label(&content, "responses")?;
-        content.parse::<Token![:]>()?;
+        let mut options = RouteOptions::default();
+        while !content.is_empty() {
+            let label: Ident = content.parse()?;
+            content.parse::<Token![:]>()?;
 
-        let responses;
-        braced!(responses in content);
+            match label.to_string().as_str() {
+                "description" => {
+                    if options.description.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            label,
+                            "`description` can only be provided once",
+                        ));
+                    }
 
-        let mut route_responses = Vec::new();
-        while !responses.is_empty() {
-            route_responses.push(responses.parse()?);
-            if responses.peek(Token![,]) {
-                responses.parse::<Token![,]>()?;
+                    options.description = Some(content.parse()?);
+                }
+                "responses" => {
+                    if !options.responses.is_empty() {
+                        return Err(syn::Error::new_spanned(
+                            label,
+                            "`responses` can only be provided once",
+                        ));
+                    }
+
+                    let responses;
+                    braced!(responses in content);
+
+                    while !responses.is_empty() {
+                        options.responses.push(responses.parse()?);
+                        if responses.peek(Token![,]) {
+                            responses.parse::<Token![,]>()?;
+                        }
+                    }
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        label,
+                        "expected `description` or `responses`",
+                    ));
+                }
+            }
+
+            if content.peek(Token![,]) {
+                content.parse::<Token![,]>()?;
             }
         }
 
-        if !content.is_empty() {
-            content.parse::<Token![,]>()?;
-        }
-
-        Ok(Self {
-            responses: route_responses,
-        })
+        Ok(options)
     }
 }
 
@@ -260,8 +303,16 @@ fn next_label_is(input: ParseStream<'_>, expected: &str) -> bool {
 /// api_routes! {
 ///     state: AppState,
 ///     tag: ApiTag::Auth, // optional
-///     GET "/user" => get_user, "Get user", "Get the current user";
-///     GET, POST "/logout" => logout, "Logout" { responses: { 204: () } };
+///     GET "/user" => get_user, "Get user", {
+///         description: "Get the current user"
+///     };
+///     GET, POST "/logout" => logout, "Logout", {
+///         responses: { 204: () }
+///     };
+///     POST "/sessions" => create_session, {
+///         description: "Create a new session",
+///         responses: { 201: Session }
+///     };
 /// }
 /// ```
 #[proc_macro]
@@ -270,7 +321,11 @@ pub fn api_routes(input: TokenStream) -> TokenStream {
     let state = api_routes.state;
 
     let docs_functions = api_routes.routes.iter().flat_map(|route| {
-        let summary = &route.summary;
+        let summary = route.summary.as_ref().map(|summary| {
+            quote! {
+                .summary(#summary)
+            }
+        });
         let description = route.description.as_ref().map(|description| {
             quote! {
                 .description(#description)
@@ -299,7 +354,7 @@ pub fn api_routes(input: TokenStream) -> TokenStream {
                 op: ::aide::transform::TransformOperation,
             ) -> ::aide::transform::TransformOperation {
                 op.id(#operation_id)
-                    .summary(#summary)
+                    #summary
                     #description
                     #(#responses)*
             }
