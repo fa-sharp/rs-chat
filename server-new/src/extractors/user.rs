@@ -99,7 +99,7 @@ impl OperationInput for CurrentUser {
         _ctx: &mut aide::generate::GenContext,
         operation: &mut aide::openapi::Operation,
     ) {
-        let security_reqs = [(String::from("ApiKey"), vec![])];
+        let security_reqs = [(String::from(crate::api::API_KEY_SCHEME), vec![])];
         operation
             .security
             .push(FromIterator::from_iter(security_reqs))
