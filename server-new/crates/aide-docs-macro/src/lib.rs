@@ -68,7 +68,7 @@ pub fn docs(args: TokenStream, input: TokenStream) -> TokenStream {
 
 struct ApiRoutes {
     state: Type,
-    tag: Expr,
+    tag: Option<Expr>,
     routes: Vec<ApiRoute>,
 }
 
@@ -85,9 +85,16 @@ struct RouteMethod {
 }
 
 impl RouteMethod {
+    fn name(&self) -> String {
+        self.ident.to_string()
+    }
+
+    fn operation_prefix(&self) -> String {
+        self.name().to_lowercase()
+    }
+
     fn route_fn(&self) -> Result<Ident> {
-        let method = self.ident.to_string();
-        let fn_name = match method.as_str() {
+        let fn_name = match self.name().as_str() {
             "GET" => "get_with",
             "POST" => "post_with",
             "DELETE" => "delete_with",
@@ -110,10 +117,15 @@ impl Parse for ApiRoutes {
         let state = input.parse()?;
         input.parse::<Token![,]>()?;
 
-        parse_label(input, "tag")?;
-        input.parse::<Token![:]>()?;
-        let tag = input.parse()?;
-        input.parse::<Token![,]>()?;
+        let tag = if next_label_is(input, "tag") {
+            parse_label(input, "tag")?;
+            input.parse::<Token![:]>()?;
+            let tag = input.parse()?;
+            input.parse::<Token![,]>()?;
+            Some(tag)
+        } else {
+            None
+        };
 
         let mut routes = Vec::new();
         while !input.is_empty() {
@@ -180,13 +192,18 @@ fn parse_label(input: ParseStream<'_>, expected: &str) -> Result<()> {
     }
 }
 
+fn next_label_is(input: ParseStream<'_>, expected: &str) -> bool {
+    let fork = input.fork();
+    fork.parse::<Ident>().is_ok_and(|label| label == expected) && fork.peek(Token![:])
+}
+
 /// Generate a `routes()` function and the matching `<handler>_docs` functions.
 ///
 /// # Syntax
 /// ```ignore
 /// api_routes! {
 ///     state: AppState,
-///     tag: ApiTag::Auth,
+///     tag: ApiTag::Auth, // optional
 ///     GET "/user" => get_user, "Get user", "Get the current user";
 ///     GET, POST "/logout" => logout, "Logout";
 /// }
@@ -195,46 +212,60 @@ fn parse_label(input: ParseStream<'_>, expected: &str) -> Result<()> {
 pub fn api_routes(input: TokenStream) -> TokenStream {
     let api_routes = parse_macro_input!(input as ApiRoutes);
     let state = api_routes.state;
-    let tag = api_routes.tag;
 
-    let docs_functions = api_routes.routes.iter().map(|route| {
-        let docs_name = format_ident!("{}_docs", route.handler);
-        let handler_name = route.handler.to_string();
+    let docs_functions = api_routes.routes.iter().flat_map(|route| {
         let summary = &route.summary;
         let description = route.description.as_ref().map(|description| {
             quote! {
                 .description(#description)
             }
         });
+        let multiple_methods = route.methods.len() > 1;
 
-        quote! {
+        route.methods.iter().map(move |method| {
+            let docs_name = docs_name(route, method, multiple_methods);
+            let operation_id = operation_id(route, method, multiple_methods);
+
+            quote! {
             fn #docs_name(
                 op: ::aide::transform::TransformOperation,
             ) -> ::aide::transform::TransformOperation {
-                op.id(#handler_name)
+                op.id(#operation_id)
                     .summary(#summary)
                     #description
             }
-        }
+            }
+        })
     });
 
     let route_calls = api_routes.routes.iter().map(|route| {
         let path = &route.path;
         let handler = &route.handler;
-        let docs_name = format_ident!("{}_docs", route.handler);
+        let multiple_methods = route.methods.len() > 1;
 
         let mut methods = route
             .methods
             .iter()
-            .map(RouteMethod::route_fn)
+            .map(|method| {
+                let route_fn = method.route_fn()?;
+                let docs_name = docs_name(route, method, multiple_methods);
+
+                Ok((route_fn, docs_name))
+            })
             .collect::<Result<Vec<_>>>()?;
-        let first_method = methods.remove(0);
+        let (first_method, first_docs_name) = methods.remove(0);
+
+        let additional_methods = methods.into_iter().map(|(method, docs_name)| {
+            quote! {
+                .#method(#handler, #docs_name)
+            }
+        });
 
         Ok(quote! {
             .api_route(
                 #path,
-                ::aide::axum::routing::#first_method(#handler, #docs_name)
-                    #(.#methods(#handler, #docs_name))*
+                ::aide::axum::routing::#first_method(#handler, #first_docs_name)
+                    #(#additional_methods)*
             )
         })
     });
@@ -244,14 +275,37 @@ pub fn api_routes(input: TokenStream) -> TokenStream {
         Err(error) => return error.into_compile_error().into(),
     };
 
+    let tag = api_routes.tag.map(|tag| {
+        quote! {
+            .with_path_items(|op| op.tag(#tag.into()))
+        }
+    });
+
     quote! {
         #(#docs_functions)*
 
         pub fn routes() -> ::aide::axum::ApiRouter<#state> {
             ::aide::axum::ApiRouter::new()
                 #(#route_calls)*
-                .with_path_items(|op| op.tag(#tag.into()))
+                #tag
         }
     }
     .into()
+}
+
+fn docs_name(route: &ApiRoute, method: &RouteMethod, multiple_methods: bool) -> Ident {
+    if multiple_methods {
+        let method = method.operation_prefix();
+        format_ident!("{}_{}_docs", method, route.handler)
+    } else {
+        format_ident!("{}_docs", route.handler)
+    }
+}
+
+fn operation_id(route: &ApiRoute, method: &RouteMethod, multiple_methods: bool) -> String {
+    if multiple_methods {
+        format!("{}_{}", method.operation_prefix(), route.handler)
+    } else {
+        route.handler.to_string()
+    }
 }

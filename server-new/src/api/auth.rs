@@ -21,7 +21,7 @@ api_routes! {
     state: AppState,
     tag: ApiTag::Auth,
     GET "/user" => get_user, "Get user", "Get the current user";
-    GET "/config" => get_config, "Get auth config", "Get the current auth configuration of the server";
+    GET "/config" => get_auth_config, "Get auth config", "Get the current auth configuration of the server";
     GET "/login/{provider}" => oauth_login, "OAuth login", "OAuth login redirect";
     GET "/login/{provider}/callback" => oauth_callback, "OAuth login callback";
     GET, POST "/logout" => logout, "Logout";
@@ -36,7 +36,7 @@ async fn get_user(
     Ok(Json(user))
 }
 
-async fn get_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
+async fn get_auth_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
     Json(auth_config)
 }
 
