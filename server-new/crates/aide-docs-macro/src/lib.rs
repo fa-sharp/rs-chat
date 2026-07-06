@@ -1,8 +1,8 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, Ident, ItemFn, LitStr, Result, Token, Type, parse::Parse, parse::ParseStream,
-    parse_macro_input,
+    Expr, Ident, ItemFn, LitInt, LitStr, Result, Token, Type, braced, parse::Parse,
+    parse::ParseStream, parse_macro_input,
 };
 
 struct DocsArgs {
@@ -78,6 +78,12 @@ struct ApiRoute {
     handler: Ident,
     summary: LitStr,
     description: Option<LitStr>,
+    responses: Vec<RouteResponse>,
+}
+
+struct RouteResponse {
+    status: LitInt,
+    ty: Type,
 }
 
 struct RouteMethod {
@@ -168,6 +174,12 @@ impl Parse for ApiRoute {
             None
         };
 
+        let responses = if input.peek(syn::token::Brace) {
+            input.parse::<RouteOptions>()?.responses
+        } else {
+            Vec::new()
+        };
+
         input.parse::<Token![;]>()?;
 
         Ok(Self {
@@ -176,7 +188,51 @@ impl Parse for ApiRoute {
             handler,
             summary,
             description,
+            responses,
         })
+    }
+}
+
+struct RouteOptions {
+    responses: Vec<RouteResponse>,
+}
+
+impl Parse for RouteOptions {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let content;
+        braced!(content in input);
+
+        parse_label(&content, "responses")?;
+        content.parse::<Token![:]>()?;
+
+        let responses;
+        braced!(responses in content);
+
+        let mut route_responses = Vec::new();
+        while !responses.is_empty() {
+            route_responses.push(responses.parse()?);
+            if responses.peek(Token![,]) {
+                responses.parse::<Token![,]>()?;
+            }
+        }
+
+        if !content.is_empty() {
+            content.parse::<Token![,]>()?;
+        }
+
+        Ok(Self {
+            responses: route_responses,
+        })
+    }
+}
+
+impl Parse for RouteResponse {
+    fn parse(input: ParseStream<'_>) -> Result<Self> {
+        let status = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let ty = input.parse()?;
+
+        Ok(Self { status, ty })
     }
 }
 
@@ -205,7 +261,7 @@ fn next_label_is(input: ParseStream<'_>, expected: &str) -> bool {
 ///     state: AppState,
 ///     tag: ApiTag::Auth, // optional
 ///     GET "/user" => get_user, "Get user", "Get the current user";
-///     GET, POST "/logout" => logout, "Logout";
+///     GET, POST "/logout" => logout, "Logout" { responses: { 204: () } };
 /// }
 /// ```
 #[proc_macro]
@@ -220,6 +276,18 @@ pub fn api_routes(input: TokenStream) -> TokenStream {
                 .description(#description)
             }
         });
+        let responses = route
+            .responses
+            .iter()
+            .map(|response| {
+                let status = &response.status;
+                let ty = &response.ty;
+
+                quote! {
+                    .response::<#status, #ty>()
+                }
+            })
+            .collect::<Vec<_>>();
         let multiple_methods = route.methods.len() > 1;
 
         route.methods.iter().map(move |method| {
@@ -233,6 +301,7 @@ pub fn api_routes(input: TokenStream) -> TokenStream {
                 op.id(#operation_id)
                     .summary(#summary)
                     #description
+                    #(#responses)*
             }
             }
         })
