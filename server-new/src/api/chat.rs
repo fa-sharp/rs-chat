@@ -1,13 +1,14 @@
-use aide::axum::ApiRouter;
-use axum::{Json, extract::State};
-use axum_typed_routing::{TypedApiRouter, api_route};
-use derive_more::Into;
+use aide::axum::{ApiRouter, routing::post_with};
+use aide_docs_macro::docs;
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    api::ApiTag,
     error::{AppError, AppResult},
     extractors::{CurrentUser, Database},
     llm::types::{LlmChatOptions, LlmUserMessage},
@@ -16,8 +17,11 @@ use crate::{
 
 pub fn routes() -> ApiRouter<AppState> {
     ApiRouter::new()
-        .typed_api_route(prompt)
-        .typed_api_route(chat_stream)
+        .api_route("/prompt", post_with(prompt, prompt_docs))
+        .api_route(
+            "/session/{session_id}",
+            post_with(chat_stream, chat_stream_docs),
+        )
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -30,11 +34,7 @@ struct PromptInput {
     options: LlmChatOptions,
 }
 
-#[api_route(POST "/prompt" {
-    summary: "Prompt",
-    description: "Send a simple prompt to a provider and get the response",
-    transform: |op| op.tag(ApiTag::Chat.into()),
-})]
+#[docs("Prompt", "Send a single prompt to a provider and get the response")]
 async fn prompt(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -65,9 +65,6 @@ struct PromptResponse {
     text: String,
 }
 
-#[derive(Into, Deserialize, JsonSchema)]
-struct SessionIdPath(Uuid);
-
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChatInput {
     /// The new chat message from the user
@@ -78,13 +75,12 @@ struct ChatInput {
     options: LlmChatOptions,
 }
 
-#[api_route(POST "/{session_id}" {
-    summary: "Streaming chat",
-    description: "Send a message in a chat session and stream the response",
-    transform: |op| op.tag(ApiTag::Chat.into()),
-})]
+#[docs(
+    "Send chat",
+    "Send a message in a chat session and stream the response"
+)]
 async fn chat_stream(
-    session_id: SessionIdPath,
+    Path(session_id): Path<Uuid>,
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
     State(state): State<AppState>,
@@ -99,7 +95,7 @@ async fn chat_stream(
         .stream_user_chat(
             &mut db,
             user_id,
-            session_id.into(),
+            session_id,
             input.provider_id,
             llm_provider,
             input

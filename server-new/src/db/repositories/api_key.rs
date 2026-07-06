@@ -47,15 +47,18 @@ impl<'a> ApiKeyRepository<'a> {
         Ok(id)
     }
 
-    pub async fn delete(&mut self, user_id: &Uuid, api_key_id: &Uuid) -> Result<Uuid, Error> {
-        let id: Uuid = diesel::delete(app_api_keys::table)
+    pub async fn delete(
+        &mut self,
+        user_id: &Uuid,
+        api_key_id: &Uuid,
+    ) -> Result<Option<Uuid>, Error> {
+        diesel::delete(app_api_keys::table)
             .filter(app_api_keys::id.eq(api_key_id))
             .filter(app_api_keys::user_id.eq(user_id))
             .returning(app_api_keys::id)
             .get_result(self.db)
-            .await?;
-
-        Ok(id)
+            .await
+            .optional()
     }
 
     pub async fn delete_by_user(&mut self, user_id: &Uuid) -> Result<Vec<Uuid>, Error> {

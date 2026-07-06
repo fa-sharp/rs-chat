@@ -1,7 +1,5 @@
-use aide::{
-    axum::{ApiRouter, routing::get_with},
-    transform::TransformOperation,
-};
+use aide::axum::{ApiRouter, routing::get_with};
+use aide_docs_macro::docs;
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
@@ -36,9 +34,7 @@ pub fn routes() -> ApiRouter<AppState> {
         .with_path_items(|op| op.tag(ApiTag::Auth.into()))
 }
 
-fn get_user_docs(op: TransformOperation) -> TransformOperation {
-    op.id("get_user").summary("Get current user")
-}
+#[docs("Get user", "Get the current user")]
 async fn get_user(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -48,9 +44,7 @@ async fn get_user(
     Ok(Json(user))
 }
 
-fn get_config_docs(op: TransformOperation) -> TransformOperation {
-    op.id("get_auth_config").summary("Get auth config")
-}
+#[docs("Get auth config", "Get the current auth configuration of the server")]
 async fn get_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
     Json(auth_config)
 }
@@ -59,11 +53,7 @@ fn oauth_callback_path(route_prefix: &'static str, provider: &OAuthProviderEnum)
     format!("{route_prefix}/login/{provider}/callback")
 }
 
-fn oauth_login_docs(op: TransformOperation) -> TransformOperation {
-    op.id("oauth_login")
-        .summary("OAuth login")
-        .description("OAuth login redirect")
-}
+#[docs("OAuth login", "OAuth login redirect")]
 async fn oauth_login(
     Path(provider): Path<OAuthProviderEnum>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
@@ -84,10 +74,7 @@ struct OAuthCallbackQuery {
     state: String,
 }
 
-fn oauth_callback_docs(op: TransformOperation) -> TransformOperation {
-    op.id("oauth_login_callback")
-        .summary("OAuth login callback")
-}
+#[docs("OAuth login callback sdf")]
 async fn oauth_callback(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
@@ -119,9 +106,7 @@ async fn oauth_callback(
     Ok(Redirect::to(&app_state.config.server.base_url))
 }
 
-fn logout_docs(op: TransformOperation) -> TransformOperation {
-    op.id("logout").summary("Logout")
-}
+#[docs("Logout")]
 async fn logout(
     AppSession { session, .. }: AppSession,
     State(state): State<AppState>,

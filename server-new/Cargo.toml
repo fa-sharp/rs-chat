@@ -12,6 +12,7 @@ aide = {
   rev = "7246c20",
   features = ["axum", "axum-json", "axum-query", "macros", "swagger"]
 }
+aide-docs-macro = { path = "crates/aide-docs-macro" }
 anyhow = "1.0.102"
 async-stream = "0.3.6"
 async-trait = "0.1.89"

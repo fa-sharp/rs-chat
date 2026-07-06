@@ -1,7 +1,13 @@
-use aide::{OperationInput, OperationIo, axum::ApiRouter};
-use axum::{Json, extract::State, http::StatusCode};
-use axum_typed_routing::{TypedApiRouter, api_route};
-use derive_more::Deref;
+use aide::axum::{
+    ApiRouter,
+    routing::{delete_with, get_with, post_with},
+};
+use aide_docs_macro::docs;
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -9,22 +15,20 @@ use uuid::Uuid;
 use crate::{
     api::ApiTag,
     db::models::ChatRsApiKey,
-    error::AppResult,
+    error::{AppError, AppResult},
     extractors::{CurrentUser, Database},
     state::AppState,
 };
 
 pub fn routes() -> ApiRouter<AppState> {
     ApiRouter::new()
-        .typed_api_route(list_api_keys)
-        .typed_api_route(create_api_key)
-        .typed_api_route(delete_api_key)
+        .api_route("/", get_with(list_api_keys, list_api_keys_docs))
+        .api_route("/", post_with(create_api_key, create_api_key_docs))
+        .api_route("/{id}", delete_with(delete_api_key, delete_api_key_docs))
+        .with_path_items(|op| op.tag(ApiTag::ApiKey.into()))
 }
 
-#[api_route(GET "/" with AppState {
-    summary: "List API keys",
-    transform: |op| op.tag(ApiTag::ApiKey.into()),
-})]
+#[docs("List API keys")]
 async fn list_api_keys(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -38,16 +42,7 @@ struct ApiKeyCreateInput {
     name: String,
 }
 
-#[derive(Serialize, JsonSchema)]
-struct ApiKeyCreateResponse {
-    id: Uuid,
-    key: String,
-}
-
-#[api_route(POST "/" {
-    summary: "Create API key",
-    transform: |op| op.tag(ApiTag::ApiKey.into()),
-})]
+#[docs("Create API key")]
 async fn create_api_key(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -59,60 +54,23 @@ async fn create_api_key(
         .api_keys()
         .create_api_key(&mut db, &user_id, &input.name)
         .await?;
-
     Ok(Json(ApiKeyCreateResponse { id, key }))
 }
 
-#[derive(Deref, Deserialize, OperationIo, JsonSchema)]
-pub struct ApiKeyPath {
-    pub id: Uuid,
+#[derive(Serialize, JsonSchema)]
+struct ApiKeyCreateResponse {
+    id: Uuid,
+    key: String,
 }
 
-#[derive(Deref, Serialize, Deserialize, JsonSchema)]
-pub struct UuidPath(pub Uuid);
-impl OperationInput for UuidPath {
-    fn operation_input(
-        ctx: &mut aide::generate::GenContext,
-        operation: &mut aide::openapi::Operation,
-    ) {
-        use aide::openapi::{
-            Parameter, ParameterData, ParameterSchemaOrContent, ReferenceOr, SchemaObject,
-        };
-
-        operation
-            .parameters
-            .push(ReferenceOr::Item(Parameter::Path {
-                parameter_data: ParameterData {
-                    name: UuidPath::schema_name().into(),
-                    description: None,
-                    required: true,
-                    deprecated: Default::default(),
-                    format: ParameterSchemaOrContent::Schema(SchemaObject {
-                        json_schema: UuidPath::json_schema(&mut ctx.schema),
-                        external_docs: None,
-                        example: None,
-                    }),
-                    example: Default::default(),
-                    examples: Default::default(),
-                    explode: Default::default(),
-                    extensions: Default::default(),
-                },
-                style: aide::openapi::PathStyle::Simple,
-            }))
-    }
-}
-
-#[api_route(DELETE "/{id}" with AppState {
-    summary: "Delete API key",
-    responses: { 204: () },
-    transform: |op| op.tag(ApiTag::ApiKey.into()),
-})]
+#[docs("Delete API key")]
 async fn delete_api_key(
-    id: UuidPath,
+    Path(id): Path<Uuid>,
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
 ) -> AppResult<StatusCode> {
-    let _ = db.api_keys().delete(&user_id, &id).await?;
-
-    Ok(StatusCode::NO_CONTENT)
+    match db.api_keys().delete(&user_id, &id).await? {
+        Some(_) => Ok(StatusCode::NO_CONTENT),
+        None => Err(AppError::not_found("API key not found")),
+    }
 }
