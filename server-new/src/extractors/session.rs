@@ -3,24 +3,52 @@ use std::{
     str::FromStr,
 };
 
+use aide::OperationIo;
+use anyhow::anyhow;
 use axum::{
     extract::{ConnectInfo, FromRequestParts},
     http::header,
 };
 use serde::{Deserialize, Serialize};
+use tower_sessions::Session;
 
-use crate::{db::UtcDateTime, state::AppState};
+use crate::{db::UtcDateTime, error::AppError, state::AppState};
+
+/// Extractor to get raw session and request metadata
+#[derive(OperationIo)]
+pub struct AppSession {
+    pub session: Session,
+    pub meta: SessionMeta,
+}
 
 /// Session metadata extracted on login.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, OperationIo)]
 pub struct SessionMeta {
     pub start_time: UtcDateTime,
     pub ip: Option<IpAddr>,
     pub user_agent: Option<String>,
 }
 
+impl FromRequestParts<AppState> for AppSession {
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let meta = SessionMeta::from_request_parts(parts, state).await?;
+        let session = parts
+            .extensions
+            .get::<Session>()
+            .cloned()
+            .ok_or_else(|| AppError::internal(anyhow!("session not attached to request")))?;
+
+        Ok(Self { session, meta })
+    }
+}
+
 impl FromRequestParts<AppState> for SessionMeta {
-    type Rejection = ();
+    type Rejection = AppError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,

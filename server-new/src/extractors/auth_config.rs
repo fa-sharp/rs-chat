@@ -1,13 +1,14 @@
+use aide::OperationIo;
 use axum::extract::FromRequestParts;
+use schemars::JsonSchema;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
-use utoipa::ToSchema;
 
 use crate::state::AppState;
 
 /// The current auth configuration of the server
 #[skip_serializing_none]
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, JsonSchema, OperationIo)]
 pub struct PublicAuthConfig {
     /// Whether GitHub login is enabled
     github: bool,
@@ -21,7 +22,7 @@ pub struct PublicAuthConfig {
     // sso: Option<SSO>,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, JsonSchema)]
 struct Oidc {
     /// The name of the OIDC provider
     name: String,

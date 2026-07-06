@@ -1,3 +1,4 @@
+use aide::OperationIo;
 use axum::{
     Json,
     http::StatusCode,
@@ -7,11 +8,11 @@ use serde::Serialize;
 
 use crate::db::DbPoolError;
 
-/// Global result type that can be used for API route handlers
+/// Global API result type that can be used in route handlers
 pub type AppResult<T> = Result<T, AppError>;
 
-/// Global error type
-#[derive(Debug)]
+/// Global API error type
+#[derive(Debug, OperationIo)]
 pub struct AppError {
     status: StatusCode,
     message: String,

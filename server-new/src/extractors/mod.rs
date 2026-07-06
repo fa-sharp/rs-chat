@@ -7,5 +7,5 @@ mod user;
 
 pub use auth_config::PublicAuthConfig;
 pub use database::Database;
-pub use session::SessionMeta;
+pub use session::{AppSession, SessionMeta};
 pub use user::CurrentUser;

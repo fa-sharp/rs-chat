@@ -7,7 +7,10 @@ use tower_sessions::{
 };
 use uuid::Uuid;
 
-use crate::db::{DbPool, DbService, UtcDateTime};
+use crate::{
+    db::{DbPool, DbService, UtcDateTime},
+    services::auth::session::AuthSessionService,
+};
 
 #[derive(Clone)]
 pub struct SessionDbStore {
@@ -46,7 +49,7 @@ impl SessionStore for SessionDbStore {
     /// Creates a new session in the store with the provided session record.
     async fn create(&self, record: &mut Record) -> Result<()> {
         let session_id = Self::get_session_uuid(&record.id);
-        let user_id = super::session::user_id_from_record_data(&record.data)?;
+        let user_id = AuthSessionService::user_id_from_record_data(&record.data)?;
         let expires_at = Self::convert_expiry(record.expiry_date)?;
 
         let mut db = self.get_db().await?;

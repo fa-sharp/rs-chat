@@ -51,6 +51,16 @@ impl AuthSessionService {
         Ok(user_id)
     }
 
+    /// Extract the user id from the raw session hashmap
+    pub(super) fn user_id_from_record_data(
+        data: &HashMap<String, serde_json::Value>,
+    ) -> StoreResult<Option<Uuid>> {
+        data.get(USER_ID_FIELD)
+            .and_then(|val| val.as_str().map(Uuid::try_parse))
+            .transpose()
+            .map_err(|_| StoreError::Decode("invalid user id field".into()))
+    }
+
     /// Logout the user, deleting the current session.
     pub async fn logout(&self, session: &Session) -> AuthResult<()> {
         Ok(session.flush().await?)
@@ -62,13 +72,4 @@ impl AuthSessionService {
         let mut db = DbService::from_pool(&db_pool).await?;
         Ok(db.auth_sessions().delete_expired().await?)
     }
-}
-
-pub(super) fn user_id_from_record_data(
-    data: &HashMap<String, serde_json::Value>,
-) -> StoreResult<Option<Uuid>> {
-    data.get(USER_ID_FIELD)
-        .and_then(|val| val.as_str().map(Uuid::try_parse))
-        .transpose()
-        .map_err(|_| StoreError::Encode("invalid user id field".to_owned()))
 }

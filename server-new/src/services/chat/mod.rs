@@ -13,7 +13,7 @@ use crate::{
     },
     llm::{
         interface::LlmProvider,
-        types::{LlmChatOptions, LlmChatRequest, LlmUserMessage},
+        types::{LlmChatOptions, LlmChatRequest, LlmPrompt, LlmUserMessage},
     },
     services::{
         chat::error::ChatError,
@@ -38,6 +38,20 @@ impl<'r> ChatService<'r> {
             db_pool,
             tinistream,
         }
+    }
+
+    /// Send a simple prompt to the LLM provider
+    pub async fn prompt(
+        &self,
+        provider: Arc<dyn LlmProvider>,
+        prompt: LlmUserMessage,
+        options: LlmChatOptions,
+    ) -> Result<String, ChatError> {
+        let llm_prompt = LlmPrompt {
+            text: &prompt.text,
+            options: &options,
+        };
+        Ok(provider.prompt(llm_prompt).await?)
     }
 
     pub async fn stream_user_chat(
@@ -107,7 +121,7 @@ impl<'r> ChatService<'r> {
             let response = StreamingService::process_stream(stream, ws_writer, ws_reader).await;
             let stream_cancelled = response.cancelled;
             if let Err(err) =
-                Self::persist_response(db_pool, &session_id, provider_id, chat_options, response)
+                Self::persist_response(db_pool, session_id, provider_id, chat_options, response)
                     .await
             {
                 tracing::error!("Failed to save assistant response: {err}");
@@ -127,7 +141,7 @@ impl<'r> ChatService<'r> {
     /// Save response message and metadata to database
     async fn persist_response(
         db_pool: DbPool,
-        session_id: &Uuid,
+        session_id: Uuid,
         provider_id: i32,
         chat_options: LlmChatOptions,
         response: LlmStreamOutput,

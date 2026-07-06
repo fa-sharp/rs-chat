@@ -1,11 +1,9 @@
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
+use aide::{OperationInput, OperationIo, axum::ApiRouter};
+use axum::{Json, extract::State, http::StatusCode};
+use axum_typed_routing::{TypedApiRouter, api_route};
+use derive_more::Deref;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
@@ -16,16 +14,17 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(list_api_keys, create_api_key, delete_api_key))
+pub fn routes() -> ApiRouter<AppState> {
+    ApiRouter::new()
+        .typed_api_route(list_api_keys)
+        .typed_api_route(create_api_key)
+        .typed_api_route(delete_api_key)
 }
 
-/// List all API keys
-#[utoipa::path(
-    get, path = "",
-    responses((status = OK, body = Vec<ChatRsApiKey>)),
-    tag = ApiTag::ApiKey.into())
-]
+#[api_route(GET "/" with AppState {
+    summary: "List API keys",
+    transform: |op| op.tag(ApiTag::ApiKey.into()),
+})]
 async fn list_api_keys(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -34,24 +33,21 @@ async fn list_api_keys(
     Ok(Json(keys))
 }
 
-#[derive(Deserialize, ToSchema)]
+#[derive(Deserialize, JsonSchema)]
 struct ApiKeyCreateInput {
     name: String,
 }
 
-#[derive(Serialize, ToSchema)]
+#[derive(Serialize, JsonSchema)]
 struct ApiKeyCreateResponse {
     id: Uuid,
     key: String,
 }
 
-/// Create an API key
-#[utoipa::path(
-    post, path = "",
-    request_body = ApiKeyCreateInput,
-    responses((status = OK, body = ApiKeyCreateResponse)),
-    tag = ApiTag::ApiKey.into())
-]
+#[api_route(POST "/" {
+    summary: "Create API key",
+    transform: |op| op.tag(ApiTag::ApiKey.into()),
+})]
 async fn create_api_key(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -67,19 +63,56 @@ async fn create_api_key(
     Ok(Json(ApiKeyCreateResponse { id, key }))
 }
 
-/// Delete an API key
-#[utoipa::path(
-    delete, path = "/{id}",
-    params(("id" = Uuid, Path)),
-    responses((status = NO_CONTENT)),
-    tag = ApiTag::ApiKey.into())
-]
+#[derive(Deref, Deserialize, OperationIo, JsonSchema)]
+pub struct ApiKeyPath {
+    pub id: Uuid,
+}
+
+#[derive(Deref, Serialize, Deserialize, JsonSchema)]
+pub struct UuidPath(pub Uuid);
+impl OperationInput for UuidPath {
+    fn operation_input(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) {
+        use aide::openapi::{
+            Parameter, ParameterData, ParameterSchemaOrContent, ReferenceOr, SchemaObject,
+        };
+
+        operation
+            .parameters
+            .push(ReferenceOr::Item(Parameter::Path {
+                parameter_data: ParameterData {
+                    name: UuidPath::schema_name().into(),
+                    description: None,
+                    required: true,
+                    deprecated: Default::default(),
+                    format: ParameterSchemaOrContent::Schema(SchemaObject {
+                        json_schema: UuidPath::json_schema(&mut ctx.schema),
+                        external_docs: None,
+                        example: None,
+                    }),
+                    example: Default::default(),
+                    examples: Default::default(),
+                    explode: Default::default(),
+                    extensions: Default::default(),
+                },
+                style: aide::openapi::PathStyle::Simple,
+            }))
+    }
+}
+
+#[api_route(DELETE "/{id}" with AppState {
+    summary: "Delete API key",
+    responses: { 204: () },
+    transform: |op| op.tag(ApiTag::ApiKey.into()),
+})]
 async fn delete_api_key(
+    id: UuidPath,
     CurrentUser { user_id }: CurrentUser,
-    Path(api_key_id): Path<Uuid>,
     Database(mut db): Database,
 ) -> AppResult<StatusCode> {
-    let _deleted_id = db.api_keys().delete(&user_id, &api_key_id).await?;
+    let _ = db.api_keys().delete(&user_id, &id).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }

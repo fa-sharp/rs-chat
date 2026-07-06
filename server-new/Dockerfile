@@ -30,7 +30,7 @@ RUN apt-get update -qq && \
     apt-get clean
 
 # Copy server binary
-COPY --from=build --chown=appuser /app/run-server /usr/local/bin/
+COPY --from=build /app/run-server /usr/local/bin/
 
 # Run server
 WORKDIR /app

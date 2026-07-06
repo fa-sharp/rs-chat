@@ -1,11 +1,11 @@
 use diesel::prelude::*;
+use schemars::JsonSchema;
 use serde::Serialize;
 use serde_with::skip_serializing_none;
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[skip_serializing_none]
-#[derive(Identifiable, Queryable, Selectable, Serialize, ToSchema)]
+#[derive(Identifiable, Queryable, Selectable, Serialize, JsonSchema)]
 #[diesel(table_name = super::schema::users)]
 pub struct ChatRsUser {
     pub id: Uuid,

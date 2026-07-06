@@ -1,138 +1,131 @@
+use aide::{
+    axum::{ApiRouter, routing::get_with},
+    transform::TransformOperation,
+};
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    response::{IntoResponse, Redirect},
+    response::Redirect,
 };
+use schemars::JsonSchema;
 use serde::Deserialize;
-use utoipa::{IntoParams, ToSchema};
-use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     api::{ApiTag, RoutePrefix},
     db::models::ChatRsUser,
     error::AppResult,
-    extractors::{CurrentUser, Database, PublicAuthConfig, SessionMeta},
+    extractors::{AppSession, CurrentUser, Database, PublicAuthConfig},
     services::auth::oauth::OAuthProviderEnum,
     state::AppState,
 };
 
-pub fn routes() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new()
-        .routes(routes!(get_user))
-        .routes(routes!(get_config))
-        .routes(routes!(oauth_login))
-        .routes(routes!(oauth_login_callback))
-        .routes(routes!(logout))
+pub fn routes() -> ApiRouter<AppState> {
+    ApiRouter::new()
+        .api_route("/user", get_with(get_user, get_user_docs))
+        .api_route("/config", get_with(get_config, get_config_docs))
+        .api_route("/login", get_with(oauth_login, oauth_login_docs))
+        .api_route(
+            "/login/callback",
+            get_with(oauth_callback, oauth_callback_docs),
+        )
+        .api_route(
+            "/logout",
+            get_with(logout, logout_docs).post_with(logout, logout_docs),
+        )
+        .with_path_items(|op| op.tag(ApiTag::Auth.into()))
 }
 
-/// Get current user
-#[utoipa::path(
-    get, path = "/user",
-    responses((status = OK, body = ChatRsUser)),
-    tag = ApiTag::Auth.into())
-]
+fn get_user_docs(op: TransformOperation) -> TransformOperation {
+    op.id("get_user").summary("Get current user")
+}
 async fn get_user(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
     State(state): State<AppState>,
-) -> AppResult<impl IntoResponse> {
+) -> AppResult<Json<ChatRsUser>> {
     let user = state.auth_service().get_user(&mut db, &user_id).await?;
     Ok(Json(user))
 }
 
-#[utoipa::path(
-    get, path = "/config",
-    responses((status = OK, body = PublicAuthConfig)),
-    tag = ApiTag::Auth.into()
-)]
-async fn get_config(auth_config: PublicAuthConfig) -> impl IntoResponse {
+fn get_config_docs(op: TransformOperation) -> TransformOperation {
+    op.id("get_auth_config").summary("Get auth config")
+}
+async fn get_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
     Json(auth_config)
 }
 
-fn oauth_callback_path(route_prefix: &'static str, provider: OAuthProviderEnum) -> String {
+fn oauth_callback_path(route_prefix: &'static str, provider: &OAuthProviderEnum) -> String {
     format!("{route_prefix}/login/{provider}/callback")
 }
 
-/// OAuth login redirect
-#[utoipa::path(
-    get, path = "/login/{provider}",
-    params(("provider" = OAuthProviderEnum, Path)),
-    responses((status = OK)),
-    tag = ApiTag::Auth.into(),
-)]
+fn oauth_login_docs(op: TransformOperation) -> TransformOperation {
+    op.id("oauth_login")
+        .summary("OAuth login")
+        .description("OAuth login redirect")
+}
 async fn oauth_login(
     Path(provider): Path<OAuthProviderEnum>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
     State(state): State<AppState>,
-    session: tower_sessions::Session,
-) -> AppResult<impl IntoResponse> {
+    AppSession { session, .. }: AppSession,
+) -> AppResult<Redirect> {
     let oauth = state.auth_service().oauth();
     let auth_url = oauth
-        .authorize_url(provider, &oauth_callback_path(prefix, provider), &session)
+        .authorize_url(&provider, &oauth_callback_path(prefix, &provider), &session)
         .await?;
 
     Ok(Redirect::to(auth_url.as_str()))
 }
 
-#[derive(Debug, Clone, Deserialize, IntoParams, ToSchema)]
+#[derive(Debug, Deserialize, JsonSchema)]
 struct OAuthCallbackQuery {
     code: String,
     state: String,
 }
 
-/// OAuth login callback
-#[utoipa::path(
-    get, path = "/login/{provider}/callback",
-    params(
-        ("query" = inline(OAuthCallbackQuery), Query),
-        ("provider" = OAuthProviderEnum, Path, description = "the OAuth provider")
-    ),
-    responses((status = OK)),
-    tag = ApiTag::Auth.into(),
-)]
-async fn oauth_login_callback(
+fn oauth_callback_docs(op: TransformOperation) -> TransformOperation {
+    op.id("oauth_login_callback")
+        .summary("OAuth login callback")
+}
+async fn oauth_callback(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
-    Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
-    Database(mut db): Database,
-    State(state): State<AppState>,
-    session: tower_sessions::Session,
-    meta: SessionMeta,
     maybe_user: Option<CurrentUser>,
-) -> AppResult<impl IntoResponse> {
-    let oauth = state.auth_service().oauth();
+    Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
+    AppSession { session, meta }: AppSession,
+    Database(mut db): Database,
+    State(app_state): State<AppState>,
+) -> AppResult<Redirect> {
+    let oauth = app_state.auth_service().oauth();
     let token = oauth
         .exchange_code(
-            provider,
-            &oauth_callback_path(prefix, provider),
+            &provider,
+            &oauth_callback_path(prefix, &provider),
             &session,
             &query.code,
             &query.state,
         )
         .await?;
     let user = oauth
-        .get_user(&mut db, provider, &token, maybe_user)
+        .get_user(&mut db, &provider, &token, maybe_user)
         .await?;
-    state
+    app_state
         .auth_service()
         .session()
         .login(&session, &meta, &user.id)
         .await?;
 
-    Ok(Redirect::to(&state.config.server.base_url))
+    Ok(Redirect::to(&app_state.config.server.base_url))
 }
 
-/// Logout
-#[utoipa::path(
-    method(get, post), path = "/logout",
-    tag = ApiTag::Auth.into(),
-    responses((status = NO_CONTENT)),
-)]
+fn logout_docs(op: TransformOperation) -> TransformOperation {
+    op.id("logout").summary("Logout")
+}
 async fn logout(
-    session: tower_sessions::Session,
+    AppSession { session, .. }: AppSession,
     State(state): State<AppState>,
-) -> AppResult<impl IntoResponse> {
+) -> AppResult<StatusCode> {
     state.auth_service().session().logout(&session).await?;
     Ok(StatusCode::NO_CONTENT)
 }

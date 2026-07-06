@@ -1,3 +1,4 @@
+use aide::OperationIo;
 use anyhow::anyhow;
 use axum::{
     extract::{FromRequestParts, OptionalFromRequestParts},
@@ -16,7 +17,7 @@ if there is no active user.
 - If used as `Option<CurrentUser>`, will be `Some` if there is an active user
 and `None` otherwise.
 */
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, OperationIo)]
 pub struct CurrentUser {
     pub user_id: Uuid,
 }

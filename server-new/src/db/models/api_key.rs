@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
+use schemars::JsonSchema;
 use serde::Serialize;
-use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::db::models::ChatRsUser;
 
-#[derive(Identifiable, Queryable, Selectable, Associations, Serialize, ToSchema)]
+#[derive(Identifiable, Queryable, Selectable, Associations, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::app_api_keys)]
 pub struct ChatRsApiKey {

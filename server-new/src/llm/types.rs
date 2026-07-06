@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Generic LLM prompt
@@ -22,7 +23,7 @@ pub enum LlmMessage {
 }
 
 /// Generic chat options for all LLM providers
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct LlmChatOptions {
     pub model: String,
     pub temperature: Option<f32>,

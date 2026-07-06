@@ -1,8 +1,10 @@
+use aide::OperationIo;
 use axum::extract::FromRequestParts;
 
 use crate::{db::DbService, error::AppError, state::AppState};
 
 /// An extractor to retrieve a database connection from the pool
+#[derive(OperationIo)]
 pub struct Database(pub DbService);
 
 impl FromRequestParts<AppState> for Database {

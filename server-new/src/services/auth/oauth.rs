@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use futures::future::BoxFuture;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use simple_oauth::{
     SimpleOAuthClient, SimpleOAuthError, SimpleOAuthProvider,
@@ -8,7 +9,6 @@ use simple_oauth::{
 };
 use strum::Display;
 use tower_sessions::Session;
-use utoipa::ToSchema;
 
 use crate::{
     config::AppConfig,
@@ -36,7 +36,7 @@ pub type OAuthProviderMap = HashMap<OAuthProviderEnum, (OAuthClient, Box<dyn OAu
 pub type OAuthClient = SimpleOAuthClient<Box<dyn SimpleOAuthProvider>>;
 
 /// Supported OAuth provider
-#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum OAuthProviderEnum {
@@ -79,11 +79,11 @@ impl<'a> OAuthService<'a> {
 
     fn oauth_provider(
         &self,
-        provider: OAuthProviderEnum,
+        provider: &OAuthProviderEnum,
     ) -> AuthResult<(&OAuthClient, &Box<dyn OAuthProvider>)> {
         let (client, provider) = self
             .provider_map
-            .get(&provider)
+            .get(provider)
             .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
         Ok((client, provider))
     }
@@ -94,7 +94,7 @@ impl<'a> OAuthService<'a> {
 
     pub async fn authorize_url(
         &self,
-        provider: OAuthProviderEnum,
+        provider: &OAuthProviderEnum,
         callback_path: &str,
         session: &Session,
     ) -> AuthResult<reqwest::Url> {
@@ -114,7 +114,7 @@ impl<'a> OAuthService<'a> {
 
     pub async fn exchange_code(
         &self,
-        provider: OAuthProviderEnum,
+        provider: &OAuthProviderEnum,
         callback_path: &str,
         session: &Session,
         code: &str,
@@ -148,7 +148,7 @@ impl<'a> OAuthService<'a> {
     pub async fn get_user(
         &self,
         db: &mut DbService,
-        provider: OAuthProviderEnum,
+        provider: &OAuthProviderEnum,
         token: &StandardTokenResponse,
         active_session: Option<CurrentUser>,
     ) -> AuthResult<ChatRsUser> {

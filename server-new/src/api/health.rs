@@ -1,12 +1,13 @@
-use utoipa_axum::{router::OpenApiRouter, routes};
+use aide::axum::ApiRouter;
+use axum_typed_routing::{TypedApiRouter, api_route};
 
 use crate::state::AppState;
 
-pub fn routes() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(health_handler))
+pub fn routes() -> ApiRouter<AppState> {
+    ApiRouter::new().typed_api_route(health)
 }
 
-#[utoipa::path(get, path = "", responses((status = OK, body = &str)))]
-async fn health_handler() -> &'static str {
+#[api_route(GET "/" with AppState { summary: "Health route" })]
+async fn health() -> &'static str {
     "OK"
 }
