@@ -2,7 +2,7 @@
 name = "aide-docs-macro"
 version = "0.1.0"
 edition = "2024"
-description = "Internal attribute macro for API operation docs"
+description = "Convenience macros for aide API docs"
 publish = false
 
 [lib]

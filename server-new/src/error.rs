@@ -1,9 +1,10 @@
-use aide::OperationIo;
+use aide::OperationOutput;
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::db::DbPoolError;
@@ -12,7 +13,7 @@ use crate::db::DbPoolError;
 pub type AppResult<T> = Result<T, AppError>;
 
 /// Global API error type
-#[derive(Debug, OperationIo)]
+#[derive(Debug)]
 pub struct AppError {
     status: StatusCode,
     message: String,
@@ -64,13 +65,13 @@ impl From<DbPoolError> for AppError {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorResponse {
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ErrorResponse {
     error: ErrorBody,
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ErrorBody {
     message: String,
     status: u16,
 }
@@ -89,5 +90,29 @@ impl IntoResponse for AppError {
         };
 
         (self.status, Json(response)).into_response()
+    }
+}
+
+impl OperationOutput for AppError {
+    type Inner = ErrorResponse;
+
+    fn inferred_responses(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) -> Vec<(Option<aide::openapi::StatusCode>, aide::openapi::Response)> {
+        if let Some(response) = Json::<ErrorResponse>::operation_response(ctx, operation) {
+            let status_codes = [
+                StatusCode::BAD_REQUEST,
+                StatusCode::UNAUTHORIZED,
+                StatusCode::NOT_FOUND,
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ];
+            Vec::from_iter(status_codes.into_iter().map(|code| {
+                let aide_code = aide::openapi::StatusCode::Code(code.as_u16());
+                (Some(aide_code), response.clone())
+            }))
+        } else {
+            Vec::new()
+        }
     }
 }
