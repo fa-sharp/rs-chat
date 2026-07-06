@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use aide::{
     axum::ApiRouter,
-    openapi::{OpenApi, Server},
+    openapi::{OpenApi, SecurityScheme, Server},
     swagger::Swagger,
 };
 use axum::{Extension, routing::get};
@@ -45,7 +45,16 @@ pub fn plugin() -> AdHocPlugin<AppState> {
                     .server(Server {
                         url: String::from("/api"),
                         ..Default::default()
-                    });
+                    })
+                    .security_scheme(
+                        "ApiKey",
+                        SecurityScheme::Http {
+                            scheme: String::from("bearer"),
+                            bearer_format: Some(String::from("bearer")),
+                            description: Some(String::from("RsChat API key")),
+                            extensions: Default::default(),
+                        },
+                    );
                 for tag in ApiTag::iter() {
                     op = op.tag(aide::openapi::Tag {
                         name: tag.to_string(),

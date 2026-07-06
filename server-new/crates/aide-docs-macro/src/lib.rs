@@ -31,14 +31,14 @@ impl Parse for DocsArgs {
     }
 }
 
-/// Convenience macro for generating API docs with aide. Generates a function
+/// Convenience macro for generating API docs for the route handler. Generates a function
 /// called `<handler_name>_docs` that can be passed as the transform function
-/// to `get_with`, `post_with`, etc.
+/// to aide's `get_with`, `post_with`, etc.
 ///
 /// # Syntax
-/// `#[docs("<summary>", "<description>"]`
+/// `#[handler_docs("<summary>" (, "<description>")]`
 #[proc_macro_attribute]
-pub fn docs(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn handler_docs(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as DocsArgs);
     let handler = parse_macro_input!(input as ItemFn);
     let handler_name = &handler.sig.ident;
@@ -197,7 +197,7 @@ fn next_label_is(input: ParseStream<'_>, expected: &str) -> bool {
     fork.parse::<Ident>().is_ok_and(|label| label == expected) && fork.peek(Token![:])
 }
 
-/// Generate a `routes()` function and the matching `<handler>_docs` functions.
+/// Generate a `routes()` function with attached API docs
 ///
 /// # Syntax
 /// ```ignore

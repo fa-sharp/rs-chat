@@ -1,4 +1,4 @@
-use aide::OperationIo;
+use aide::OperationInput;
 use anyhow::anyhow;
 use axum::{
     extract::{FromRequestParts, OptionalFromRequestParts},
@@ -17,7 +17,7 @@ if there is no active user.
 - If used as `Option<CurrentUser>`, will be `Some` if there is an active user
 and `None` otherwise.
 */
-#[derive(Debug, Clone, Serialize, Deserialize, OperationIo)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrentUser {
     pub user_id: Uuid,
 }
@@ -91,5 +91,17 @@ impl FromRequestParts<AppState> for CurrentUser {
             Some(current_user) => Ok(current_user),
             None => Err(AppError::unauthorized("no active user")),
         }
+    }
+}
+
+impl OperationInput for CurrentUser {
+    fn operation_input(
+        _ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) {
+        let security_reqs = [(String::from("ApiKey"), vec![])];
+        operation
+            .security
+            .push(FromIterator::from_iter(security_reqs))
     }
 }
