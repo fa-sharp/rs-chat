@@ -1,8 +1,4 @@
-use aide::axum::{
-    ApiRouter,
-    routing::{delete_with, get_with, post_with},
-};
-use aide_docs_macro::docs;
+use aide_docs_macro::api_routes;
 use axum::{
     Json,
     extract::{Path, State},
@@ -20,15 +16,14 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> ApiRouter<AppState> {
-    ApiRouter::new()
-        .api_route("/", get_with(list_api_keys, list_api_keys_docs))
-        .api_route("/", post_with(create_api_key, create_api_key_docs))
-        .api_route("/{id}", delete_with(delete_api_key, delete_api_key_docs))
-        .with_path_items(|op| op.tag(ApiTag::ApiKey.into()))
+api_routes! {
+    state: AppState,
+    tag: ApiTag::ApiKey,
+    GET "/" => list_api_keys, "List API keys";
+    POST "/" => create_api_key, "Create API key";
+    DELETE "/{id}" => delete_api_key, "Delete API key";
 }
 
-#[docs("List API keys")]
 async fn list_api_keys(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -42,7 +37,6 @@ struct ApiKeyCreateInput {
     name: String,
 }
 
-#[docs("Create API key")]
 async fn create_api_key(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -63,7 +57,6 @@ struct ApiKeyCreateResponse {
     key: String,
 }
 
-#[docs("Delete API key")]
 async fn delete_api_key(
     Path(id): Path<Uuid>,
     CurrentUser { user_id }: CurrentUser,

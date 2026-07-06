@@ -1,7 +1,11 @@
 use std::sync::Arc;
 
-use aide::{axum::ApiRouter, openapi::OpenApi, swagger::Swagger};
-use axum::{Extension, http::header, response::IntoResponse, routing::get};
+use aide::{
+    axum::ApiRouter,
+    openapi::{OpenApi, Server},
+    swagger::Swagger,
+};
+use axum::{Extension, routing::get};
 use axum_plugin::AdHocPlugin;
 use strum::{AsRefStr, Display, EnumIter, EnumMessage, IntoEnumIterator, IntoStaticStr};
 
@@ -26,14 +30,6 @@ enum ApiTag {
 pub fn plugin() -> AdHocPlugin<AppState> {
     AdHocPlugin::named("API routes").on_setup(|router, _state| {
         let mut openapi = OpenApi::default();
-        for tag in ApiTag::iter() {
-            openapi.tags.push(aide::openapi::Tag {
-                name: tag.to_string(),
-                description: tag.get_message().map(String::from),
-                ..Default::default()
-            })
-        }
-
         let api_routes = ApiRouter::new()
             .nest("/api_key", api_key::routes())
             .nest(
@@ -42,12 +38,30 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             )
             .nest("/chat", chat::routes())
             .nest("/health", health::routes())
-            .finish_api(&mut openapi);
+            .finish_api_with(&mut openapi, |op| {
+                let mut op = op
+                    .title("RsChat API")
+                    .description("OpenAPI specification for the RsChat server")
+                    .server(Server {
+                        url: String::from("/api"),
+                        ..Default::default()
+                    });
+                for tag in ApiTag::iter() {
+                    op = op.tag(aide::openapi::Tag {
+                        name: tag.to_string(),
+                        description: tag.get_message().map(String::from),
+                        ..Default::default()
+                    });
+                }
+
+                op
+            });
 
         let api_routes_with_docs = api_routes
             .route(
                 "/docs/openapi.json",
-                get(openapi_route).layer(Extension(Arc::new(openapi))),
+                get(async |Extension(openapi): Extension<Arc<OpenApi>>| axum::Json(openapi))
+                    .layer(Extension(Arc::new(openapi))),
             )
             .route(
                 "/docs",
@@ -58,10 +72,6 @@ pub fn plugin() -> AdHocPlugin<AppState> {
 
         Ok(router.nest("/api", api_routes_with_docs))
     })
-}
-
-async fn openapi_route(Extension(openapi): Extension<Arc<OpenApi>>) -> impl IntoResponse {
-    axum::Json(openapi)
 }
 
 /// Extension to pass the route prefix to child routes

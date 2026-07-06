@@ -1,5 +1,4 @@
-use aide::axum::{ApiRouter, routing::get_with};
-use aide_docs_macro::docs;
+use aide_docs_macro::api_routes;
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
@@ -18,23 +17,16 @@ use crate::{
     state::AppState,
 };
 
-pub fn routes() -> ApiRouter<AppState> {
-    ApiRouter::new()
-        .api_route("/user", get_with(get_user, get_user_docs))
-        .api_route("/config", get_with(get_config, get_config_docs))
-        .api_route("/login", get_with(oauth_login, oauth_login_docs))
-        .api_route(
-            "/login/callback",
-            get_with(oauth_callback, oauth_callback_docs),
-        )
-        .api_route(
-            "/logout",
-            get_with(logout, logout_docs).post_with(logout, logout_docs),
-        )
-        .with_path_items(|op| op.tag(ApiTag::Auth.into()))
+api_routes! {
+    state: AppState,
+    tag: ApiTag::Auth,
+    GET "/user" => get_user, "Get user", "Get the current user";
+    GET "/config" => get_config, "Get auth config", "Get the current auth configuration of the server";
+    GET "/login/{provider}" => oauth_login, "OAuth login", "OAuth login redirect";
+    GET "/login/{provider}/callback" => oauth_callback, "OAuth login callback";
+    GET, POST "/logout" => logout, "Logout";
 }
 
-#[docs("Get user", "Get the current user")]
 async fn get_user(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -44,7 +36,6 @@ async fn get_user(
     Ok(Json(user))
 }
 
-#[docs("Get auth config", "Get the current auth configuration of the server")]
 async fn get_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
     Json(auth_config)
 }
@@ -53,7 +44,6 @@ fn oauth_callback_path(route_prefix: &'static str, provider: &OAuthProviderEnum)
     format!("{route_prefix}/login/{provider}/callback")
 }
 
-#[docs("OAuth login", "OAuth login redirect")]
 async fn oauth_login(
     Path(provider): Path<OAuthProviderEnum>,
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
@@ -74,7 +64,6 @@ struct OAuthCallbackQuery {
     state: String,
 }
 
-#[docs("OAuth login callback sdf")]
 async fn oauth_callback(
     Path(provider): Path<OAuthProviderEnum>,
     Query(query): Query<OAuthCallbackQuery>,
@@ -106,7 +95,6 @@ async fn oauth_callback(
     Ok(Redirect::to(&app_state.config.server.base_url))
 }
 
-#[docs("Logout")]
 async fn logout(
     AppSession { session, .. }: AppSession,
     State(state): State<AppState>,

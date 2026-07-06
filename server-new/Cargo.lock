@@ -83,27 +83,6 @@ dependencies = [
 
 [[package]]
 name = "aide"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6966317188cdfe54c58c0900a195d021294afb3ece9b7073d09e4018dbb1e3a2"
-dependencies = [
- "axum",
- "bytes",
- "cfg-if",
- "http",
- "indexmap",
- "schemars 0.9.0",
- "serde",
- "serde_json",
- "serde_qs 0.14.0",
- "thiserror 2.0.18",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "aide"
 version = "0.16.0-alpha.4"
 source = "git+https://github.com/hniksic/aide.git?rev=7246c20#7246c20903ce9e87b768917589a7568663a1eda3"
 dependencies = [
@@ -113,10 +92,10 @@ dependencies = [
  "cfg-if",
  "http",
  "indexmap",
- "schemars 1.2.1",
+ "schemars",
  "serde",
  "serde_json",
- "serde_qs 1.1.2",
+ "serde_qs",
  "thiserror 2.0.18",
  "tower-layer",
  "tower-service",
@@ -312,31 +291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum-extra"
-version = "0.12.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be44683b41ccb9ab2d23a5230015c9c3c55be97a25e4428366de8873103f7970"
-dependencies = [
- "axum",
- "axum-core",
- "bytes",
- "form_urlencoded",
- "futures-core",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "mime",
- "pin-project-lite",
- "serde_core",
- "serde_html_form",
- "serde_path_to_error",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
 name = "axum-helmet"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -347,17 +301,6 @@ dependencies = [
  "pin-project-lite",
  "tower",
  "tower-service",
-]
-
-[[package]]
-name = "axum-macros"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -376,30 +319,6 @@ dependencies = [
 name = "axum-plugin-macros"
 version = "0.1.0"
 source = "git+https://git.fasharp.io/fa-sharp/axum-plugin?rev=9f72278b3c#9f72278b3c8ae57897ac04af54a6643bb9e5a25c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "axum-typed-routing"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a61ccff37342bbcd7fc468ab6d96e9547a3c81bb2b027f108dda07e0757ab477"
-dependencies = [
- "aide 0.15.1",
- "axum",
- "axum-extra",
- "axum-macros",
- "axum-typed-routing-macros",
-]
-
-[[package]]
-name = "axum-typed-routing-macros"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "299699055db19bfe910cb2275056062b6dbb0198f7d6d365e1f4f5e2f9f6138f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -812,27 +731,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 dependencies = [
  "serde_core",
-]
-
-[[package]]
-name = "derive_more"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
-dependencies = [
- "derive_more-impl",
-]
-
-[[package]]
-name = "derive_more-impl"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
-dependencies = [
- "proc-macro2",
- "quote",
- "rustc_version",
- "syn",
 ]
 
 [[package]]
@@ -2403,7 +2301,7 @@ name = "rs-chat-api"
 version = "0.1.0"
 dependencies = [
  "aes-gcm 0.11.0",
- "aide 0.16.0-alpha.4",
+ "aide",
  "aide-docs-macro",
  "anyhow",
  "async-stream",
@@ -2411,9 +2309,7 @@ dependencies = [
  "axum",
  "axum-helmet",
  "axum-plugin",
- "axum-typed-routing",
  "chrono",
- "derive_more",
  "diesel",
  "diesel-async",
  "diesel-derive-enum",
@@ -2426,7 +2322,7 @@ dependencies = [
  "hex",
  "reqwest",
  "reqwest-websocket",
- "schemars 1.2.1",
+ "schemars",
  "serde",
  "serde_json",
  "serde_with",
@@ -2569,20 +2465,6 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd191f9397d57d581cddd31014772520aa448f65ef991055d7f61582c65165f"
-dependencies = [
- "dyn-clone",
- "indexmap",
- "ref-cast",
- "schemars_derive 0.9.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "schemars"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
@@ -2591,22 +2473,10 @@ dependencies = [
  "dyn-clone",
  "indexmap",
  "ref-cast",
- "schemars_derive 1.2.1",
+ "schemars_derive",
  "serde",
  "serde_json",
  "uuid",
-]
-
-[[package]]
-name = "schemars_derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5016d94c77c6d32f0b8e08b781f7dc8a90c2007d4e77472cc2807bc10a8438fe"
-dependencies = [
- "proc-macro2",
- "quote",
- "serde_derive_internals",
- "syn",
 ]
 
 [[package]]
@@ -2698,19 +2568,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_html_form"
-version = "0.2.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2f2d7ff8a2140333718bb329f5c40fc5f0865b84c426183ce14c97d2ab8154f"
-dependencies = [
- "form_urlencoded",
- "indexmap",
- "itoa",
- "ryu",
- "serde_core",
-]
-
-[[package]]
 name = "serde_json"
 version = "1.0.150"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2732,19 +2589,6 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "serde_qs"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b417bedc008acbdf6d6b4bc482d29859924114bbe2650b7921fb68a261d0aa6"
-dependencies = [
- "axum",
- "futures",
- "percent-encoding",
- "serde",
- "thiserror 2.0.18",
 ]
 
 [[package]]

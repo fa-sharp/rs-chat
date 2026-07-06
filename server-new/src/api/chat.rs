@@ -1,5 +1,4 @@
-use aide::axum::{ApiRouter, routing::post_with};
-use aide_docs_macro::docs;
+use aide_docs_macro::api_routes;
 use axum::{
     Json,
     extract::{Path, State},
@@ -9,19 +8,20 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    api::ApiTag,
     error::{AppError, AppResult},
     extractors::{CurrentUser, Database},
     llm::types::{LlmChatOptions, LlmUserMessage},
     state::AppState,
 };
 
-pub fn routes() -> ApiRouter<AppState> {
-    ApiRouter::new()
-        .api_route("/prompt", post_with(prompt, prompt_docs))
-        .api_route(
-            "/session/{session_id}",
-            post_with(chat_stream, chat_stream_docs),
-        )
+api_routes! {
+    state: AppState,
+    tag: ApiTag::Chat,
+    POST "/prompt" => prompt, "Prompt",
+        "Send a single prompt to a provider and get the response";
+    POST "/session/{session_id}" => chat_stream, "Chat",
+        "Send a message in a chat session and stream the response";
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -34,7 +34,6 @@ struct PromptInput {
     options: LlmChatOptions,
 }
 
-#[docs("Prompt", "Send a single prompt to a provider and get the response")]
 async fn prompt(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
@@ -75,10 +74,6 @@ struct ChatInput {
     options: LlmChatOptions,
 }
 
-#[docs(
-    "Send chat",
-    "Send a message in a chat session and stream the response"
-)]
 async fn chat_stream(
     Path(session_id): Path<Uuid>,
     CurrentUser { user_id }: CurrentUser,

@@ -1,13 +1,13 @@
-use aide::axum::ApiRouter;
-use axum_typed_routing::{TypedApiRouter, api_route};
+use aide::axum::{ApiRouter, routing::get_with};
+use aide_docs_macro::docs;
 
 use crate::state::AppState;
 
 pub fn routes() -> ApiRouter<AppState> {
-    ApiRouter::new().typed_api_route(health)
+    ApiRouter::new().api_route("/", get_with(health, health_docs))
 }
 
-#[api_route(GET "/" with AppState { summary: "Health route" })]
+#[docs("Health route")]
 async fn health() -> &'static str {
     "OK"
 }
