@@ -148,9 +148,7 @@ impl LlmProvider for OpenAIProvider {
                 &request,
             )
             .await?;
-            let mut response: OpenAIResponse = response.json().await.map_err(|err| {
-                LlmRequestError::Provider(format!("Failed to parse response: {err}"))
-            })?;
+            let mut response: OpenAIResponse = response.json().await?;
 
             let text = response
                 .choices

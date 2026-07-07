@@ -5,6 +5,8 @@ use crate::services::stream::error::StreamingError;
 pub enum LlmRequestError {
     #[error("provider error: {0}")]
     Provider(String),
+    #[error("failed to read response: {0}")]
+    Read(#[from] reqwest::Error),
     #[error("no content")]
     NoContent,
 }

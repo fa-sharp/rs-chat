@@ -7,7 +7,7 @@ use aide::{
 };
 use axum::{Extension, routing::get};
 use axum_plugin::AdHocPlugin;
-use strum::{AsRefStr, Display, EnumIter, EnumMessage, IntoEnumIterator, IntoStaticStr};
+use strum::{Display, EnumIter, EnumMessage, IntoEnumIterator, IntoStaticStr};
 
 use crate::state::AppState;
 
@@ -15,12 +15,13 @@ pub mod api_key;
 pub mod auth;
 pub mod chat;
 pub mod health;
+pub mod provider;
 
 const API_BASE: &str = "/api/v1";
 const API_AUTH_BASE: &str = "/api/v1/auth";
 pub const API_KEY_SCHEME: &str = "ApiKey";
 
-#[derive(Display, AsRefStr, IntoStaticStr, EnumMessage, EnumIter)]
+#[derive(Display, IntoStaticStr, EnumMessage, EnumIter)]
 enum ApiTag {
     #[strum(message = "Manage API keys")]
     ApiKey,
@@ -44,6 +45,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             )
             .nest("/chat", chat::routes())
             .nest("/health", health::routes())
+            .nest("/provider", provider::routes())
             .finish_api_with(&mut openapi, build_openapi_doc);
 
         let api_routes_with_docs = api_routes

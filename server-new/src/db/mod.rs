@@ -60,6 +60,9 @@ impl DbService {
     pub fn providers(&mut self) -> repositories::ProviderRepository<'_> {
         repositories::ProviderRepository::new(&mut self.cxn)
     }
+    pub fn secrets(&mut self) -> repositories::SecretRepository<'_> {
+        repositories::SecretRepository::new(&mut self.cxn)
+    }
     pub fn users(&mut self) -> repositories::UserRepository<'_> {
         repositories::UserRepository::new(&mut self.cxn)
     }

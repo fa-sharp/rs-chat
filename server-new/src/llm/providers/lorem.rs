@@ -42,7 +42,7 @@ impl Stream for LoremStream {
             return std::task::Poll::Ready(None);
         }
 
-        match Pin::new(&mut self.interval).poll_tick(cx) {
+        match self.interval.poll_tick(cx) {
             std::task::Poll::Ready(_) => {
                 let word = self.words[self.index];
                 self.index += 1;

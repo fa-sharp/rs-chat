@@ -103,11 +103,12 @@ impl RouteMethod {
         let fn_name = match self.name().as_str() {
             "GET" => "get_with",
             "POST" => "post_with",
+            "PATCH" => "patch_with",
             "DELETE" => "delete_with",
             _ => {
                 return Err(syn::Error::new_spanned(
                     &self.ident,
-                    "expected one of GET, POST, DELETE",
+                    "expected one of GET, POST, PATCH, DELETE",
                 ));
             }
         };
