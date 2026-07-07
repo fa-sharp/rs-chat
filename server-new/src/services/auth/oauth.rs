@@ -172,7 +172,7 @@ impl<'a> OAuthService<'a> {
                 }
                 Some(sess) => match db.users().find_by_id(&sess.user_id).await? {
                     Some(user) if oauth_provider.is_user_linked(&user) => {
-                        return Err(AuthError::BadRequest("user already linked to provider"));
+                        return Err(AuthError::BadRequest("already linked to this provider"));
                     }
                     Some(user) => {
                         // Link logged-in user to new provider

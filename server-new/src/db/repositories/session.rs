@@ -19,6 +19,32 @@ impl<'a> SessionRepository<'a> {
         Self { db }
     }
 
+    /// Find an active (not expired) session by ID
+    pub async fn find_active_by_id(
+        &mut self,
+        session_id: &Uuid,
+    ) -> QueryResult<Option<ChatRsAuthSession>> {
+        auth_sessions::table
+            .find(session_id)
+            .filter(auth_sessions::expires_at.gt(diesel::dsl::now))
+            .select(ChatRsAuthSession::as_select())
+            .first(self.db)
+            .await
+            .optional()
+    }
+
+    pub async fn list_active_by_user_id(
+        &mut self,
+        user_id: &Uuid,
+    ) -> QueryResult<Vec<ChatRsAuthSession>> {
+        auth_sessions::table
+            .filter(auth_sessions::user_id.eq(user_id))
+            .filter(auth_sessions::expires_at.gt(diesel::dsl::now))
+            .select(ChatRsAuthSession::as_select())
+            .load(self.db)
+            .await
+    }
+
     pub async fn create(
         &mut self,
         session_id: &Uuid,
@@ -52,20 +78,6 @@ impl<'a> SessionRepository<'a> {
             .returning(ChatRsAuthSession::as_returning())
             .get_result(self.db)
             .await
-    }
-
-    /// Find an active (not expired) session by ID
-    pub async fn find_active_by_id(
-        &mut self,
-        session_id: &Uuid,
-    ) -> QueryResult<Option<ChatRsAuthSession>> {
-        auth_sessions::table
-            .find(session_id)
-            .filter(auth_sessions::expires_at.gt(diesel::dsl::now))
-            .select(ChatRsAuthSession::as_select())
-            .first(self.db)
-            .await
-            .optional()
     }
 
     /// Delete a session by ID. Won't return an error if it does not exist.

@@ -38,13 +38,11 @@ impl<'a> ApiKeyRepository<'a> {
     }
 
     pub async fn create(&mut self, api_key: NewChatRsApiKey<'_>) -> Result<Uuid, Error> {
-        let id: Uuid = diesel::insert_into(app_api_keys::table)
+        diesel::insert_into(app_api_keys::table)
             .values(api_key)
             .returning(app_api_keys::id)
             .get_result(self.db)
-            .await?;
-
-        Ok(id)
+            .await
     }
 
     pub async fn delete(
@@ -62,12 +60,10 @@ impl<'a> ApiKeyRepository<'a> {
     }
 
     pub async fn delete_by_user(&mut self, user_id: &Uuid) -> Result<Vec<Uuid>, Error> {
-        let ids: Vec<Uuid> = diesel::delete(app_api_keys::table)
+        diesel::delete(app_api_keys::table)
             .filter(app_api_keys::user_id.eq(user_id))
             .returning(app_api_keys::id)
             .get_results(self.db)
-            .await?;
-
-        Ok(ids)
+            .await
     }
 }

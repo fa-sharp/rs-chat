@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::{
     api::{ApiTag, RoutePrefix},
-    db::models::ChatRsUser,
+    db::models::{ChatRsAuthSession, ChatRsUser},
     error::AppResult,
     extractors::{AppSession, CurrentUser, Database, PublicAuthConfig},
     services::auth::oauth::OAuthProviderEnum,
@@ -21,6 +21,7 @@ api_routes! {
     state: AppState,
     tag: ApiTag::Auth,
     GET "/user" => get_user, "Get current user";
+    GET "/sessions" => list_active_sessions, "List active sessions";
     GET "/config" => get_auth_config, "Get auth config", {
         description: "Get the current auth configuration of the server"
     };
@@ -42,6 +43,14 @@ async fn get_user(
 ) -> AppResult<Json<ChatRsUser>> {
     let user = state.auth_service().get_user(&mut db, &user_id).await?;
     Ok(Json(user))
+}
+
+async fn list_active_sessions(
+    CurrentUser { user_id }: CurrentUser,
+    Database(mut db): Database,
+) -> AppResult<Json<Vec<ChatRsAuthSession>>> {
+    let sessions = db.auth_sessions().list_active_by_user_id(&user_id).await?;
+    Ok(Json(sessions))
 }
 
 async fn get_auth_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
@@ -79,9 +88,9 @@ async fn oauth_callback(
     Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
     AppSession { session, meta }: AppSession,
     Database(mut db): Database,
-    State(app_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> AppResult<Redirect> {
-    let oauth = app_state.auth_service().oauth();
+    let oauth = state.auth_service().oauth();
     let token = oauth
         .exchange_code(
             &provider,
@@ -94,13 +103,13 @@ async fn oauth_callback(
     let user = oauth
         .get_user(&mut db, &provider, &token, maybe_user)
         .await?;
-    app_state
+    state
         .auth_service()
         .session()
         .login(&session, &meta, &user.id)
         .await?;
 
-    Ok(Redirect::to(&app_state.config.server.base_url))
+    Ok(Redirect::to(&state.config.server.base_url))
 }
 
 async fn logout(
