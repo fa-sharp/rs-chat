@@ -1,3 +1,5 @@
+//! Database models
+
 use crate::db::schema;
 
 mod api_key;

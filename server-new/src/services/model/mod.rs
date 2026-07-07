@@ -10,6 +10,7 @@ use crate::{
 };
 
 pub mod error;
+mod providers;
 pub mod types;
 
 const MODELS_DEV_URL: &str = "https://models.dev/api.json";
@@ -32,18 +33,34 @@ impl<'r> ModelService<'r> {
         provider: &ChatRsProvider,
         provider_type: &ChatRsProviderType,
     ) -> Result<Vec<LlmModel>, ModelError> {
-        let md_provider = match provider_type {
+        match provider_type {
             ChatRsProviderType::OpenAI => {
                 let subtype = provider.openai_subtype.as_deref().unwrap_or_default();
-                match OpenAISubtype::from_str(subtype).unwrap_or_default() {
+                let md_provider = match OpenAISubtype::from_str(subtype).unwrap_or_default() {
                     OpenAISubtype::OpenAI => ModelsDevProvider::OpenAI,
                     OpenAISubtype::OpenRouter => ModelsDevProvider::OpenRouter,
-                }
+                };
+                self.fetch_models_dev(md_provider).await
             }
-            ChatRsProviderType::Anthropic => ModelsDevProvider::Anthropic,
-            _ => return Err(ModelError::ProviderNotSupported),
-        };
+            ChatRsProviderType::Anthropic => {
+                self.fetch_models_dev(ModelsDevProvider::Anthropic).await
+            }
+            ChatRsProviderType::Ollama => {
+                providers::ollama_models(self.http_client, provider.base_url.as_deref()).await
+            }
+            ChatRsProviderType::Lorem => Ok(vec![LlmModel {
+                id: String::from("lorem"),
+                name: String::from("lorem"),
+                ..Default::default()
+            }]),
+        }
+    }
 
+    /// Fetch detailed model list from `models.dev` with caching
+    async fn fetch_models_dev(
+        &self,
+        md_provider: ModelsDevProvider,
+    ) -> Result<Vec<LlmModel>, ModelError> {
         if let Some(models) = self
             .redis
             .hget::<Option<fred::bytes_utils::Str>, _, _>(CACHE_KEY, md_provider.as_ref())
@@ -57,15 +74,17 @@ impl<'r> ModelService<'r> {
                 .get(MODELS_DEV_URL)
                 .send()
                 .await?
+                .error_for_status()?
                 .json()
                 .await?;
 
             let mut models: Option<Vec<LlmModel>> = None;
             let mut cache: HashMap<String, String> = HashMap::new();
+
             for provider in ModelsDevProvider::iter() {
                 let provider_models: Vec<LlmModel> = res
                     .remove(provider.as_ref())
-                    .ok_or_else(|| ModelError::ProviderNotFound(provider.into()))?
+                    .ok_or_else(|| ModelError::ModelsDevProviderNotFound(provider.into()))?
                     .models
                     .into_iter()
                     .map(|(_, model)| model)
@@ -88,7 +107,7 @@ impl<'r> ModelService<'r> {
     }
 }
 
-/// A provider on `models.dev`
+/// Represents a provider from `models.dev`
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, IntoStaticStr, AsRefStr, EnumIter)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
@@ -98,10 +117,10 @@ enum ModelsDevProvider {
     Anthropic,
 }
 
-/// Map of providers from `models.dev`
+/// Main response from `models.dev` - map of providers
 type ModelsDevResponse = HashMap<String, ModelsDevProviderData>;
 
-/// Provider data on `models.dev`
+/// Provider data from `models.dev`
 #[derive(Debug, Deserialize)]
 struct ModelsDevProviderData {
     models: HashMap<String, LlmModel>,

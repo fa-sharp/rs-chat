@@ -13,7 +13,7 @@ aide = {
   features = ["axum", "axum-json", "axum-query", "macros", "swagger"]
 }
 aide-docs-macro = { path = "crates/aide-docs-macro" }
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 async-stream = "0.3.6"
 async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["json", "query"] }
@@ -100,4 +100,4 @@ tower-sessions-redis-store = {
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
-uuid = { version = "1.23.3", features = ["serde", "v4"] }
+uuid = { version = "1.23.4", features = ["serde", "v4"] }

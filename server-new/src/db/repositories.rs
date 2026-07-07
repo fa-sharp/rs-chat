@@ -1,3 +1,5 @@
+//! Database repositories
+
 mod api_key;
 mod chat;
 mod provider;

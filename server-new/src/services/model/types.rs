@@ -1,7 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 /// A model supported by the LLM provider
+#[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LlmModel {
     pub id: String,
@@ -14,9 +16,9 @@ pub struct LlmModel {
     pub knowledge: Option<String>,
     pub modalities: Option<Modalities>,
     // // Ollama fields
-    // pub modified_at: Option<String>,
-    // pub format: Option<String>,
-    // pub family: Option<String>,
+    pub modified_at: Option<String>,
+    pub format: Option<String>,
+    pub family: Option<String>,
 }
 
 #[derive(Debug, Clone, JsonSchema, Serialize, Deserialize)]
@@ -33,4 +35,48 @@ pub enum ModalityType {
     Audio,
     Video,
     Pdf,
+}
+
+/// Ollama models list response
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelsResponse {
+    pub models: Vec<OllamaModelInfo>,
+}
+
+/// Ollama model information
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelInfo {
+    pub name: String,
+    // pub model: String,
+    pub modified_at: String,
+    // pub size: u64,
+    // pub digest: String,
+    pub details: OllamaModelDetails,
+    #[serde(default)]
+    pub capabilities: Vec<OllamaCapabilities>,
+}
+
+/// Ollama model details
+#[derive(Debug, Deserialize)]
+pub struct OllamaModelDetails {
+    // #[serde(default)]
+    // pub parent_model: String,
+    pub format: String,
+    pub family: String,
+    // #[serde(default)]
+    // pub families: Vec<String>,
+    // pub parameter_size: String,
+    // #[serde(default)]
+    // pub quantization_level: Option<String>,
+}
+
+#[derive(Debug, Deserialize, strum::EnumIs)]
+#[serde(rename_all = "lowercase")]
+pub enum OllamaCapabilities {
+    Completion,
+    Tools,
+    Vision,
+    Thinking,
+    #[serde(other)]
+    Unknown,
 }
