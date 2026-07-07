@@ -6,6 +6,7 @@ use serde_with::skip_serializing_none;
 #[skip_serializing_none]
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LlmModel {
+    /// The model ID to use in a chat / prompt request
     pub id: String,
     pub name: String,
     pub attachment: Option<bool>,
@@ -47,7 +48,7 @@ pub struct OllamaModelsResponse {
 #[derive(Debug, Deserialize)]
 pub struct OllamaModelInfo {
     pub name: String,
-    // pub model: String,
+    pub model: String,
     pub modified_at: String,
     // pub size: u64,
     // pub digest: String,

@@ -22,7 +22,7 @@ pub(super) async fn ollama_models(
         .models
         .into_iter()
         .map(|model| LlmModel {
-            id: model.name.clone(),
+            id: model.model,
             name: model.name,
             temperature: Some(true),
             modified_at: Some(model.modified_at),
