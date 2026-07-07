@@ -9,7 +9,10 @@ use crate::{
     db::models::ChatRsProvider,
     error::AppResult,
     extractors::{CurrentUser, Database},
-    services::provider::types::{ProviderCreateInput, ProviderUpdateInput},
+    services::{
+        model::types::LlmModel,
+        provider::types::{ProviderCreateInput, ProviderUpdateInput},
+    },
     state::AppState,
 };
 
@@ -17,6 +20,7 @@ api_routes! {
     state: AppState,
     tag: ApiTag::Provider,
     GET "/" => list_providers, "List providers";
+    GET "/{id}/models" => list_models, "List models";
     POST "/" => create_provider, "Create provider";
     PATCH "/{id}" => update_provider, "Update provider";
     DELETE "/{id}" => delete_provider, "Delete provider";
@@ -28,6 +32,24 @@ async fn list_providers(
 ) -> AppResult<Json<Vec<ChatRsProvider>>> {
     let providers = db.providers().list_by_user_id(&user_id).await?;
     Ok(Json(providers))
+}
+
+async fn list_models(
+    CurrentUser { user_id }: CurrentUser,
+    Path(provider_id): Path<i32>,
+    Database(mut db): Database,
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<LlmModel>>> {
+    let (provider, provider_type, _) = state
+        .provider_service()
+        .get_provider(&mut db, &user_id, provider_id)
+        .await?;
+    let models = state
+        .model_service()
+        .list_models(&provider, &provider_type)
+        .await?;
+
+    Ok(Json(models))
 }
 
 async fn create_provider(

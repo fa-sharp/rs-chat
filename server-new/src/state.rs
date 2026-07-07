@@ -10,6 +10,7 @@ use crate::{
     services::{
         auth::{AuthService, encryption::Encryptor, oauth::OAuthProviderMap},
         chat::ChatService,
+        model::ModelService,
         provider::ProviderService,
         stream::tinistream::TinistreamClient,
     },
@@ -39,6 +40,9 @@ impl AppState {
     }
     pub fn provider_service(&self) -> ProviderService<'_> {
         ProviderService::new(&self.encryptor, &self.http_client)
+    }
+    pub fn model_service(&self) -> ModelService<'_> {
+        ModelService::new(&self.redis, &self.http_client)
     }
 }
 
