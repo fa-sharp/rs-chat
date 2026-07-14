@@ -52,12 +52,12 @@ impl<'r> StreamingService<'r> {
         format!("user:{}:chat:", user_id)
     }
 
-    /// Check for existing client stream in `tinistream`
+    /// Check for existing client stream
     pub async fn exists_stream(&self, stream_key: &str) -> Result<bool, StreamingError> {
         Ok(self.tinistream.stream_exists(&stream_key).await?)
     }
 
-    /// Start the client stream in `tinistream`, and return a WebSocket writer and reader for it
+    /// Start the client stream, and return a WebSocket writer and reader for it
     pub async fn create_stream(
         &self,
         stream_key: &str,
@@ -68,7 +68,7 @@ impl<'r> StreamingService<'r> {
         Ok((stream_access, writer, reader))
     }
 
-    /// Process and write the LLM stream to `tinistream` via the WebSocket connection,
+    /// Process and write the LLM stream via the WebSocket connection,
     /// and return the accumulated response.
     pub async fn process_stream(
         stream: LlmStream,
@@ -80,7 +80,7 @@ impl<'r> StreamingService<'r> {
             .await
     }
 
-    /// Signal end of stream in `tinistream`
+    /// Signal end of stream
     pub async fn end_stream(&self, stream_key: &str) -> Result<StreamStatus, StreamingError> {
         Ok(self.tinistream.stream_end(stream_key).await?)
     }

@@ -13,10 +13,6 @@ pub mod error;
 mod providers;
 pub mod types;
 
-const MODELS_DEV_URL: &str = "https://models.dev/api.json";
-const CACHE_KEY: &str = "rs-chat:models";
-const CACHE_TTL: i64 = 86400; // 1 day in seconds
-
 /// Service for fetching/listing available LLM models
 pub struct ModelService<'r> {
     redis: &'r fred::prelude::Pool,
@@ -61,6 +57,10 @@ impl<'r> ModelService<'r> {
         &self,
         md_provider: ModelsDevProvider,
     ) -> Result<Vec<LlmModel>, ModelError> {
+        const MODELS_DEV_URL: &str = "https://models.dev/api.json";
+        const CACHE_KEY: &str = "rs-chat:models";
+        const CACHE_TTL: i64 = 86400; // 1 day in seconds
+
         if let Some(models) = self
             .redis
             .hget::<Option<fred::bytes_utils::Str>, _, _>(CACHE_KEY, md_provider.as_ref())

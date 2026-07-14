@@ -72,6 +72,7 @@ impl TinistreamClient {
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
+
         Ok(res.into_inner())
     }
 
@@ -83,6 +84,7 @@ impl TinistreamClient {
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
+
         Ok(res.into_inner())
     }
 
@@ -95,6 +97,7 @@ impl TinistreamClient {
             .upgrade()
             .send()
             .await?;
+
         res.into_websocket().await
     }
 
@@ -106,6 +109,7 @@ impl TinistreamClient {
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
+
         Ok(res.into_inner().status)
     }
 
@@ -117,6 +121,7 @@ impl TinistreamClient {
             .body(StreamRequest::builder().key(key))
             .send()
             .await?;
+
         Ok(res.into_inner().status)
     }
 }
@@ -136,15 +141,6 @@ impl From<Error<ErrorResponse>> for TiniError {
                 status: res.status().map_or(500, |s| s.as_u16()),
                 message: res.to_string(),
             },
-        }
-    }
-}
-
-impl From<error::ConversionError> for TiniError {
-    fn from(value: error::ConversionError) -> Self {
-        TiniError {
-            status: 400,
-            message: value.to_string(),
         }
     }
 }
