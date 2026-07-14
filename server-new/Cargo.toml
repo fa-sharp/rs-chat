@@ -32,7 +32,7 @@ chrono = {
   features = ["now", "serde", "std"]
 }
 diesel = {
-  version = "2.3.10",
+  version = "2.3.11",
   default-features = false,
   features = ["chrono", "serde_json", "uuid"]
 }
@@ -103,4 +103,4 @@ tower-sessions-redis-store = {
 tracing = "0.1.44"
 tracing-appender = "0.2.5"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
-uuid = { version = "1.23.4", features = ["serde", "v4"] }
+uuid = { version = "1.23.5", features = ["serde", "v4"] }
