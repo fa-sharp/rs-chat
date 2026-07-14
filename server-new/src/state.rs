@@ -22,7 +22,7 @@ pub struct AppState(Arc<AppStateInner>);
 
 #[derive(AppState)]
 pub struct AppStateInner {
-    pub config: AppConfig,
+    pub config: Arc<AppConfig>,
     pub db_pool: DbPool,
     pub encryptor: Encryptor,
     pub http_client: reqwest::Client,

@@ -20,18 +20,16 @@ services:
       - redis_data:/data
 
   stream:
-    image: ghcr.io/fa-sharp/tinistream:0.1.10
-    platform: linux/amd64
+    image: tinistream
     container_name: tinistream
     ports:
       - "8081:8081"
     environment:
       STREAMER_PORT: 8081
       STREAMER_API_KEY: dev-streamer-api-key
-      STREAMER_SERVER_ADDRESS: http://localhost:8081
+      STREAMER_BASE_URL: http://localhost:8081
       STREAMER_REDIS_URL: redis://redis:6379
-      STREAMER_TTL: 360
-    env_file: server/.env
+    env_file: server-new/.env
     depends_on:
       - redis
 

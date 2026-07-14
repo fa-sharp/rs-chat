@@ -1,16 +1,15 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use axum_plugin::AdHocPlugin;
 use tower::ServiceBuilder;
 use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
 
-use crate::state::AppState;
+use crate::plugins::AxumPlugin;
 
 /// # Security plugin
 /// Includes body limiter, request timeout, and security headers.
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Security").on_setup(|router, state: &AppState| {
+pub fn plugin() -> AxumPlugin {
+    AxumPlugin::named("Security").on_setup(|app, router| {
         let security_headers = axum_helmet::Helmet::new()
             .add(axum_helmet::CrossOriginOpenerPolicy::same_origin())
             .add(axum_helmet::CrossOriginResourcePolicy::same_origin())
@@ -20,10 +19,10 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             .into_layer()?;
 
         let service = ServiceBuilder::new()
-            .layer(RequestBodyLimitLayer::new(state.config.security.body_limit))
+            .layer(RequestBodyLimitLayer::new(app.config().security.body_limit))
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
-                Duration::from_secs(state.config.security.request_timeout),
+                Duration::from_secs(app.config().security.request_timeout),
             ))
             .layer(security_headers);
 

@@ -1,6 +1,6 @@
 use axum_plugin::{App, InitializedApp};
 
-use crate::state::AppState;
+use crate::{config::AppConfig, plugins::AxumPlugin, state::AppState};
 
 mod api;
 mod config;
@@ -12,9 +12,19 @@ mod plugins;
 mod services;
 mod state;
 
-pub async fn create_app() -> anyhow::Result<InitializedApp<AppState>> {
-    let app = App::new()
-        .register(config::plugin()) // Extract configuration and add to state
+pub async fn create_app() -> anyhow::Result<InitializedApp<AppState, AppConfig>> {
+    let app = App::from_figment(config::figment())?
+        .register(AxumPlugin::named("Config").on_init(async |app| {
+            let config = app.config();
+            tracing::info!(
+                log_level = config.server.log_level,
+                base_url = config.server.base_url,
+                host = %config.server.host,
+                port = config.server.port,
+                "Config loaded!"
+            );
+            Ok(app)
+        }))
         .register(plugins::clients::plugin()) // Initialize HTTP clients
         .register(plugins::database::plugin()) // Initialize database
         .register(plugins::redis::plugin()) // Initialize Redis

@@ -9,7 +9,7 @@ use axum::{Extension, routing::get};
 use axum_plugin::AdHocPlugin;
 use strum::{Display, EnumIter, EnumMessage, IntoEnumIterator, IntoStaticStr};
 
-use crate::state::AppState;
+use crate::{config::AppConfig, state::AppState};
 
 pub mod api_key;
 pub mod auth;
@@ -34,8 +34,8 @@ enum ApiTag {
 }
 
 /// Adds all API routes with OpenAPI docs to the server under `/api/v1`
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("API routes").on_setup(|router, _state| {
+pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
+    AdHocPlugin::named("API routes").on_setup(|_app, router| {
         let mut openapi = OpenApi::default();
         let api_routes = ApiRouter::new()
             .nest("/api_key", api_key::routes())
@@ -46,9 +46,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
             .nest("/chat", chat::routes())
             .nest("/health", health::routes())
             .nest("/provider", provider::routes())
-            .finish_api_with(&mut openapi, build_openapi_doc);
-
-        let api_routes_with_docs = api_routes
+            .finish_api_with(&mut openapi, build_openapi_doc)
             .route(
                 "/docs/openapi.json",
                 get(async |Extension(openapi): Extension<Arc<OpenApi>>| axum::Json(openapi))
@@ -61,7 +59,7 @@ pub fn plugin() -> AdHocPlugin<AppState> {
                     .axum_handler()),
             );
 
-        Ok(router.nest(API_BASE, api_routes_with_docs))
+        Ok(router.nest(API_BASE, api_routes))
     })
 }
 

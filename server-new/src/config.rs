@@ -1,32 +1,22 @@
 use std::net::IpAddr;
 
-use anyhow::Context;
-use axum_plugin::AdHocPlugin;
-use figment::providers::{Env, Format, Serialized, Toml};
+use axum_plugin::figment::{
+    Figment,
+    providers::{Env, Format, Serialized, Toml},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    services::auth::{
-        oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
-        proxy::ProxyHeaderConfig,
-    },
-    state::AppState,
+use crate::services::auth::{
+    oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
+    proxy::ProxyHeaderConfig,
 };
 
-/// Plugin that reads and validates configuration, and adds it to server state
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Config").on_init(async |mut state| {
-        let config = extract_config()?;
-        tracing::info!(
-            log_level = config.server.log_level,
-            base_url = config.server.base_url,
-            host = %config.server.host,
-            port = config.server.port,
-            "Config loaded!"
-        );
-        state.insert(config);
-        Ok(state)
-    })
+/// Extract configuration from defaults, local `config.toml`, then `RS_CHAT_` environment variables split by `__`.
+/// See https://docs.rs/figment/latest/figment/index.html#for-application-authors
+pub fn figment() -> Figment {
+    Figment::from(Serialized::defaults(AppConfig::default()))
+        .merge(Toml::file("config.toml"))
+        .merge(Env::prefixed("RS_CHAT_").split("__"))
 }
 
 /// Parsed app configuration
@@ -142,16 +132,4 @@ impl Default for RedisConfig {
             timeout: 10, // 10 seconds
         }
     }
-}
-
-/// Extract configuration from defaults, local `config.toml`, then `RS_CHAT_` environment variables.
-/// See https://docs.rs/figment/latest/figment/index.html#for-application-authors
-fn extract_config() -> anyhow::Result<AppConfig> {
-    let config = figment::Figment::from(Serialized::defaults(AppConfig::default()))
-        .merge(Toml::file("config.toml"))
-        .merge(Env::prefixed("RS_CHAT_").split("__"))
-        .extract::<AppConfig>()
-        .context("Failed to extract valid configuration")?;
-
-    Ok(config)
 }

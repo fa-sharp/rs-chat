@@ -1,22 +1,19 @@
 use anyhow::Context;
-use axum_plugin::AdHocPlugin;
 use diesel_async::{
     AsyncMigrationHarness, AsyncPgConnection,
     pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, deadpool::Pool},
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
-use crate::{config::AppConfig, db::DbPool, state::AppState};
+use crate::{db::DbPool, plugins::AxumPlugin};
 
 const MIGRATIONS: EmbeddedMigrations = diesel_migrations::embed_migrations!();
 
-pub fn plugin() -> AdHocPlugin<AppState> {
-    AdHocPlugin::named("Database")
-        .on_init(async |mut state| {
-            let app_config = state.get::<AppConfig>().context("missing config")?;
-
+pub fn plugin() -> AxumPlugin {
+    AxumPlugin::named("Database")
+        .on_init(async |mut app| {
             let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new_with_config(
-                &app_config.database.url,
+                &app.config().database.url,
                 {
                     let mut config = ManagerConfig::default();
                     config.recycling_method =
@@ -40,15 +37,12 @@ pub fn plugin() -> AdHocPlugin<AppState> {
                 Err(err) => anyhow::bail!(format!("Migrations failed: {err}")),
             };
 
-            state.insert(pool);
-            Ok(state)
+            app.insert(pool)?;
+            Ok(app)
         })
-        .on_shutdown(|state: &AppState| {
-            let pool = state.db_pool.clone();
-            async move {
-                pool.close();
-                tracing::info!("Shut down database pool");
-                Ok(())
-            }
+        .on_shutdown(async |app| {
+            app.state().db_pool.close();
+            tracing::info!("Shut down database pool");
+            Ok(())
         })
 }

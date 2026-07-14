@@ -23,7 +23,8 @@ axum-aide-macros = {
 axum-helmet = "1.0.2"
 axum-plugin = {
   git = "https://git.fasharp.io/fa-sharp/axum-plugin",
-  rev = "9f72278b3c"
+  rev = "be17dc9aec",
+  features = ["figment"]
 }
 chrono = {
   version = "0.4.45",
@@ -43,7 +44,6 @@ diesel-derive-enum = { version = "3.0.0-beta.1", features = ["postgres"] }
 diesel-jsonb-derive = { path = "crates/diesel-jsonb-derive" }
 diesel_migrations = { version = "2.3.2", features = ["postgres"] }
 dotenvy = "0.15.7"
-figment = { version = "0.10.19", features = ["env", "toml"] }
 fred = {
   version = "10.1.0",
   default-features = false,

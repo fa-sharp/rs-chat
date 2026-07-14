@@ -24,6 +24,17 @@ impl TinistreamClient {
         Self { client }
     }
 
+    /// Test the connection to the tinistream server
+    pub async fn ping(&self) -> TiniResult<()> {
+        match self.client.health().send().await {
+            Ok(_) => Ok(()),
+            Err(err) => Err(TiniError {
+                status: err.status().map(|s| s.as_u16()).unwrap_or(500),
+                message: err.to_string(),
+            }),
+        }
+    }
+
     /// Returns a list of keys with the given prefix that have an active stream.
     pub async fn active_streams(&self, prefix: &str) -> TiniResult<Vec<StreamInfo>> {
         let streams = self
