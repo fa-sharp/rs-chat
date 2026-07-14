@@ -32,6 +32,15 @@ pub struct ChatService<'r> {
     tinistream: &'r TinistreamClient,
 }
 
+/// Chat stream parameters for response generation
+struct ChatStreamParams {
+    user_id: Uuid,
+    session_id: Uuid,
+    provider_id: i32,
+    chat_options: LlmChatOptions,
+    replace_message_id: Option<Uuid>,
+}
+
 impl<'r> ChatService<'r> {
     pub fn new(db_pool: &'r DbPool, tinistream: &'r TinistreamClient) -> Self {
         Self {
@@ -64,23 +73,14 @@ impl<'r> ChatService<'r> {
         user_message: Option<LlmUserMessage>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        // Get session and message history
-        let (chat_session, mut session_messages) = db
+        let (chat_session, mut messages) = db
             .chats()
             .find_session_with_messages(&user_id, &session_id)
             .await?;
         let chat_session = chat_session.ok_or(ChatError::SessionNotFound)?;
 
-        // Check that we're not already streaming a response for this chat session
-        let stream_key = StreamingService::chat_stream_key(&user_id, &session_id);
-        let stream_service = StreamingService::new(self.tinistream);
-        if stream_service.exists_stream(&stream_key).await? {
-            return Err(ChatError::AlreadyStreaming);
-        }
-
-        // Save user message, and generate session title if needed
         if let Some(user_message) = user_message {
-            if session_messages.is_empty() && chat_session.title == DEFAULT_SESSION_TITLE {
+            if messages.is_empty() && chat_session.title == DEFAULT_SESSION_TITLE {
                 titles::generate_title(
                     user_id,
                     session_id,
@@ -99,31 +99,88 @@ impl<'r> ChatService<'r> {
                     meta: ChatRsMessageMeta::new_user(UserMeta::default()),
                 })
                 .await?;
-            session_messages.push(new_message);
+            messages.push(new_message);
         }
 
-        // Send the request to the LLM provider and get the stream response
-        let stream = provider
+        self.start_assistant_stream(
+            provider,
+            messages,
+            ChatStreamParams {
+                user_id,
+                session_id,
+                provider_id,
+                chat_options,
+                replace_message_id: None,
+            },
+        )
+        .await
+    }
+
+    pub async fn regenerate_response(
+        &self,
+        db: &mut DbService,
+        user_id: Uuid,
+        session_id: Uuid,
+        provider_id: i32,
+        provider: Arc<dyn LlmProvider>,
+        chat_options: LlmChatOptions,
+    ) -> Result<StreamAccessResponse, ChatError> {
+        let (chat_session, messages) = db
+            .chats()
+            .find_session_with_messages(&user_id, &session_id)
+            .await?;
+        chat_session.ok_or(ChatError::SessionNotFound)?;
+        let assistant_message_id = messages
+            .iter()
+            .rev()
+            .find(|m| m.role.is_assistant())
+            .ok_or(ChatError::NoAssistantResponse)?
+            .id;
+
+        self.start_assistant_stream(
+            provider,
+            messages,
+            ChatStreamParams {
+                user_id,
+                session_id,
+                provider_id,
+                chat_options,
+                replace_message_id: Some(assistant_message_id),
+            },
+        )
+        .await
+    }
+
+    async fn start_assistant_stream(
+        &self,
+        provider: Arc<dyn LlmProvider>,
+        messages: Vec<ChatRsMessage>,
+        params: ChatStreamParams,
+    ) -> Result<StreamAccessResponse, ChatError> {
+        let stream_key = StreamingService::chat_stream_key(&params.user_id, &params.session_id);
+        let stream_service = StreamingService::new(self.tinistream);
+        if stream_service.exists_stream(&stream_key).await? {
+            return Err(ChatError::AlreadyStreaming);
+        }
+
+        let llm_messages = messages::build_llm_messages(messages)?;
+        let response_stream = provider
             .stream_chat(LlmChatRequest {
-                messages: &messages::build_llm_messages(session_messages)?,
-                options: &chat_options,
+                messages: &llm_messages,
+                options: &params.chat_options,
             })
             .await?;
 
-        // Create a new client stream in `tinistream` to stream the response to the user
         let (stream_access, ws_writer, ws_reader) =
             stream_service.create_stream(&stream_key).await?;
 
-        // Spawn task to process and save the streaming response
         let db_pool = self.db_pool.to_owned();
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
-            let response = StreamingService::process_stream(stream, ws_writer, ws_reader).await;
+            let response =
+                StreamingService::process_stream(response_stream, ws_writer, ws_reader).await;
             let stream_cancelled = response.cancelled;
-            if let Err(err) =
-                Self::persist_response(db_pool, session_id, provider_id, chat_options, response)
-                    .await
-            {
+            if let Err(err) = Self::persist_response(response, params, db_pool).await {
                 tracing::error!("Failed to save assistant response: {err}");
             }
 
@@ -140,16 +197,14 @@ impl<'r> ChatService<'r> {
 
     /// Save response message and metadata to database
     async fn persist_response(
-        db_pool: DbPool,
-        session_id: Uuid,
-        provider_id: i32,
-        chat_options: LlmChatOptions,
         response: LlmStreamOutput,
+        params: ChatStreamParams,
+        db_pool: DbPool,
     ) -> Result<ChatRsMessage, ChatError> {
         let mut db = DbService::from_pool(&db_pool).await?;
         let assistant_meta = AssistantMeta {
-            provider_id,
-            provider_options: Some(chat_options),
+            provider_id: params.provider_id,
+            provider_options: Some(params.chat_options),
             // tool_calls: response.tool_calls,
             // files: image_ids,
             usage: response.usage,
@@ -163,9 +218,14 @@ impl<'r> ChatService<'r> {
                 content: &response.text.unwrap_or_default(),
                 meta: ChatRsMessageMeta::new_assistant(assistant_meta),
                 role: ChatRsMessageRole::Assistant,
-                session_id: &session_id,
+                session_id: &params.session_id,
             })
             .await?;
+        if let Some(message_id) = params.replace_message_id {
+            db.chats()
+                .delete_message(&params.session_id, &message_id)
+                .await?;
+        }
 
         Ok(new_message)
     }

@@ -24,6 +24,9 @@ api_routes! {
     POST "/session/{session_id}" => chat_stream, "Chat", {
         description: "Send a message in a chat session and stream the response"
     };
+    POST "/session/{session_id}/regenerate" => regenerate_response, "Regenerate response", {
+        description: "Regenerate the latest assistant response in a chat session"
+    };
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -77,8 +80,8 @@ struct ChatInput {
 }
 
 async fn chat_stream(
-    Path(session_id): Path<Uuid>,
     CurrentUser { user_id }: CurrentUser,
+    Path(session_id): Path<Uuid>,
     Database(mut db): Database,
     State(state): State<AppState>,
     Json(input): Json<ChatInput>,
@@ -98,6 +101,43 @@ async fn chat_stream(
             input
                 .message
                 .map(|text| LlmUserMessage { text, files: None }),
+            input.options,
+        )
+        .await?;
+
+    Ok(Json(StreamAccess {
+        url: stream_access.sse_url,
+        token: stream_access.token,
+    }))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RegenerateInput {
+    /// The ID of the provider to chat with
+    provider_id: i32,
+    /// Configuration for the provider
+    options: LlmChatOptions,
+}
+
+async fn regenerate_response(
+    CurrentUser { user_id }: CurrentUser,
+    Path(session_id): Path<Uuid>,
+    Database(mut db): Database,
+    State(state): State<AppState>,
+    Json(input): Json<RegenerateInput>,
+) -> Result<Json<StreamAccess>, AppError> {
+    let llm_provider = state
+        .provider_service()
+        .build_llm_provider(&mut db, &user_id, input.provider_id)
+        .await?;
+    let stream_access = state
+        .chat_service()
+        .regenerate_response(
+            &mut db,
+            user_id,
+            session_id,
+            input.provider_id,
+            llm_provider,
             input.options,
         )
         .await?;

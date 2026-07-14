@@ -34,8 +34,8 @@ pub struct LlmStreamOutput {
     pub cancelled: bool,
 }
 
-pub type WsWriter = SplitSink<WebSocket, reqwest_websocket::Message>;
-pub type WsReader = SplitStream<WebSocket>;
+type WsWriter = SplitSink<WebSocket, reqwest_websocket::Message>;
+type WsReader = SplitStream<WebSocket>;
 
 impl<'r> StreamingService<'r> {
     pub fn new(tinistream: &'r TinistreamClient) -> Self {
@@ -68,7 +68,7 @@ impl<'r> StreamingService<'r> {
         Ok((stream_access, writer, reader))
     }
 
-    /// Process and write the LLM stream via the WebSocket connection,
+    /// Process and write the LLM response stream via the WebSocket connection,
     /// and return the accumulated response.
     pub async fn process_stream(
         stream: LlmStream,

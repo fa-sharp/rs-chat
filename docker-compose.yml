@@ -29,6 +29,7 @@ services:
       STREAMER_API_KEY: dev-streamer-api-key
       STREAMER_BASE_URL: http://localhost:8081
       STREAMER_REDIS_URL: redis://redis:6379
+      STREAMER_KEY_PREFIX: "rs-chat:"
     env_file: server-new/.env
     depends_on:
       - redis

@@ -52,7 +52,7 @@ pub struct UpdateChatRsSession<'r> {
 
 #[derive(diesel_derive_enum::DbEnum)]
 #[db_enum(existing_type_path = "crate::db::schema::sql_types::ChatMessageRole")]
-#[derive(Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, strum::EnumIs, Serialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ChatRsMessageRole {
     User,

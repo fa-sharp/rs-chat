@@ -7,6 +7,8 @@ pub enum ChatError {
     Messages,
     #[error("session not found")]
     SessionNotFound,
+    #[error("no assistant response")]
+    NoAssistantResponse,
     #[error("already streaming a response")]
     AlreadyStreaming,
     #[error(transparent)]
@@ -24,6 +26,7 @@ impl From<ChatError> for AppError {
         match value {
             ChatError::Messages => Self::bad_request("invalid messages"),
             ChatError::SessionNotFound => Self::not_found("chat session not found"),
+            ChatError::NoAssistantResponse => Self::bad_request("no assistant response found"),
             ChatError::AlreadyStreaming => Self::bad_request("already streaming this chat session"),
             ChatError::Request(err) => Self::bad_request(err.to_string()),
             err => Self::internal(err.into()),
