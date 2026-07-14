@@ -130,14 +130,17 @@ impl<'a> OAuthService<'a> {
             .await?
             .ok_or(AuthError::Unauthorized("missing PKCE in session"))?;
 
+        // Verify state
+        if initial_state != state {
+            return Err(AuthError::Unauthorized("state mismatch"));
+        }
+
         // Exchange code for token
         let (oauth_client, _) = self.oauth_provider(provider)?;
         let response = oauth_client
             .exchange_code()
             .redirect_url(self.get_redirect_url(callback_path))
             .code(code)
-            .state(state)
-            .initial_state(&initial_state)
             .pkce_verifier(pkce_verifier)
             .build()
             .await?;

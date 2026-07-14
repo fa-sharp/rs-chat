@@ -65,7 +65,7 @@ serde_with = {
   default-features = false,
   features = ["macros"]
 }
-simple-oauth = { version = "0.1.0-beta", features = ["default-tls"] }
+simple-oauth = { version = "0.1.0-beta.1", features = ["default-tls"] }
 strum = {
   version = "0.28.0",
   default-features = false,
@@ -74,7 +74,7 @@ strum = {
 thiserror = "2.0.18"
 tinistream-client = {
   git = "https://github.com/fa-sharp/tinistream",
-  rev = "f25144c"
+  rev = "015d307"
 }
 tokio = {
   version = "1.52.3",

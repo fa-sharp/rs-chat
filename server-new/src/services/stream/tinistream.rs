@@ -1,7 +1,7 @@
 //! Client for `tinistream` to handle streaming responses
 
 use reqwest_websocket::{Upgrade, WebSocket};
-use tinistream_client::{Client, ClientEventsExt, ClientInfo, ClientStreamExt, Error, types::*};
+use tinistream_client::{Client, ClientInfo, ClientStreamExt, Error, types::*};
 
 /// A client for interacting with the `tinistream` API.
 #[derive(Debug, Clone)]
@@ -16,7 +16,6 @@ pub type TiniResult<T> = Result<T, TiniError>;
 #[error("{status} {message}")]
 pub struct TiniError {
     pub status: u16,
-    pub code: String,
     pub message: String,
 }
 
@@ -88,24 +87,6 @@ impl TinistreamClient {
         res.into_websocket().await
     }
 
-    pub async fn stream_add(
-        &self,
-        key: &str,
-        events: Vec<builder::AddEvent>,
-    ) -> TiniResult<Vec<String>> {
-        let events = events
-            .into_iter()
-            .map(|event| event.try_into())
-            .collect::<Result<Vec<_>, _>>()?;
-        let res = self
-            .client
-            .add_events()
-            .body(AddEventsRequest::builder().key(key).events(events))
-            .send()
-            .await?;
-        Ok(res.into_inner().ids)
-    }
-
     /// Cancel a stream
     pub async fn stream_cancel(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
@@ -129,21 +110,19 @@ impl TinistreamClient {
     }
 }
 
-impl From<Error<ErrorMessage>> for TiniError {
-    fn from(value: Error<ErrorMessage>) -> Self {
+impl From<Error<ErrorResponse>> for TiniError {
+    fn from(value: Error<ErrorResponse>) -> Self {
         match value {
             Error::ErrorResponse(res) => {
                 let status = res.status().as_u16();
                 let res = res.into_inner();
                 TiniError {
                     status,
-                    code: res.code,
-                    message: res.message,
+                    message: res.error.message,
                 }
             }
             res => TiniError {
                 status: res.status().map_or(500, |s| s.as_u16()),
-                code: "unexpected".to_owned(),
                 message: res.to_string(),
             },
         }
@@ -154,7 +133,6 @@ impl From<error::ConversionError> for TiniError {
     fn from(value: error::ConversionError) -> Self {
         TiniError {
             status: 400,
-            code: "invalid_event".to_owned(),
             message: value.to_string(),
         }
     }

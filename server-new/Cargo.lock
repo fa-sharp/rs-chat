@@ -371,7 +371,7 @@ version = "3.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6dee98b0db6a962de883bf5d20362dee4d7ca0d12fe39a7c6c73c844e1cd7c1f"
 dependencies = [
- "darling 0.21.3",
+ "darling 0.23.0",
  "ident_case",
  "prettyplease",
  "proc-macro2",
@@ -1987,9 +1987,9 @@ dependencies = [
 
 [[package]]
 name = "progenitor-client"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffab7b358944dba033a7b324e7558e66e6bcb1fb4705cf57f26fd5092bcae630"
+checksum = "4e8a874cf25a33cac7a01b9c1de87bcfbc8aea93f3156d09dcc3bee516a78926"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2722,9 +2722,9 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "simple-oauth"
-version = "0.1.0-beta"
+version = "0.1.0-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46d3a9a3b349db65f2bb743ed1b29ea4e866b25eee9fea0fbfecd805f676f5c0"
+checksum = "5b0b2fb63e098c4e51b55768a3bf1b29c0180de4dda801cdd9b568d92967787f"
 dependencies = [
  "bon",
  "oauth2",
@@ -2732,7 +2732,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "subtle",
  "thiserror 2.0.18",
 ]
 
@@ -2942,8 +2941,8 @@ dependencies = [
 
 [[package]]
 name = "tinistream-client"
-version = "0.1.10"
-source = "git+https://github.com/fa-sharp/tinistream?rev=f25144c#f25144c1bdbee827d6033606b94a8aa1ae6eb5a7"
+version = "0.2.0"
+source = "git+https://github.com/fa-sharp/tinistream?rev=015d307#015d3076e64b55fbc6f1577716ede64d6e66597e"
 dependencies = [
  "bytes",
  "futures-core",
