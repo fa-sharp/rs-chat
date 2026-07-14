@@ -8,7 +8,7 @@ use diesel_async::{
 };
 
 pub mod models;
-mod queries;
+pub mod queries;
 mod repositories;
 mod schema;
 

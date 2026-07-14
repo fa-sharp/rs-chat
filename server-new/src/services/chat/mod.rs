@@ -25,7 +25,7 @@ mod error;
 mod messages;
 mod titles;
 
-const DEFAULT_SESSION_TITLE: &str = "New Chat";
+pub const DEFAULT_SESSION_TITLE: &str = "New Chat";
 
 pub struct ChatService<'r> {
     db_pool: &'r DbPool,

@@ -1,12 +1,13 @@
 use diesel::{prelude::QueryableByName, sql_query};
 use diesel_async::RunQueryDsl;
+use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
 
 use crate::db::DbConnection;
 
 /// Session matches for a full-text search query of chat titles and messages
-#[derive(Debug, Clone, QueryableByName, Serialize)]
+#[derive(Debug, Clone, QueryableByName, Serialize, JsonSchema)]
 pub struct FullTextSearchResult {
     #[diesel(sql_type = diesel::sql_types::Uuid)]
     pub session_id: Uuid,

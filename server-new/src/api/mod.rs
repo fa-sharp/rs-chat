@@ -16,6 +16,7 @@ pub mod auth;
 pub mod chat;
 pub mod health;
 pub mod provider;
+pub mod session;
 
 const API_BASE: &str = "/api/v1";
 const API_AUTH_BASE: &str = "/api/v1/auth";
@@ -46,6 +47,7 @@ pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
             .nest("/chat", chat::routes())
             .nest("/health", health::routes())
             .nest("/provider", provider::routes())
+            .nest("/session", session::routes())
             .finish_api_with(&mut openapi, build_openapi_doc)
             .route(
                 "/docs/openapi.json",

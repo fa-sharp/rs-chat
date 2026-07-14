@@ -23,13 +23,13 @@ impl<'a> ChatRepository<'a> {
     pub async fn create_session(
         &mut self,
         session: NewChatRsSession<'_>,
-    ) -> Result<String, diesel::result::Error> {
-        let id: Uuid = diesel::insert_into(chat_sessions::table)
+    ) -> Result<Uuid, diesel::result::Error> {
+        let id = diesel::insert_into(chat_sessions::table)
             .values(session)
             .returning(chat_sessions::id)
             .get_result(self.db)
             .await?;
-        Ok(id.to_string())
+        Ok(id)
     }
 
     pub async fn save_message(
@@ -60,7 +60,7 @@ impl<'a> ChatRepository<'a> {
         &mut self,
         user_id: &Uuid,
         message_id: &Uuid,
-    ) -> Result<ChatRsMessage, diesel::result::Error> {
+    ) -> Result<Option<ChatRsMessage>, diesel::result::Error> {
         chat_messages::table
             .inner_join(chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)))
             .select(ChatRsMessage::as_select())
@@ -68,20 +68,21 @@ impl<'a> ChatRepository<'a> {
             .filter(chat_messages::id.eq(message_id))
             .get_result(self.db)
             .await
+            .optional()
     }
 
     pub async fn delete_message(
         &mut self,
         session_id: &Uuid,
         message_id: &Uuid,
-    ) -> Result<String, diesel::result::Error> {
-        let id: Uuid = diesel::delete(chat_messages::table)
+    ) -> Result<Option<Uuid>, diesel::result::Error> {
+        diesel::delete(chat_messages::table)
             .filter(chat_messages::session_id.eq(session_id))
             .filter(chat_messages::id.eq(message_id))
             .returning(chat_messages::id)
             .get_result(self.db)
-            .await?;
-        Ok(id.to_string())
+            .await
+            .optional()
     }
 
     pub async fn get_recent_sessions(
@@ -146,9 +147,7 @@ impl<'a> ChatRepository<'a> {
         user_id: &Uuid,
         query: &str,
     ) -> Result<Vec<FullTextSearchResult>, diesel::result::Error> {
-        let sessions = full_text_query(self.db, user_id, query, 10).await?;
-
-        Ok(sessions)
+        full_text_query(self.db, user_id, query, 10).await
     }
 
     pub async fn update_session(
@@ -156,41 +155,36 @@ impl<'a> ChatRepository<'a> {
         user_id: &Uuid,
         session_id: &Uuid,
         data: UpdateChatRsSession<'_>,
-    ) -> Result<Uuid, diesel::result::Error> {
-        let updated_id: Uuid = diesel::update(chat_sessions::table.find(session_id))
+    ) -> Result<Option<Uuid>, diesel::result::Error> {
+        diesel::update(chat_sessions::table.find(session_id))
             .set(data)
             .filter(chat_sessions::user_id.eq(user_id))
             .returning(chat_sessions::id)
             .get_result(self.db)
-            .await?;
-
-        Ok(updated_id)
+            .await
+            .optional()
     }
 
     pub async fn delete_session(
         &mut self,
         user_id: &Uuid,
         session_id: &Uuid,
-    ) -> Result<Uuid, diesel::result::Error> {
-        let id: Uuid = diesel::delete(chat_sessions::table.find(session_id))
+    ) -> Result<Option<Uuid>, diesel::result::Error> {
+        diesel::delete(chat_sessions::table.find(session_id))
             .filter(chat_sessions::user_id.eq(user_id))
             .returning(chat_sessions::id)
             .get_result(self.db)
-            .await?;
-
-        Ok(id)
+            .await
+            .optional()
     }
 
-    pub async fn delete_by_user(
+    pub async fn delete_sessions_by_user(
         &mut self,
         user_id: &Uuid,
-    ) -> Result<Vec<Uuid>, diesel::result::Error> {
-        let ids: Vec<Uuid> = diesel::delete(chat_sessions::table)
+    ) -> Result<usize, diesel::result::Error> {
+        diesel::delete(chat_sessions::table)
             .filter(chat_sessions::user_id.eq(user_id))
-            .returning(chat_sessions::id)
-            .get_results(self.db)
-            .await?;
-
-        Ok(ids)
+            .execute(self.db)
+            .await
     }
 }

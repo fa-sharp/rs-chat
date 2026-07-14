@@ -12,7 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: valkey/valkey:7-alpine
+    image: valkey/valkey:8-alpine
     container_name: redis
     ports:
       - "6379:6379"
@@ -33,21 +33,21 @@ services:
     depends_on:
       - redis
 
-  runner:
-    image: ghcr.io/fa-sharp/tinirun:0.1.1
-    container_name: tinirun
-    ports:
-      - "8082:8082"
-    environment:
-      RUNNER_HOST: 0.0.0.0
-      RUNNER_PORT: 8082
-      RUNNER_LOG_LEVEL: info
-      RUNNER_REDIS_URL: redis://redis:6379
-    env_file: server/.env
-    depends_on:
-      - redis
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+  # runner:
+  #   image: ghcr.io/fa-sharp/tinirun:0.1.1
+  #   container_name: tinirun
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     RUNNER_HOST: 0.0.0.0
+  #     RUNNER_PORT: 8082
+  #     RUNNER_LOG_LEVEL: info
+  #     RUNNER_REDIS_URL: redis://redis:6379
+  #   env_file: server/.env
+  #   depends_on:
+  #     - redis
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
 
   # rschat:
   #   build:
