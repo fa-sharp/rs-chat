@@ -1,8 +1,8 @@
-use aide_docs_macro::api_routes;
 use axum::{
     Json,
     extract::{Path, State},
 };
+use axum_aide_macros::api_routes;
 
 use crate::{
     api::ApiTag,
@@ -18,7 +18,7 @@ use crate::{
 
 api_routes! {
     state: AppState,
-    tag: ApiTag::Provider,
+    tag: ApiTag::Provider.into(),
     GET "/" => list_providers, "List providers";
     GET "/{id}/models" => list_models, "List models";
     POST "/" => create_provider, "Create provider";

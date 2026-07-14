@@ -1,8 +1,8 @@
-use aide_docs_macro::api_routes;
 use axum::{
     Json,
     extract::{Path, State},
 };
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -17,7 +17,7 @@ use crate::{
 
 api_routes! {
     state: AppState,
-    tag: ApiTag::Chat,
+    tag: ApiTag::Chat.into(),
     POST "/prompt" => prompt, "Prompt", {
         description: "Send a single prompt to a provider and get the response"
     };

@@ -1,10 +1,10 @@
-use aide_docs_macro::api_routes;
 use axum::{
     Extension, Json,
     extract::{Path, Query, State},
     http::StatusCode,
     response::Redirect,
 };
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -19,7 +19,7 @@ use crate::{
 
 api_routes! {
     state: AppState,
-    tag: ApiTag::Auth,
+    tag: ApiTag::Auth.into(),
     GET "/user" => get_user, "Get current user";
     GET "/sessions" => list_active_sessions, "List active sessions";
     GET "/config" => get_auth_config, "Get auth config", {

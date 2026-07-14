@@ -1,5 +1,5 @@
 use aide::axum::{ApiRouter, routing::get_with};
-use aide_docs_macro::handler_docs;
+use axum_aide_macros::handler_docs;
 
 use crate::state::AppState;
 

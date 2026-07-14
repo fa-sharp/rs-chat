@@ -103,15 +103,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aide-docs-macro"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "aide-macros"
 version = "0.16.0-alpha.4"
 source = "git+https://github.com/hniksic/aide.git?rev=7246c20#7246c20903ce9e87b768917589a7568663a1eda3"
@@ -269,6 +260,16 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "axum-aide-macros"
+version = "0.1.0"
+source = "git+https://git.fasharp.io/fa-sharp/axum-aide-macros?rev=5b00e645df#5b00e645dfec6a0a76cdfa0e9a0c9e050003faec"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2302,11 +2303,11 @@ version = "0.1.0"
 dependencies = [
  "aes-gcm 0.11.0",
  "aide",
- "aide-docs-macro",
  "anyhow",
  "async-stream",
  "async-trait",
  "axum",
+ "axum-aide-macros",
  "axum-helmet",
  "axum-plugin",
  "chrono",

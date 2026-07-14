@@ -1,9 +1,9 @@
-use aide_docs_macro::api_routes;
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
+use axum_aide_macros::api_routes;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -18,7 +18,7 @@ use crate::{
 
 api_routes! {
     state: AppState,
-    tag: ApiTag::ApiKey,
+    tag: ApiTag::ApiKey.into(),
     GET "/" => list_api_keys, "List API keys";
     POST "/" => create_api_key, "Create API key";
     DELETE "/{id}" => delete_api_key, "Delete API key";
