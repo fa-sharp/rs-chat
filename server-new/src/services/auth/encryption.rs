@@ -60,7 +60,7 @@ impl Encryptor {
             .decrypt(&nonce, ciphertext)
             .map_err(|_| EncryptorError::Decryption)?;
 
-        Ok(String::from_utf8(plaintext).map_err(|_| EncryptorError::Decryption)?)
+        String::from_utf8(plaintext).map_err(|_| EncryptorError::Decryption)
     }
 
     /// Decrypts a byte slice using AES-256-GCM.

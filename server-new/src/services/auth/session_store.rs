@@ -83,7 +83,7 @@ impl SessionStore for SessionDbStore {
     /// does not exist or has been invalidated (e.g., expired), `None` is
     /// returned.
     async fn load(&self, session_id: &Id) -> Result<Option<Record>> {
-        let session_id = Self::get_session_uuid(&session_id);
+        let session_id = Self::get_session_uuid(session_id);
         let mut db = self.get_db().await?;
 
         match db.auth_sessions().find_active_by_id(&session_id).await {

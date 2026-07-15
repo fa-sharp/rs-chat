@@ -69,7 +69,7 @@ impl AuthSessionService {
     // Cleanup expired sessions
     #[tracing::instrument(skip(db_pool), level = "debug")]
     pub async fn session_cleanup(db_pool: &DbPool) -> AuthResult<usize> {
-        let mut db = DbService::from_pool(&db_pool).await?;
+        let mut db = DbService::from_pool(db_pool).await?;
         Ok(db.auth_sessions().delete_expired().await?)
     }
 }

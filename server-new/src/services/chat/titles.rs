@@ -69,7 +69,6 @@ async fn generate(
             model,
             temperature: Some(TITLE_PROMPT_TEMPERATURE),
             max_tokens: Some(TITLE_PROMPT_MAX_TOKENS),
-            ..Default::default()
         },
     };
     match provider.prompt(prompt).await {

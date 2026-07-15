@@ -79,7 +79,7 @@ impl OAuthProvider for OidcProvider {
     ) -> crate::db::models::NewChatRsUser<'a> {
         NewChatRsUser {
             google_id: Some(&user_info.id),
-            name: &user_info
+            name: user_info
                 .name
                 .as_deref()
                 .or(user_info.username.as_deref())

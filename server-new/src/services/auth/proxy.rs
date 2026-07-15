@@ -64,10 +64,10 @@ impl<'r> ProxyService<'r> {
             .and_then(|groups| groups.to_str().ok())
             .unwrap_or_default();
 
-        if let Some(ref allowed_groups) = self.config.user_groups {
-            if !is_proxy_user_allowed(groups, allowed_groups) {
-                return Err(AuthError::Unauthorized("proxy user not in allowed group"));
-            }
+        if let Some(ref allowed_groups) = self.config.user_groups
+            && !is_proxy_user_allowed(groups, allowed_groups)
+        {
+            return Err(AuthError::Unauthorized("proxy user not in allowed group"));
         }
 
         Ok(Some(ProxyUser {
@@ -111,5 +111,6 @@ fn is_proxy_user_allowed(user_groups: &str, allowed_groups: &[String]) -> bool {
             return true;
         }
     }
-    return false;
+
+    false
 }

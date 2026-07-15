@@ -148,7 +148,7 @@ impl LlmProvider for OpenAIProvider {
             let provider_name = self.config.subtype.name();
             let raw_response = utils::llm_api_request(
                 self.client
-                    .post(&format!("{}/chat/completions", self.config.base_url))
+                    .post(format!("{}/chat/completions", self.config.base_url))
                     .bearer_auth(&self.config.api_key)
                     .json(&request),
                 provider_name,
@@ -174,7 +174,7 @@ impl LlmProvider for OpenAIProvider {
 
     fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
         let policy = OpenAIRequestPolicy::new(self.config.subtype);
-        let openai_messages = build_openai_messages(&req.messages);
+        let openai_messages = build_openai_messages(req.messages);
         // let openai_tools = tools.as_ref().map(|t| build_openai_tools(t));
         //
         let request = OpenAIRequest {
@@ -195,7 +195,7 @@ impl LlmProvider for OpenAIProvider {
         Box::pin(async move {
             let response = utils::llm_api_request(
                 self.client
-                    .post(&format!("{}/chat/completions", self.config.base_url))
+                    .post(format!("{}/chat/completions", self.config.base_url))
                     .bearer_auth(&self.config.api_key)
                     .json(&request),
                 provider_name,

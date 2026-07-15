@@ -60,10 +60,8 @@ pub fn parse_anthropic_event(
             //     }
             // }
         }
-        AnthropicStreamEvent::MessageDelta { usage } => {
-            if let Some(usage) = usage {
-                return Some(Ok(LlmStreamChunk::Usage(usage.into())));
-            }
+        AnthropicStreamEvent::MessageDelta { usage: Some(usage) } => {
+            return Some(Ok(LlmStreamChunk::Usage(usage.into())));
         }
         AnthropicStreamEvent::Error { error } => {
             let error_msg = format!("{}: {}", error.error_type, error.message);

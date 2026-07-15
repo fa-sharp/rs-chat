@@ -43,7 +43,7 @@ impl Stream for LoremStream {
             std::task::Poll::Ready(_) => {
                 let word = self.words[self.index];
                 self.index += 1;
-                if self.index == 0 || self.index % 10 != 0 {
+                if self.index == 0 || !self.index.is_multiple_of(10) {
                     std::task::Poll::Ready(Some(Ok(LlmStreamChunk::Text(word.to_owned()))))
                 } else {
                     std::task::Poll::Ready(Some(Err(LlmStreamChunkError::Provider(

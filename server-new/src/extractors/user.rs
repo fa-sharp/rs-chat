@@ -13,9 +13,9 @@ use crate::{db::DbService, error::AppError, state::AppState};
 Represents an active user, extracted from the session, proxy headers, or API key. This can be used
 as an extractor in route handlers:
 - If used as `CurrentUser`, request will automatically return an unauthorized error
-if there is no active user.
+  if there is no active user.
 - If used as `Option<CurrentUser>`, will be `Some` if there is an active user
-and `None` otherwise.
+  and `None` otherwise.
 */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CurrentUser {
@@ -72,7 +72,7 @@ impl OptionalFromRequestParts<AppState> for CurrentUser {
                 .extensions
                 .get::<tower_sessions::Session>()
                 .ok_or_else(|| AppError::internal(anyhow!("session not attached to request")))?;
-            let maybe_user_id = auth_service.session().active_user_id(&session).await?;
+            let maybe_user_id = auth_service.session().active_user_id(session).await?;
 
             Ok(maybe_user_id.map(Self::new))
         }

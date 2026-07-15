@@ -59,7 +59,7 @@ impl OAuthProvider for GoogleProvider {
     fn create_new_user<'a>(&self, user_data: &'a UserInfo) -> NewChatRsUser<'a> {
         NewChatRsUser {
             google_id: Some(&user_data.id),
-            name: &user_data
+            name: user_data
                 .name
                 .as_deref()
                 .or(user_data.username.as_deref())

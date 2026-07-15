@@ -177,7 +177,7 @@ impl<'r> ProviderService<'r> {
         };
         let updated = db
             .providers()
-            .update(&user_id, provider_id, update_provider)
+            .update(user_id, provider_id, update_provider)
             .await?;
 
         Ok(updated)
@@ -191,9 +191,9 @@ impl<'r> ProviderService<'r> {
     ) -> Result<ChatRsProvider, ProviderError> {
         let (_provider, _, api_key_secret) = self.get_provider(db, user_id, provider_id).await?;
         if let Some(secret) = api_key_secret {
-            db.secrets().delete(&user_id, &secret.id).await?;
+            db.secrets().delete(user_id, &secret.id).await?;
         }
-        let deleted = db.providers().delete(&user_id, provider_id).await?;
+        let deleted = db.providers().delete(user_id, provider_id).await?;
 
         Ok(deleted)
     }

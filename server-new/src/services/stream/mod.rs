@@ -72,13 +72,13 @@ impl<'r> StreamingService<'r> {
 
     /// Extract the session ID from the user's stream key
     pub fn session_id_from_stream_key(key: &str, key_prefix: &str) -> Option<Uuid> {
-        key.strip_prefix(&key_prefix)
+        key.strip_prefix(key_prefix)
             .and_then(|session_id| Uuid::try_parse(session_id).ok())
     }
 
     /// Check for existing active client stream
     pub async fn exists_stream(&self, stream_key: &str) -> Result<bool, StreamingError> {
-        Ok(self.tinistream.stream_exists(&stream_key).await?)
+        Ok(self.tinistream.stream_exists(stream_key).await?)
     }
 
     /// Currently active streams with the given prefix

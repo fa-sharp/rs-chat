@@ -73,7 +73,7 @@ impl<'a> LogRepository<'a> {
             cost: usage.and_then(|u| u.cost.and_then(BigDecimal::from_f32)),
             error,
             status: status.as_ref(),
-            completed_at: completed_at.unwrap_or_else(|| chrono::Utc::now()),
+            completed_at: completed_at.unwrap_or_else(chrono::Utc::now),
         };
 
         diesel::update(llm_logs::table)

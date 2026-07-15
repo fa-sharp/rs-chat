@@ -38,10 +38,7 @@ impl<'r> ApiKeyService<'r> {
     ) -> AuthResult<(Uuid, String)> {
         let key_id = db
             .api_keys()
-            .create(NewChatRsApiKey {
-                user_id: &user_id,
-                name: &name,
-            })
+            .create(NewChatRsApiKey { user_id, name })
             .await?;
         let (ciphertext, nonce) = self.encryptor.encrypt_bytes(key_id.as_bytes())?;
 

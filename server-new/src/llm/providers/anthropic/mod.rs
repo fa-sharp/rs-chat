@@ -16,7 +16,7 @@ use {request::*, response::*};
 
 const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
-const REQ_ID_HEADER: &'static str = "request-id";
+const REQ_ID_HEADER: &str = "request-id";
 const DEFAULT_MAX_TOKENS: u32 = 4096;
 
 /// Anthropic chat provider
@@ -81,7 +81,7 @@ impl LlmProvider for AnthropicProvider {
     }
 
     fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
-        let (anthropic_messages, system_prompt) = build_anthropic_messages(&req.messages);
+        let (anthropic_messages, system_prompt) = build_anthropic_messages(req.messages);
         // let anthropic_tools = tools.as_ref().map(|t| build_anthropic_tools(t));
         let request = AnthropicRequest {
             model: &req.options.model,

@@ -345,7 +345,7 @@ impl<'r> ChatService<'r> {
         let new_message = db
             .chats()
             .save_message(NewChatRsMessage {
-                content: &output.text.as_deref().unwrap_or_default(),
+                content: output.text.as_deref().unwrap_or_default(),
                 meta: ChatRsMessageMeta::new_assistant(assistant_meta),
                 role: ChatRsMessageRole::Assistant,
                 session_id: &params.session_id,

@@ -86,8 +86,7 @@ impl<'r> ModelService<'r> {
                     .remove(provider.as_ref())
                     .ok_or_else(|| ModelError::ModelsDevProviderNotFound(provider.into()))?
                     .models
-                    .into_iter()
-                    .map(|(_, model)| model)
+                    .into_values()
                     .collect();
                 let provider_models_str = serde_json::to_string(&provider_models)?;
                 cache.insert(provider.as_ref().to_owned(), provider_models_str);

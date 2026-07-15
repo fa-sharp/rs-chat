@@ -71,7 +71,7 @@ impl LlmProvider for OllamaProvider {
     }
 
     fn stream_chat<'r>(&'r self, req: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
-        let ollama_messages = build_ollama_messages(&req.messages);
+        let ollama_messages = build_ollama_messages(req.messages);
         // let ollama_tools = tools.as_ref().map(|t| build_ollama_tools(t));
         let ollama_options = OllamaOptions {
             temperature: req.options.temperature,
@@ -84,7 +84,6 @@ impl LlmProvider for OllamaProvider {
             // tools: ollama_tools,
             stream: Some(true),
             options: Some(ollama_options),
-            ..Default::default()
         };
 
         Box::pin(async move {

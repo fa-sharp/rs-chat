@@ -80,12 +80,12 @@ impl<'a> OAuthService<'a> {
     fn oauth_provider(
         &self,
         provider: &OAuthProviderEnum,
-    ) -> AuthResult<(&OAuthClient, &Box<dyn OAuthProvider>)> {
+    ) -> AuthResult<(&OAuthClient, &dyn OAuthProvider)> {
         let (client, provider) = self
             .provider_map
             .get(provider)
             .ok_or_else(|| AuthError::BadRequest("unsupported OAuth provider"))?;
-        Ok((client, provider))
+        Ok((client, provider.as_ref()))
     }
 
     fn get_redirect_url(&self, callback_path: &str) -> String {
