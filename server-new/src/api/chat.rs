@@ -18,24 +18,12 @@ use crate::{
 api_routes! {
     state: AppState,
     tag: ApiTag::Chat.into(),
-    POST "/prompt" => prompt, "Prompt", {
-        description: "Send a single prompt to a provider and get the response"
-    };
-    GET "/sessions" => get_active_streams, "Get active chat streams", {
-        description: "Get the session IDs that have ongoing response streams"
-    };
-    GET "/sessions/{session_id}" => connect_chat_stream, "Access active chat stream", {
-        description: "Get a URL and token to access the response stream for this session"
-    };
-    POST "/sessions/{session_id}" => chat_stream, "Stream chat", {
-        description: "Send a message in a chat session and stream the response"
-    };
-    POST "/sessions/{session_id}/cancel" => cancel_chat_stream, "Cancel active stream", {
-        description: "Cancel an ongoing chat stream"
-    };
-    POST "/session/{session_id}/regenerate" => regenerate_response, "Regenerate chat response", {
-        description: "Regenerate the latest assistant response in a chat session"
-    };
+    POST "/prompt" => prompt, "Prompt";
+    GET "/sessions" => get_active_streams, "Get active chat streams";
+    GET "/sessions/{session_id}" => connect_chat_stream, "Access active chat stream";
+    POST "/sessions/{session_id}" => chat_stream, "Stream chat session response";
+    POST "/sessions/{session_id}/cancel" => cancel_chat_stream, "Cancel active chat stream";
+    POST "/sessions/{session_id}/regenerate" => regenerate_response, "Regenerate chat response";
 }
 
 async fn get_active_streams(
@@ -50,61 +38,33 @@ async fn get_active_streams(
     Ok(Json(ActiveStreamsResponse { sessions }))
 }
 
-#[derive(Debug, JsonSchema, serde::Serialize)]
-struct ActiveStreamsResponse {
-    /// The chat session IDs that have ongoing response streams
-    sessions: Vec<Uuid>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct PromptInput {
-    /// The prompt to send to the LLM provider
-    message: String,
-    /// The ID of the provider to chat with
-    provider_id: i32,
-    /// Configuration for the provider
-    options: LlmChatOptions,
-}
-
 async fn prompt(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
     State(state): State<AppState>,
-    Json(input): Json<PromptInput>,
+    Json(PromptInput {
+        message,
+        provider_id,
+        options,
+    }): Json<PromptInput>,
 ) -> AppResult<Json<StreamAccess>> {
     let llm_provider = state
         .provider_service()
-        .build_llm_provider(&mut db, &user_id, input.provider_id)
+        .build_llm_provider(&mut db, &user_id, provider_id)
         .await?;
+    let prompt = LlmUserMessage {
+        text: message,
+        ..Default::default()
+    };
     let stream_access = state
         .chat_service()
-        .prompt(
-            &mut db,
-            user_id,
-            input.provider_id,
-            llm_provider,
-            LlmUserMessage {
-                text: input.message,
-                ..Default::default()
-            },
-            input.options,
-        )
+        .prompt(&mut db, user_id, provider_id, llm_provider, prompt, options)
         .await?;
 
     Ok(Json(StreamAccess {
         url: stream_access.sse_url,
         token: stream_access.token,
     }))
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct ChatInput {
-    /// The new chat message from the user
-    message: Option<String>,
-    /// The ID of the provider to chat with
-    provider_id: i32,
-    /// Configuration for the provider
-    options: LlmChatOptions,
 }
 
 async fn chat_stream(
@@ -118,6 +78,9 @@ async fn chat_stream(
         .provider_service()
         .build_llm_provider(&mut db, &user_id, input.provider_id)
         .await?;
+    let user_message = input
+        .message
+        .map(|text| LlmUserMessage { text, files: None });
     let stream_access = state
         .chat_service()
         .stream_user_chat(
@@ -126,9 +89,7 @@ async fn chat_stream(
             session_id,
             input.provider_id,
             llm_provider,
-            input
-                .message
-                .map(|text| LlmUserMessage { text, files: None }),
+            user_message,
             input.options,
         )
         .await?;
@@ -137,14 +98,6 @@ async fn chat_stream(
         url: stream_access.sse_url,
         token: stream_access.token,
     }))
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct RegenerateInput {
-    /// The ID of the provider to chat with
-    provider_id: i32,
-    /// Configuration for the provider
-    options: LlmChatOptions,
 }
 
 async fn regenerate_response(
@@ -203,6 +156,40 @@ pub async fn cancel_chat_stream(
         .await?;
 
     Ok(())
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct PromptInput {
+    /// The prompt to send to the LLM provider
+    message: String,
+    /// The ID of the provider to chat with
+    provider_id: i32,
+    /// Configuration for the provider
+    options: LlmChatOptions,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ChatInput {
+    /// The new chat message from the user
+    message: Option<String>,
+    /// The ID of the provider to chat with
+    provider_id: i32,
+    /// Configuration for the provider
+    options: LlmChatOptions,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RegenerateInput {
+    /// The ID of the provider to chat with
+    provider_id: i32,
+    /// Configuration for the provider
+    options: LlmChatOptions,
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct ActiveStreamsResponse {
+    /// The chat session IDs that have ongoing response streams
+    sessions: Vec<Uuid>,
 }
 
 /// Access to an active streaming response
