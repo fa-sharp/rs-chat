@@ -1,13 +1,12 @@
 use bigdecimal::{BigDecimal, FromPrimitive};
 use bon::bon;
-use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::{
     db::{
-        DbConnection,
+        DbConnection, UtcDateTime,
         models::{ChatRsLogKind, ChatRsLogStatus, NewChatRsLog, UpdateChatRsLog},
         schema::llm_logs,
     },
@@ -60,6 +59,7 @@ impl<'a> LogRepository<'a> {
         usage: Option<&LlmUsage>,
         error: Option<&str>,
         status: ChatRsLogStatus,
+        completed_at: Option<UtcDateTime>,
     ) -> QueryResult<i32> {
         let update_log = UpdateChatRsLog {
             message_id,
@@ -73,7 +73,7 @@ impl<'a> LogRepository<'a> {
             cost: usage.and_then(|u| u.cost.and_then(BigDecimal::from_f32)),
             error,
             status: status.as_ref(),
-            completed_at: Utc::now(),
+            completed_at: completed_at.unwrap_or_else(|| chrono::Utc::now()),
         };
 
         diesel::update(llm_logs::table)

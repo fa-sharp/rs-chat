@@ -74,14 +74,7 @@ async fn generate(
     };
     match provider.prompt(prompt).await {
         Ok(LlmResponse { text, usage, meta }) => {
-            db.logs()
-                .complete()
-                .id(log_id)
-                .status(ChatRsLogStatus::Completed)
-                .usage(&usage)
-                .maybe_request_id(meta.request_id.as_deref())
-                .build()
-                .await?;
+            let completed_at = chrono::Utc::now();
             db.chats()
                 .update_session(
                     &user_id,
@@ -91,6 +84,15 @@ async fn generate(
                         ..Default::default()
                     },
                 )
+                .await?;
+            db.logs()
+                .complete()
+                .id(log_id)
+                .status(ChatRsLogStatus::Completed)
+                .completed_at(completed_at)
+                .usage(&usage)
+                .maybe_request_id(meta.request_id.as_deref())
+                .build()
                 .await?;
         }
         Err(err) => {

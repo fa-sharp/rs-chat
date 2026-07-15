@@ -329,6 +329,7 @@ impl<'r> ChatService<'r> {
         meta: LlmResponseMeta,
         db_pool: DbPool,
     ) -> Result<ChatRsMessage, ChatError> {
+        let completed_at = chrono::Utc::now();
         let mut db = DbService::from_pool(&db_pool).await?;
 
         let assistant_meta = AssistantMeta {
@@ -360,6 +361,7 @@ impl<'r> ChatService<'r> {
             .complete()
             .id(log_id)
             .status(output.status())
+            .completed_at(completed_at)
             .message_id(&new_message.id)
             .maybe_request_id(meta.request_id.as_deref())
             .maybe_usage(output.usage.as_ref())
