@@ -102,11 +102,6 @@ impl<'r> ChatService<'r> {
         prompt: LlmUserMessage,
         options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let stream_key = StreamingService::prompt_key(&user_id);
-        let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
-            .create_stream(&stream_key)
-            .await?;
-
         let log_id = db
             .logs()
             .create()
@@ -136,6 +131,10 @@ impl<'r> ChatService<'r> {
         };
 
         // Spawn thread to process LLM streaming response
+        let stream_key = StreamingService::prompt_key(&user_id);
+        let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
+            .create_stream(&stream_key)
+            .await?;
         let db_pool = self.db_pool.to_owned();
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
@@ -267,7 +266,6 @@ impl<'r> ChatService<'r> {
         if streams.exists_stream(&stream_key).await? {
             return Err(ChatError::AlreadyStreaming);
         }
-        let (stream_access, ws_writer, ws_reader) = streams.create_stream(&stream_key).await?;
 
         let log_id = db
             .logs()
@@ -301,6 +299,7 @@ impl<'r> ChatService<'r> {
         };
 
         // Spawn thread to process and save LLM streaming response
+        let (stream_access, ws_writer, ws_reader) = streams.create_stream(&stream_key).await?;
         let db_pool = self.db_pool.to_owned();
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
