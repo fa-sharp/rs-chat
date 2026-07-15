@@ -21,12 +21,39 @@ api_routes! {
     POST "/prompt" => prompt, "Prompt", {
         description: "Send a single prompt to a provider and get the response"
     };
-    POST "/session/{session_id}" => chat_stream, "Chat", {
+    GET "/sessions" => get_active_streams, "Get active chat streams", {
+        description: "Get the session IDs that have ongoing response streams"
+    };
+    GET "/sessions/{session_id}" => connect_chat_stream, "Access active chat stream", {
+        description: "Get a URL and token to access the response stream for this session"
+    };
+    POST "/sessions/{session_id}" => chat_stream, "Stream chat", {
         description: "Send a message in a chat session and stream the response"
     };
-    POST "/session/{session_id}/regenerate" => regenerate_response, "Regenerate response", {
+    POST "/sessions/{session_id}/cancel" => cancel_chat_stream, "Cancel active stream", {
+        description: "Cancel an ongoing chat stream"
+    };
+    POST "/session/{session_id}/regenerate" => regenerate_response, "Regenerate chat response", {
         description: "Regenerate the latest assistant response in a chat session"
     };
+}
+
+async fn get_active_streams(
+    CurrentUser { user_id }: CurrentUser,
+    State(state): State<AppState>,
+) -> AppResult<Json<ActiveStreamsResponse>> {
+    let sessions = state
+        .chat_service()
+        .active_stream_sessions(&user_id)
+        .await?;
+
+    Ok(Json(ActiveStreamsResponse { sessions }))
+}
+
+#[derive(Debug, JsonSchema, serde::Serialize)]
+struct ActiveStreamsResponse {
+    /// The chat session IDs that have ongoing response streams
+    sessions: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -44,14 +71,15 @@ async fn prompt(
     Database(mut db): Database,
     State(state): State<AppState>,
     Json(input): Json<PromptInput>,
-) -> AppResult<Json<PromptResponse>> {
+) -> AppResult<Json<StreamAccess>> {
     let llm_provider = state
         .provider_service()
         .build_llm_provider(&mut db, &user_id, input.provider_id)
         .await?;
-    let text = state
+    let stream_access = state
         .chat_service()
         .prompt(
+            user_id,
             llm_provider,
             LlmUserMessage {
                 text: input.message,
@@ -61,12 +89,10 @@ async fn prompt(
         )
         .await?;
 
-    Ok(Json(PromptResponse { text }))
-}
-
-#[derive(Serialize, JsonSchema)]
-struct PromptResponse {
-    text: String,
+    Ok(Json(StreamAccess {
+        url: stream_access.sse_url,
+        token: stream_access.token,
+    }))
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -148,9 +174,40 @@ async fn regenerate_response(
     }))
 }
 
-/// The URL and Bearer token to access the SSE stream
+async fn connect_chat_stream(
+    CurrentUser { user_id }: CurrentUser,
+    Path(session_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> AppResult<Json<StreamAccess>> {
+    let stream_access = state
+        .chat_service()
+        .connect_stream(&user_id, &session_id)
+        .await?;
+
+    Ok(Json(StreamAccess {
+        url: stream_access.sse_url,
+        token: stream_access.token,
+    }))
+}
+
+pub async fn cancel_chat_stream(
+    CurrentUser { user_id }: CurrentUser,
+    Path(session_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> AppResult<()> {
+    state
+        .chat_service()
+        .cancel_stream(&user_id, &session_id)
+        .await?;
+
+    Ok(())
+}
+
+/// Access to an active streaming response
 #[derive(Serialize, JsonSchema)]
 struct StreamAccess {
+    /// URL to access the SSE stream
     url: String,
+    /// Bearer token to access the SSE stream
     token: String,
 }

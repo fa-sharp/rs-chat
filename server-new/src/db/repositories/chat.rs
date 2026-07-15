@@ -142,41 +142,6 @@ impl<'a> ChatRepository<'a> {
         Ok((session.optional()?, messages?))
     }
 
-    pub async fn find_messages_before(
-        &mut self,
-        user_id: &Uuid,
-        session_id: &Uuid,
-        message: &ChatRsMessage,
-    ) -> Result<Vec<ChatRsMessage>, diesel::result::Error> {
-        chat_messages::table
-            .inner_join(chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)))
-            .select(ChatRsMessage::as_select())
-            .filter(chat_sessions::user_id.eq(user_id))
-            .filter(chat_messages::session_id.eq(session_id))
-            .filter(chat_messages::created_at.lt(message.created_at))
-            .order_by(chat_messages::created_at.asc())
-            .load(self.db)
-            .await
-    }
-
-    pub async fn has_messages_after(
-        &mut self,
-        user_id: &Uuid,
-        session_id: &Uuid,
-        message: &ChatRsMessage,
-    ) -> Result<bool, diesel::result::Error> {
-        let count = chat_messages::table
-            .inner_join(chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)))
-            .filter(chat_sessions::user_id.eq(user_id))
-            .filter(chat_messages::session_id.eq(session_id))
-            .filter(chat_messages::created_at.gt(message.created_at))
-            .count()
-            .get_result::<i64>(self.db)
-            .await?;
-
-        Ok(count > 0)
-    }
-
     pub async fn search_sessions(
         &mut self,
         user_id: &Uuid,

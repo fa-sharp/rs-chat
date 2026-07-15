@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tinistream_client::types::StreamAccessResponse;
+use tinistream_client::types::{StreamAccessResponse, StreamStatus};
 use uuid::Uuid;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     },
     llm::{
         interface::LlmProvider,
-        types::{LlmChatOptions, LlmChatRequest, LlmPrompt, LlmUserMessage},
+        types::{LlmChatOptions, LlmChatRequest, LlmMessage, LlmUserMessage},
     },
     services::{
         chat::error::ChatError,
@@ -32,7 +32,7 @@ pub struct ChatService<'r> {
     tinistream: &'r TinistreamClient,
 }
 
-/// Chat stream parameters for response generation
+#[derive(Debug)]
 struct ChatStreamParams {
     user_id: Uuid,
     session_id: Uuid,
@@ -49,20 +49,82 @@ impl<'r> ChatService<'r> {
         }
     }
 
-    /// Send a simple prompt to the LLM provider
+    /// Connect to an ongoing stream
+    pub async fn connect_stream(
+        &self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Result<StreamAccessResponse, ChatError> {
+        let stream_key = StreamingService::chat_stream_key(user_id, session_id);
+        let streams = StreamingService::new(self.tinistream);
+        if !streams.exists_stream(&stream_key).await? {
+            return Err(ChatError::StreamNotFound);
+        }
+
+        Ok(streams.access_stream(&stream_key).await?)
+    }
+
+    /// Cancel an ongoing stream
+    pub async fn cancel_stream(
+        &self,
+        user_id: &Uuid,
+        session_id: &Uuid,
+    ) -> Result<StreamStatus, ChatError> {
+        let stream_key = StreamingService::chat_stream_key(user_id, session_id);
+        let streams = StreamingService::new(self.tinistream);
+        if !streams.exists_stream(&stream_key).await? {
+            return Err(ChatError::StreamNotFound);
+        }
+
+        Ok(streams.cancel_stream(&stream_key).await?)
+    }
+
+    /// Get the currently streaming session IDs for the given user
+    pub async fn active_stream_sessions(&self, user_id: &Uuid) -> Result<Vec<Uuid>, ChatError> {
+        let prefix = StreamingService::chat_stream_prefix(user_id);
+        let session_ids = StreamingService::new(self.tinistream)
+            .active_streams(&prefix)
+            .await?
+            .iter()
+            .filter_map(|stream| StreamingService::session_id_from_stream_key(&stream.key, &prefix))
+            .collect();
+
+        Ok(session_ids)
+    }
+
+    /// Send a single prompt to the LLM provider and stream the response
     pub async fn prompt(
         &self,
+        user_id: Uuid,
         provider: Arc<dyn LlmProvider>,
         prompt: LlmUserMessage,
         options: LlmChatOptions,
-    ) -> Result<String, ChatError> {
-        let llm_prompt = LlmPrompt {
-            text: &prompt.text,
+    ) -> Result<StreamAccessResponse, ChatError> {
+        let request = LlmChatRequest {
+            messages: &[LlmMessage::User(prompt)],
             options: &options,
         };
-        Ok(provider.prompt(llm_prompt).await?)
+        let response_stream = provider.stream_chat(request).await?;
+
+        let stream_key = StreamingService::prompt_key(&user_id);
+        let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
+            .create_stream(&stream_key)
+            .await?;
+
+        // Spawn thread to process LLM streaming response
+        let tinistream_client = self.tinistream.to_owned();
+        tokio::spawn(async move {
+            let _ = StreamingService::process_stream(response_stream, ws_writer, ws_reader).await;
+            let _ = StreamingService::new(&tinistream_client)
+                .end_stream(&stream_key)
+                .await;
+        });
+
+        // Return the URL and token for the user to access the client stream
+        Ok(stream_access)
     }
 
+    /// Stream response to a user message in a session
     pub async fn stream_user_chat(
         &self,
         db: &mut DbService,
@@ -116,6 +178,7 @@ impl<'r> ChatService<'r> {
         .await
     }
 
+    /// Regenerate the last assistant response in a chat session
     pub async fn regenerate_response(
         &self,
         db: &mut DbService,
@@ -151,36 +214,35 @@ impl<'r> ChatService<'r> {
         .await
     }
 
+    /// Start the LLM response stream and return the access URL & token
     async fn start_assistant_stream(
         &self,
         provider: Arc<dyn LlmProvider>,
         messages: Vec<ChatRsMessage>,
         params: ChatStreamParams,
     ) -> Result<StreamAccessResponse, ChatError> {
+        let streams = StreamingService::new(self.tinistream);
         let stream_key = StreamingService::chat_stream_key(&params.user_id, &params.session_id);
-        let stream_service = StreamingService::new(self.tinistream);
-        if stream_service.exists_stream(&stream_key).await? {
+        if streams.exists_stream(&stream_key).await? {
             return Err(ChatError::AlreadyStreaming);
         }
 
-        let llm_messages = messages::build_llm_messages(messages)?;
         let response_stream = provider
             .stream_chat(LlmChatRequest {
-                messages: &llm_messages,
+                messages: &messages::build_llm_messages(messages)?,
                 options: &params.chat_options,
             })
             .await?;
+        let (stream_access, ws_writer, ws_reader) = streams.create_stream(&stream_key).await?;
 
-        let (stream_access, ws_writer, ws_reader) =
-            stream_service.create_stream(&stream_key).await?;
-
+        // Spawn thread to process and save LLM streaming response
         let db_pool = self.db_pool.to_owned();
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
-            let response =
+            let output =
                 StreamingService::process_stream(response_stream, ws_writer, ws_reader).await;
-            let stream_cancelled = response.cancelled;
-            if let Err(err) = Self::persist_response(response, params, db_pool).await {
+            let stream_cancelled = output.cancelled;
+            if let Err(err) = Self::persist_response(output, params, db_pool).await {
                 tracing::error!("Failed to save assistant response: {err}");
             }
 
@@ -197,7 +259,7 @@ impl<'r> ChatService<'r> {
 
     /// Save response message and metadata to database
     async fn persist_response(
-        response: LlmStreamOutput,
+        output: LlmStreamOutput,
         params: ChatStreamParams,
         db_pool: DbPool,
     ) -> Result<ChatRsMessage, ChatError> {
@@ -207,15 +269,15 @@ impl<'r> ChatService<'r> {
             provider_options: Some(params.chat_options),
             // tool_calls: response.tool_calls,
             // files: image_ids,
-            usage: response.usage,
-            errors: response.errors,
-            partial: response.cancelled.then_some(true),
+            usage: output.usage,
+            errors: output.errors,
+            partial: output.cancelled.then_some(true),
             ..Default::default()
         };
         let new_message = db
             .chats()
             .save_message(NewChatRsMessage {
-                content: &response.text.unwrap_or_default(),
+                content: &output.text.unwrap_or_default(),
                 meta: ChatRsMessageMeta::new_assistant(assistant_meta),
                 role: ChatRsMessageRole::Assistant,
                 session_id: &params.session_id,

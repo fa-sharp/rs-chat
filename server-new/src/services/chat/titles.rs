@@ -33,7 +33,7 @@ pub fn generate_title(
 }
 
 const TITLE_PROMPT: &str = "This is the first message sent by a human in a chat session with an AI chatbot. \
-    Please generate a short title for the chat session (3-7 words) in plain text, with no quotes or prefixes";
+    Please generate a short title for the chat session (3-7 words) in plain text, with no quotes or prefixes.";
 const TITLE_PROMPT_TEMPERATURE: f32 = 0.7;
 const TITLE_PROMPT_MAX_TOKENS: u32 = 20;
 
@@ -45,10 +45,10 @@ async fn generate(
     model: String,
     db_pool: DbPool,
 ) -> Result<(), ChatError> {
-    let message = format!("{TITLE_PROMPT}: \"{user_message}\"");
+    let prompt = format!("{TITLE_PROMPT}\n\n\"{user_message}\"");
     let title = provider
         .prompt(LlmPrompt {
-            text: &message,
+            text: &prompt,
             options: &LlmChatOptions {
                 model,
                 temperature: Some(TITLE_PROMPT_TEMPERATURE),
