@@ -64,12 +64,8 @@ impl<'a> LogRepository<'a> {
         let update_log = UpdateChatRsLog {
             message_id,
             request_id,
-            input_tokens: usage
-                .and_then(|u| u.input_tokens)
-                .and_then(|t| t.try_into().ok()),
-            output_tokens: usage
-                .and_then(|u| u.output_tokens)
-                .and_then(|t| t.try_into().ok()),
+            input_tokens: usage.and_then(|u| u.input_tokens),
+            output_tokens: usage.and_then(|u| u.output_tokens),
             cost: usage.and_then(|u| u.cost.and_then(BigDecimal::from_f32)),
             error,
             status: status.as_ref(),

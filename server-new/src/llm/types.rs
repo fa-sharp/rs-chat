@@ -61,8 +61,8 @@ pub struct LlmAssistantMessage {
 /// Usage stats from the LLM provider
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct LlmUsage {
-    pub input_tokens: Option<u32>,
-    pub output_tokens: Option<u32>,
+    pub input_tokens: Option<i32>,
+    pub output_tokens: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cost: Option<f32>,
 }

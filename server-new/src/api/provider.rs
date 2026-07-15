@@ -20,10 +20,10 @@ api_routes! {
     state: AppState,
     tag: ApiTag::Provider.into(),
     GET "/" => list_providers, "List providers";
-    GET "/{id}/models" => list_models, "List models";
+    GET "/{provider_id}/models" => list_models, "List models";
     POST "/" => create_provider, "Create provider";
-    PATCH "/{id}" => update_provider, "Update provider";
-    DELETE "/{id}" => delete_provider, "Delete provider";
+    PATCH "/{provider_id}" => update_provider, "Update provider";
+    DELETE "/{provider_id}" => delete_provider, "Delete provider";
 }
 
 async fn list_providers(

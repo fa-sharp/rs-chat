@@ -61,7 +61,7 @@ impl LlmProvider for LoremProvider {
         let response = LlmResponse {
             text: "Lorem ipsum".into(),
             usage: LlmUsage {
-                input_tokens: Some((prompt.text.len() / 4) as u32),
+                input_tokens: Some((prompt.text.len() / 4) as i32),
                 output_tokens: Some(4),
                 ..Default::default()
             },

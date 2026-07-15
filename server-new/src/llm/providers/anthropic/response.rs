@@ -83,8 +83,8 @@ pub enum AnthropicResponseContentBlock {
 /// Anthropic API response usage
 #[derive(Debug, Deserialize)]
 pub struct AnthropicUsage {
-    input_tokens: Option<u32>,
-    output_tokens: Option<u32>,
+    input_tokens: Option<i32>,
+    output_tokens: Option<i32>,
 }
 
 impl From<AnthropicUsage> for LlmUsage {

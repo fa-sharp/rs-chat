@@ -160,8 +160,8 @@ pub struct OpenAIResponseDelta {
 /// OpenAI API response usage
 #[derive(Debug, Deserialize)]
 pub struct OpenAIUsage {
-    prompt_tokens: Option<u32>,
-    completion_tokens: Option<u32>,
+    prompt_tokens: Option<i32>,
+    completion_tokens: Option<i32>,
     /// OpenRouter cost
     cost: Option<f32>,
     /// LLM Gateway cost

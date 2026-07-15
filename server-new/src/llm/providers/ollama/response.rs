@@ -46,11 +46,11 @@ pub struct OllamaStreamEvent {
     // #[serde(default)]
     // pub load_duration: Option<u64>,
     #[serde(default)]
-    pub prompt_eval_count: Option<u32>,
+    pub prompt_eval_count: Option<i32>,
     // #[serde(default)]
     // pub prompt_eval_duration: Option<u64>,
     #[serde(default)]
-    pub eval_count: Option<u32>,
+    pub eval_count: Option<i32>,
     // #[serde(default)]
     // pub eval_duration: Option<u64>,
 }
@@ -73,9 +73,9 @@ pub struct OllamaCompletionResponse {
     // #[serde(default)]
     // pub eval_duration: Option<u64>,
     #[serde(default)]
-    pub prompt_eval_count: Option<u32>,
+    pub prompt_eval_count: Option<i32>,
     #[serde(default)]
-    pub eval_count: Option<u32>,
+    pub eval_count: Option<i32>,
 }
 
 /// Ollama message in response
