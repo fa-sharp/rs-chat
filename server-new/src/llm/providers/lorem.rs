@@ -7,11 +7,8 @@ use tokio::time::{Interval, interval};
 
 use crate::llm::{
     error::LlmStreamChunkError,
-    interface::{
-        LlmPromptResponse, LlmProvider, LlmStream, LlmStreamChunk, LlmStreamChunkResult,
-        LlmStreamingResponse,
-    },
-    types::{LlmChatRequest, LlmPrompt},
+    interface::*,
+    types::{LlmChatRequest, LlmPrompt, LlmUsage},
 };
 
 /// A test/dummy provider that streams 'lorem ipsum...' and emits test errors during the stream
@@ -60,8 +57,18 @@ impl Stream for LoremStream {
 }
 
 impl LlmProvider for LoremProvider {
-    fn prompt<'r>(&'r self, _prompt: LlmPrompt<'r>) -> LlmPromptResponse<'r> {
-        Box::pin(async { Ok("Lorem ipsum".to_owned()) })
+    fn prompt<'r>(&'r self, prompt: LlmPrompt<'r>) -> LlmPromptResponse<'r> {
+        let response = LlmResponse {
+            text: "Lorem ipsum".into(),
+            usage: LlmUsage {
+                input_tokens: Some((prompt.text.len() / 4) as u32),
+                output_tokens: Some(4),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        Box::pin(async { Ok(response) })
     }
 
     fn stream_chat<'r>(&'r self, _request: LlmChatRequest<'r>) -> LlmStreamingResponse<'r> {
@@ -102,7 +109,7 @@ impl LlmProvider for LoremProvider {
             });
             tokio::time::sleep(Duration::from_millis(1000)).await; // Simulate initial request latency
 
-            Ok(stream)
+            Ok((stream, LlmResponseMeta::default()))
         })
     }
 }

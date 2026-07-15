@@ -15,6 +15,7 @@ mod writer;
 mod tests;
 
 use crate::{
+    db::models::ChatRsLogStatus,
     llm::{interface::LlmStream, types::LlmUsage},
     services::stream::error::StreamingError,
 };
@@ -32,6 +33,18 @@ pub struct LlmStreamOutput {
     pub usage: Option<LlmUsage>,
     pub errors: Option<Vec<String>>,
     pub cancelled: bool,
+}
+impl LlmStreamOutput {
+    /// Get the logged status for this response
+    pub fn status(&self) -> ChatRsLogStatus {
+        if self.cancelled {
+            ChatRsLogStatus::Cancelled
+        } else if self.errors.is_some() {
+            ChatRsLogStatus::Failed
+        } else {
+            ChatRsLogStatus::Completed
+        }
+    }
 }
 
 type WsWriter = SplitSink<WebSocket, reqwest_websocket::Message>;

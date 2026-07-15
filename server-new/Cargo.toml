@@ -26,6 +26,8 @@ axum-plugin = {
   rev = "be17dc9aec",
   features = ["figment"]
 }
+bigdecimal = { version = "0.4.10", features = ["serde-json"] }
+bon = "3.9.3"
 chrono = {
   version = "0.4.45",
   default-features = false,
@@ -34,7 +36,7 @@ chrono = {
 diesel = {
   version = "2.3.11",
   default-features = false,
-  features = ["chrono", "serde_json", "uuid"]
+  features = ["chrono", "numeric", "serde_json", "uuid"]
 }
 diesel-async = {
   version = "0.9.2",
@@ -59,7 +61,7 @@ reqwest = {
 reqwest-websocket = { version = "0.6.0", features = ["json"] }
 schemars = {
   version = "1.2.1",
-  features = ["chrono04", "preserve_order", "uuid1"]
+  features = ["bigdecimal04", "chrono04", "preserve_order", "uuid1"]
 }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"

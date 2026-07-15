@@ -6,9 +6,9 @@ use crate::{
     db::models::OpenAISubtype,
     llm::{
         error::LlmRequestError,
-        interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
+        interface::*,
         providers::utils,
-        types::{LlmChatRequest, LlmPrompt, LlmUsage},
+        types::{LlmChatRequest, LlmPrompt},
     },
 };
 
@@ -21,16 +21,22 @@ const OPENAI_API_BASE_URL: &str = "https://api.openai.com/v1";
 const OPENROUTER_API_BASE_URL: &str = "https://openrouter.ai/api/v1";
 
 impl OpenAISubtype {
-    fn name(self) -> &'static str {
+    fn name(&self) -> &'static str {
         match self {
             Self::OpenAI => "OpenAI",
             Self::OpenRouter => "OpenRouter",
         }
     }
-    fn default_base_url(self) -> &'static str {
+    fn default_base_url(&self) -> &'static str {
         match self {
             Self::OpenAI => OPENAI_API_BASE_URL,
             Self::OpenRouter => OPENROUTER_API_BASE_URL,
+        }
+    }
+    fn req_id_header(&self) -> &'static str {
+        match self {
+            OpenAISubtype::OpenAI => "X-Request-Id",
+            OpenAISubtype::OpenRouter => "X-Generation-Id",
         }
     }
     fn use_max_completion_tokens(self) -> bool {
@@ -140,16 +146,16 @@ impl LlmProvider for OpenAIProvider {
 
         Box::pin(async move {
             let provider_name = self.config.subtype.name();
-            let mut response: OpenAIResponse = utils::llm_api_request(
+            let raw_response = utils::llm_api_request(
                 self.client
                     .post(&format!("{}/chat/completions", self.config.base_url))
                     .bearer_auth(&self.config.api_key)
                     .json(&request),
                 provider_name,
             )
-            .await?
-            .json()
             .await?;
+            let req_id = utils::extract_header(&raw_response, self.config.subtype.req_id_header());
+            let mut response: OpenAIResponse = raw_response.json().await?;
 
             let text = response
                 .choices
@@ -157,12 +163,12 @@ impl LlmProvider for OpenAIProvider {
                 .and_then(|choice| choice.message.as_mut())
                 .and_then(|message| message.content.take())
                 .ok_or(LlmRequestError::NoContent)?;
-            if let Some(usage) = response.usage {
-                let usage: LlmUsage = usage.into();
-                tracing::info!("Prompt usage: {usage:?}");
-            }
 
-            Ok(text)
+            Ok(LlmResponse {
+                text,
+                usage: response.usage.map(Into::into).unwrap_or_default(),
+                meta: LlmResponseMeta::new(req_id),
+            })
         })
     }
 
@@ -195,6 +201,7 @@ impl LlmProvider for OpenAIProvider {
                 provider_name,
             )
             .await?;
+            let req_id = utils::extract_header(&response, self.config.subtype.req_id_header());
 
             let stream = async_stream::stream! {
                 let mut sse_event_stream = utils::get_sse_events(response);
@@ -220,7 +227,7 @@ impl LlmProvider for OpenAIProvider {
                 // }
             };
 
-            Ok(stream.boxed())
+            Ok((stream.boxed(), LlmResponseMeta::new(req_id)))
         })
     }
 

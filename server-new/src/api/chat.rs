@@ -79,7 +79,9 @@ async fn prompt(
     let stream_access = state
         .chat_service()
         .prompt(
+            &mut db,
             user_id,
+            input.provider_id,
             llm_provider,
             LlmUserMessage {
                 text: input.message,

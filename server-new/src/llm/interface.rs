@@ -12,13 +12,32 @@ pub trait LlmProvider: Send + Sync {
 }
 
 /// API response to a prompt request from the LLM provider
-pub type LlmPromptResponse<'r> = BoxFuture<'r, Result<String, LlmRequestError>>;
+pub type LlmPromptResponse<'r> = BoxFuture<'r, Result<LlmResponse, LlmRequestError>>;
 /// Initial API response to a streaming request from the LLM provider
-pub type LlmStreamingResponse<'r> = BoxFuture<'r, Result<LlmStream, LlmRequestError>>;
+pub type LlmStreamingResponse<'r> =
+    BoxFuture<'r, Result<(LlmStream, LlmResponseMeta), LlmRequestError>>;
 /// The response stream from the LLM provider
 pub type LlmStream = BoxStream<'static, LlmStreamChunkResult>;
 /// The type of the chunks in the LLM response stream
 pub type LlmStreamChunkResult = Result<LlmStreamChunk, LlmStreamChunkError>;
+
+/// Prompt response data from the LLM provider
+#[derive(Debug, Default)]
+pub struct LlmResponse {
+    pub text: String,
+    pub usage: LlmUsage,
+    pub meta: LlmResponseMeta,
+}
+
+#[derive(Debug, Default)]
+pub struct LlmResponseMeta {
+    pub request_id: Option<String>,
+}
+impl LlmResponseMeta {
+    pub fn new(request_id: Option<String>) -> Self {
+        Self { request_id }
+    }
+}
 
 /// A streaming chunk of data from the LLM provider
 pub enum LlmStreamChunk {

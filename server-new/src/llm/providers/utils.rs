@@ -75,3 +75,12 @@ pub async fn llm_api_request(
 
     Ok(response)
 }
+
+/// Convenience function to extract a header (e.g. request ID) from an API response
+pub fn extract_header(response: &reqwest::Response, header_name: &str) -> Option<String> {
+    response
+        .headers()
+        .get(header_name)
+        .and_then(|h| h.to_str().ok())
+        .map(str::to_owned)
+}

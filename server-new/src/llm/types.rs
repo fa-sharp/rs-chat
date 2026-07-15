@@ -59,7 +59,7 @@ pub struct LlmAssistantMessage {
 }
 
 /// Usage stats from the LLM provider
-#[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 pub struct LlmUsage {
     pub input_tokens: Option<u32>,
     pub output_tokens: Option<u32>,

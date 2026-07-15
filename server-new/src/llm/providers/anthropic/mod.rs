@@ -4,9 +4,9 @@ use futures::StreamExt;
 
 use crate::llm::{
     error::LlmRequestError,
-    interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
+    interface::*,
     providers::utils,
-    types::{LlmChatRequest, LlmPrompt, LlmUsage},
+    types::{LlmChatRequest, LlmPrompt},
 };
 
 mod request;
@@ -16,6 +16,7 @@ use {request::*, response::*};
 
 const MESSAGES_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const API_VERSION: &str = "2023-06-01";
+const REQ_ID_HEADER: &'static str = "request-id";
 const DEFAULT_MAX_TOKENS: u32 = 4096;
 
 /// Anthropic chat provider
@@ -50,18 +51,17 @@ impl LlmProvider for AnthropicProvider {
         };
 
         Box::pin(async move {
-            let mut response: AnthropicResponse = utils::llm_api_request(
+            let raw_response = utils::llm_api_request(
                 self.client
                     .post(MESSAGES_API_URL)
                     .header("anthropic-version", API_VERSION)
-                    .header("content-type", "application/json")
                     .header("x-api-key", &self.api_key)
                     .json(&request),
                 "Anthropic",
             )
-            .await?
-            .json()
             .await?;
+            let request_id = utils::extract_header(&raw_response, REQ_ID_HEADER);
+            let mut response: AnthropicResponse = raw_response.json().await?;
 
             let text = response
                 .content
@@ -71,12 +71,12 @@ impl LlmProvider for AnthropicProvider {
                     _ => None,
                 })
                 .ok_or_else(|| LlmRequestError::NoContent)?;
-            if let Some(usage) = response.usage {
-                let usage: LlmUsage = usage.into();
-                tracing::info!("Prompt usage: {:?}", usage);
-            }
 
-            Ok(text)
+            Ok(LlmResponse {
+                text,
+                usage: response.usage.map(Into::into).unwrap_or_default(),
+                meta: LlmResponseMeta::new(request_id),
+            })
         })
     }
 
@@ -99,12 +99,12 @@ impl LlmProvider for AnthropicProvider {
                 self.client
                     .post(MESSAGES_API_URL)
                     .header("anthropic-version", API_VERSION)
-                    .header("content-type", "application/json")
                     .header("x-api-key", &self.api_key)
                     .json(&request),
                 "Anthropic",
             )
             .await?;
+            let request_id = utils::extract_header(&response, REQ_ID_HEADER);
 
             let stream = async_stream::stream! {
                 let mut sse_event_stream = utils::get_sse_events(response);
@@ -121,7 +121,7 @@ impl LlmProvider for AnthropicProvider {
                 }
             };
 
-            Ok(stream.boxed())
+            Ok((stream.boxed(), LlmResponseMeta::new(request_id)))
         })
     }
 }

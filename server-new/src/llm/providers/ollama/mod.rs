@@ -4,7 +4,7 @@ use futures::StreamExt;
 
 use crate::llm::{
     error::LlmRequestError,
-    interface::{LlmPromptResponse, LlmProvider, LlmStreamingResponse},
+    interface::*,
     providers::utils,
     types::{LlmChatRequest, LlmPrompt},
 };
@@ -51,7 +51,6 @@ impl LlmProvider for OllamaProvider {
             let res: OllamaCompletionResponse = utils::llm_api_request(
                 self.client
                     .post(format!("{}{}", self.base_url, COMPLETION_API_URL))
-                    .header("content-type", "application/json")
                     .json(&request),
                 "Ollama",
             )
@@ -59,14 +58,15 @@ impl LlmProvider for OllamaProvider {
             .json()
             .await?;
 
-            if let Some(usage) = res.usage() {
-                tracing::info!("Prompt usage: {:?}", usage);
-            }
             if res.response.is_empty() {
                 return Err(LlmRequestError::NoContent);
             }
 
-            Ok(res.response)
+            Ok(LlmResponse {
+                usage: res.usage().unwrap_or_default(),
+                text: res.response,
+                ..Default::default()
+            })
         })
     }
 
@@ -91,7 +91,6 @@ impl LlmProvider for OllamaProvider {
             let response = utils::llm_api_request(
                 self.client
                     .post(format!("{}{}", self.base_url, CHAT_API_URL))
-                    .header("content-type", "application/json")
                     .json(&request),
                 "Ollama",
             )
@@ -120,7 +119,7 @@ impl LlmProvider for OllamaProvider {
                 // }
             };
 
-            Ok(stream.boxed())
+            Ok((stream.boxed(), LlmResponseMeta::default()))
         })
     }
 }

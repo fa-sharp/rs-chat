@@ -3,11 +3,11 @@ use crate::services::stream::error::StreamingError;
 /// Errors that can occur in an LLM provider request
 #[derive(Debug, thiserror::Error)]
 pub enum LlmRequestError {
-    #[error("provider error: {0}")]
+    #[error("Provider error: {0}")]
     Provider(String),
-    #[error("failed to read response: {0}")]
+    #[error("Failed to read response: {0}")]
     Read(#[from] reqwest::Error),
-    #[error("no content")]
+    #[error("No content")]
     NoContent,
 }
 
