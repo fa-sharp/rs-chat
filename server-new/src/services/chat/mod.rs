@@ -122,7 +122,7 @@ impl<'r> ChatService<'r> {
                 db.logs()
                     .complete()
                     .id(log_id)
-                    .status(ChatRsLogStatus::Failed)
+                    .status(ChatRsLogStatus::Error)
                     .error(&err.to_string())
                     .build()
                     .await?;
@@ -290,7 +290,7 @@ impl<'r> ChatService<'r> {
                 db.logs()
                     .complete()
                     .id(log_id)
-                    .status(ChatRsLogStatus::Failed)
+                    .status(ChatRsLogStatus::Error)
                     .error(&err.to_string())
                     .build()
                     .await?;

@@ -40,7 +40,7 @@ impl LlmStreamOutput {
         if self.cancelled {
             ChatRsLogStatus::Cancelled
         } else if self.errors.is_some() {
-            ChatRsLogStatus::Failed
+            ChatRsLogStatus::Error
         } else {
             ChatRsLogStatus::Completed
         }

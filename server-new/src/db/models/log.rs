@@ -42,8 +42,8 @@ pub enum ChatRsLogKind {
 pub enum ChatRsLogStatus {
     Started,
     Completed,
-    Failed,
     Cancelled,
+    Error,
 }
 
 #[derive(Insertable)]
