@@ -152,6 +152,7 @@ impl LlmProvider for OpenAIProvider {
                     .bearer_auth(&self.config.api_key)
                     .json(&request),
                 provider_name,
+                Some(self.config.subtype.req_id_header()),
             )
             .await?;
             let req_id = utils::extract_header(&raw_response, self.config.subtype.req_id_header());
@@ -199,6 +200,7 @@ impl LlmProvider for OpenAIProvider {
                     .bearer_auth(&self.config.api_key)
                     .json(&request),
                 provider_name,
+                Some(self.config.subtype.req_id_header()),
             )
             .await?;
             let req_id = utils::extract_header(&response, self.config.subtype.req_id_header());

@@ -124,6 +124,7 @@ impl<'r> ChatService<'r> {
                     .id(log_id)
                     .status(ChatRsLogStatus::Error)
                     .error(&err.to_string())
+                    .maybe_request_id(err.req_id())
                     .build()
                     .await?;
                 return Err(ChatError::Request(err));
@@ -292,6 +293,7 @@ impl<'r> ChatService<'r> {
                     .id(log_id)
                     .status(ChatRsLogStatus::Error)
                     .error(&err.to_string())
+                    .maybe_request_id(err.req_id())
                     .build()
                     .await?;
                 return Err(ChatError::Request(err));

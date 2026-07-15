@@ -58,6 +58,7 @@ impl LlmProvider for AnthropicProvider {
                     .header("x-api-key", &self.api_key)
                     .json(&request),
                 "Anthropic",
+                Some(REQ_ID_HEADER),
             )
             .await?;
             let request_id = utils::extract_header(&raw_response, REQ_ID_HEADER);
@@ -102,6 +103,7 @@ impl LlmProvider for AnthropicProvider {
                     .header("x-api-key", &self.api_key)
                     .json(&request),
                 "Anthropic",
+                Some(REQ_ID_HEADER),
             )
             .await?;
             let request_id = utils::extract_header(&response, REQ_ID_HEADER);

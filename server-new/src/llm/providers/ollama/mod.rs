@@ -53,6 +53,7 @@ impl LlmProvider for OllamaProvider {
                     .post(format!("{}{}", self.base_url, COMPLETION_API_URL))
                     .json(&request),
                 "Ollama",
+                None,
             )
             .await?
             .json()
@@ -92,6 +93,7 @@ impl LlmProvider for OllamaProvider {
                     .post(format!("{}{}", self.base_url, CHAT_API_URL))
                     .json(&request),
                 "Ollama",
+                None,
             )
             .await?;
             let stream = async_stream::stream! {

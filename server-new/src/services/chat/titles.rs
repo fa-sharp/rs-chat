@@ -100,6 +100,7 @@ async fn generate(
                 .id(log_id)
                 .status(ChatRsLogStatus::Error)
                 .error(&err.to_string())
+                .maybe_request_id(err.req_id())
                 .build()
                 .await?;
         }

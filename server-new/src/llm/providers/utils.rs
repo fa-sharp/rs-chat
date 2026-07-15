@@ -60,17 +60,19 @@ pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
 pub async fn llm_api_request(
     request: reqwest::RequestBuilder,
     provider_name: &str,
+    req_id_header: Option<&str>,
 ) -> Result<reqwest::Response, LlmRequestError> {
-    let response = request
-        .send()
-        .await
-        .map_err(|e| LlmRequestError::Provider(format!("{provider_name} request failed: {e}")))?;
+    let response = request.send().await.map_err(|e| {
+        LlmRequestError::Provider(format!("{provider_name} request failed: {e}"), None)
+    })?;
     if !response.status().is_success() {
         let status = response.status();
+        let request_id = req_id_header.and_then(|header| extract_header(&response, header));
         let error_text = response.text().await.unwrap_or_default();
-        return Err(LlmRequestError::Provider(format!(
-            "{provider_name} API error status {status}: {error_text}",
-        )));
+        return Err(LlmRequestError::Provider(
+            format!("{provider_name} API error {status}: {error_text}",),
+            request_id,
+        ));
     }
 
     Ok(response)
