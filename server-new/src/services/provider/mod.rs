@@ -10,10 +10,7 @@ use crate::{
             OpenAISubtype, UpdateChatRsProvider, UpdateChatRsSecret,
         },
     },
-    llm::{
-        interface::LlmProvider,
-        providers::{LoremProvider, OpenAIProvider, OpenAIProviderConfig},
-    },
+    llm::{interface::LlmProvider, providers::*},
     services::{
         auth::encryption::Encryptor,
         provider::{
@@ -66,16 +63,17 @@ impl<'r> ProviderService<'r> {
                     provider.base_url,
                 ),
             )),
-            _ => todo!(),
-            // ChatRsProviderType::Anthropic => Box::new(AnthropicProvider::new(
-            //     http_client,
-            //     redis,
-            //     api_key.ok_or(ProviderError::MissingApiKey)?,
-            // )),
-            // ChatRsProviderType::Ollama => Box::new(OllamaProvider::new(
-            //     http_client,
-            //     base_url.unwrap_or("http://localhost:11434"),
-            // )),
+            ChatRsProviderType::Anthropic => Arc::new(AnthropicProvider::new(
+                self.http_client,
+                api_key.ok_or(ProviderError::MissingApiKey)?,
+            )),
+            ChatRsProviderType::Ollama => Arc::new(OllamaProvider::new(
+                self.http_client,
+                provider
+                    .base_url
+                    .as_deref()
+                    .unwrap_or("http://localhost:11434"),
+            )),
         };
 
         Ok(llm_provider)

@@ -140,15 +140,16 @@ impl LlmProvider for OpenAIProvider {
 
         Box::pin(async move {
             let provider_name = self.config.subtype.name();
-            let response = utils::llm_api_request(
-                &self.client,
+            let mut response: OpenAIResponse = utils::llm_api_request(
+                self.client
+                    .post(&format!("{}/chat/completions", self.config.base_url))
+                    .bearer_auth(&self.config.api_key)
+                    .json(&request),
                 provider_name,
-                &format!("{}/chat/completions", self.config.base_url),
-                &self.config.api_key,
-                &request,
             )
+            .await?
+            .json()
             .await?;
-            let mut response: OpenAIResponse = response.json().await?;
 
             let text = response
                 .choices
@@ -187,11 +188,11 @@ impl LlmProvider for OpenAIProvider {
 
         Box::pin(async move {
             let response = utils::llm_api_request(
-                &self.client,
+                self.client
+                    .post(&format!("{}/chat/completions", self.config.base_url))
+                    .bearer_auth(&self.config.api_key)
+                    .json(&request),
                 provider_name,
-                &format!("{}/chat/completions", self.config.base_url),
-                &self.config.api_key,
-                &request,
             )
             .await?;
 

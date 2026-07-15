@@ -1,0 +1,148 @@
+//! Ollama API request structures
+
+use serde::Serialize;
+use serde_with::skip_serializing_none;
+
+use crate::llm::types::LlmMessage;
+
+/// Convert LlmMessages to Ollama messages
+pub fn build_ollama_messages(messages: &[LlmMessage]) -> Vec<OllamaMessage<'_>> {
+    messages
+        .iter()
+        .map(|message| match message {
+            LlmMessage::User(user_message) => {
+                // let images = user_message.files.as_ref().map(|files| {
+                //     files
+                //         .iter()
+                //         .filter_map(|file| match file.file_type {
+                //             ChatRsFileType::Image => Some(file.content.as_str()),
+                //             _ => None,
+                //         })
+                //         .collect::<Vec<_>>()
+                // });
+                OllamaMessage {
+                    role: "user",
+                    content: &user_message.text,
+                    // images,
+                    ..Default::default()
+                }
+            }
+            LlmMessage::Assistant(assistant_message) => {
+                // let tool_calls = assistant_message.tool_calls.as_ref().map(|tool_calls| {
+                //     tool_calls
+                //         .iter()
+                //         .map(|tc| OllamaToolCall {
+                //             function: OllamaFunction {
+                //                 name: &tc.tool_name,
+                //                 arguments: &tc.parameters,
+                //             },
+                //         })
+                //         .collect()
+                // });
+                OllamaMessage {
+                    role: "assistant",
+                    content: &assistant_message.text,
+                    // tool_calls,
+                    ..Default::default()
+                }
+            }
+            LlmMessage::System(text) => OllamaMessage {
+                role: "system",
+                content: text,
+                ..Default::default()
+            },
+            // LlmMessage::Tool(result) => OllamaMessage {
+            //     role: "tool",
+            //     content: &result.content,
+            //     tool_name: Some(&result.tool_name),
+            //     ..Default::default()
+            // },
+        })
+        .collect()
+}
+
+// /// Convert LlmTools to Ollama tools
+// pub fn build_ollama_tools(tools: &[LlmTool]) -> Vec<OllamaTool<'_>> {
+//     tools
+//         .iter()
+//         .map(|tool| OllamaTool {
+//             r#type: "function",
+//             function: OllamaToolSpec {
+//                 name: &tool.name,
+//                 description: &tool.description,
+//                 parameters: &tool.input_schema,
+//             },
+//         })
+//         .collect()
+// }
+
+/// Ollama chat request structure
+#[skip_serializing_none]
+#[derive(Debug, Default, Serialize)]
+pub struct OllamaChatRequest<'a> {
+    pub model: &'a str,
+    pub messages: Vec<OllamaMessage<'a>>,
+    // pub tools: Option<Vec<OllamaTool<'a>>>,
+    pub stream: Option<bool>,
+    pub options: Option<OllamaOptions>,
+}
+
+/// Ollama completion request structure
+#[skip_serializing_none]
+#[derive(Debug, Serialize)]
+pub struct OllamaCompletionRequest<'a> {
+    pub model: &'a str,
+    pub prompt: &'a str,
+    pub stream: Option<bool>,
+    pub options: Option<OllamaOptions>,
+}
+
+/// Ollama chat message
+#[skip_serializing_none]
+#[derive(Debug, Default, Serialize)]
+pub struct OllamaMessage<'a> {
+    pub role: &'a str,
+    pub content: &'a str,
+    pub images: Option<Vec<&'a str>>,
+    // pub tool_calls: Option<Vec<OllamaToolCall<'a>>>,
+    pub tool_name: Option<&'a str>,
+}
+
+// /// Ollama tool call in a message
+// #[derive(Debug, Serialize)]
+// pub struct OllamaToolCall<'a> {
+//     pub function: OllamaFunction<'a>,
+// }
+
+// /// Ollama tool function
+// #[derive(Debug, Serialize)]
+// pub struct OllamaFunction<'a> {
+//     pub name: &'a str,
+//     pub arguments: &'a ToolParameters,
+// }
+
+// /// Ollama tool definition
+// #[derive(Debug, Serialize)]
+// pub struct OllamaTool<'a> {
+//     pub r#type: &'a str,
+//     pub function: OllamaToolSpec<'a>,
+// }
+
+// /// Ollama tool specification
+// #[derive(Debug, Serialize)]
+// pub struct OllamaToolSpec<'a> {
+//     pub name: &'a str,
+//     pub description: &'a str,
+//     pub parameters: &'a serde_json::Value,
+// }
+
+/// Ollama model options
+#[skip_serializing_none]
+#[derive(Debug, Default, Serialize)]
+pub struct OllamaOptions {
+    pub temperature: Option<f32>,
+    pub num_predict: Option<u32>, // Ollama's equivalent to max_tokens
+    pub top_p: Option<f32>,
+    pub top_k: Option<i32>,
+    pub seed: Option<i32>,
+}

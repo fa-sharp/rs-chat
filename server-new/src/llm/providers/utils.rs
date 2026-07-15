@@ -1,7 +1,7 @@
 //! Utilities for working with LLM requests and responses
 
 use futures::TryStreamExt;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
 use tokio_stream::{Stream, StreamExt};
 use tokio_util::{
     codec::{FramedRead, LinesCodec},
@@ -44,7 +44,7 @@ pub fn get_sse_events<T: DeserializeOwned + Send + 'static>(
     })
 }
 
-/// Get a stream of deserialized events from a provider JSON stream, not SSE (e.g. Ollama uses this format).
+/// Get a stream of deserialized events from a provider JSON Lines stream (e.g. Ollama uses this format).
 pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
     response: reqwest::Response,
 ) -> impl Stream<Item = Result<T, LlmStreamChunkError>> {
@@ -57,17 +57,11 @@ pub fn get_json_events<T: DeserializeOwned + Send + 'static>(
 }
 
 /// Convenience function to make an API request to an LLM provider
-pub async fn llm_api_request<Req: Serialize>(
-    client: &reqwest::Client,
+pub async fn llm_api_request(
+    request: reqwest::RequestBuilder,
     provider_name: &str,
-    url: &str,
-    token: &str,
-    request: &Req,
 ) -> Result<reqwest::Response, LlmRequestError> {
-    let response = client
-        .post(url)
-        .bearer_auth(token)
-        .json(&request)
+    let response = request
         .send()
         .await
         .map_err(|e| LlmRequestError::Provider(format!("{provider_name} request failed: {e}")))?;
