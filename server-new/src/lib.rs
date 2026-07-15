@@ -31,6 +31,7 @@ pub async fn create_app() -> anyhow::Result<InitializedApp<AppState, AppConfig>>
         .register(api::plugin()) // Add API routes
         .register(plugins::auth::plugin()) // Setup auth & sessions
         .register(plugins::logging::plugin()) // Request logging
+        .register(plugins::web::plugin()) // Web app
         .register(plugins::security::plugin()) // Body limit, security headers, etc.
         .init()
         .await?;

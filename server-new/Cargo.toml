@@ -89,7 +89,7 @@ tokio-util = { version = "0.7.18", features = ["io"] }
 tower = { version = "0.5", default-features = false }
 tower-http = {
   version = "0.7.0",
-  features = ["limit", "request-id", "timeout", "trace"]
+  features = ["fs", "limit", "request-id", "timeout", "trace"]
 }
 tower-sessions = {
   version = "0.15.0",

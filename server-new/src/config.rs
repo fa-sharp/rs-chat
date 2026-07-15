@@ -36,6 +36,7 @@ pub struct ServerConfig {
     pub port: u16,
     pub base_url: String,
     pub log_level: String,
+    pub web_root: String,
     pub request_id_header: String,
     pub ip_header: Option<String>,
 }
@@ -46,6 +47,7 @@ impl Default for ServerConfig {
             port: 8080,
             base_url: String::from("http://localhost:8080"),
             log_level: String::from("info"),
+            web_root: String::from("../web/dist"),
             request_id_header: String::from("x-request-id"),
             ip_header: None,
         }

@@ -1,4 +1,4 @@
-# Image versions (can be overridden by args when building)
+# Image versions
 ARG RUST_VERSION=1.96
 ARG DEBIAN_VERSION=bookworm
 
@@ -35,4 +35,5 @@ COPY --from=build /app/run-server /usr/local/bin/
 # Run server
 WORKDIR /app
 ENV RS_CHAT_SERVER__HOST=0.0.0.0
+ENV RS_CHAT_SERVER__STATIC_PATH=/var/www
 CMD ["run-server"]
