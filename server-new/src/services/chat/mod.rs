@@ -228,17 +228,16 @@ impl<'r> ChatService<'r> {
         provider: Arc<dyn LlmProvider>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let (chat_session, messages) = db
+        let (chat_session, mut messages) = db
             .chats()
             .find_session_with_messages(&user_id, &session_id)
             .await?;
         chat_session.ok_or(ChatError::SessionNotFound)?;
-        let assistant_message_id = messages
-            .iter()
-            .rev()
-            .find(|m| m.role.is_assistant())
-            .ok_or(ChatError::NoAssistantResponse)?
-            .id;
+
+        let last_message = messages.pop();
+        if last_message.as_ref().is_none_or(|m| !m.role.is_assistant()) {
+            return Err(ChatError::NoAssistantResponse);
+        }
 
         self.start_assistant_stream(
             db,
@@ -249,7 +248,7 @@ impl<'r> ChatService<'r> {
                 session_id,
                 provider_id,
                 chat_options,
-                replace_message_id: Some(assistant_message_id),
+                replace_message_id: last_message.map(|m| m.id),
             },
         )
         .await
