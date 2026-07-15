@@ -4,7 +4,6 @@ use axum::{
     extract::{FromRequestParts, OptionalFromRequestParts},
     http::header,
 };
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{db::DbService, error::AppError, state::AppState};
@@ -17,7 +16,7 @@ as an extractor in route handlers:
 - If used as `Option<CurrentUser>`, will be `Some` if there is an active user
   and `None` otherwise.
 */
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct CurrentUser {
     pub user_id: Uuid,
 }
@@ -100,8 +99,6 @@ impl OperationInput for CurrentUser {
         operation: &mut aide::openapi::Operation,
     ) {
         let security_reqs = [(String::from(crate::api::API_KEY_SCHEME), vec![])];
-        operation
-            .security
-            .push(FromIterator::from_iter(security_reqs))
+        operation.security.push(security_reqs.into());
     }
 }
