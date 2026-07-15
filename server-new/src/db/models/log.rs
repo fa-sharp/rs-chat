@@ -9,7 +9,7 @@ use crate::db::{UtcDateTime, models::ChatRsUser};
 
 #[derive(Identifiable, Associations, Queryable, Selectable, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
-#[diesel(table_name = super::schema::logs)]
+#[diesel(table_name = super::schema::llm_logs)]
 pub struct ChatRsLog {
     pub id: i32,
     pub kind: String,
@@ -47,7 +47,7 @@ pub enum ChatRsLogStatus {
 }
 
 #[derive(Insertable)]
-#[diesel(table_name = super::schema::logs)]
+#[diesel(table_name = super::schema::llm_logs)]
 pub struct NewChatRsLog<'a> {
     pub kind: &'a str,
     pub user_id: &'a Uuid,
@@ -58,7 +58,7 @@ pub struct NewChatRsLog<'a> {
 }
 
 #[derive(Default, AsChangeset)]
-#[diesel(table_name = super::schema::logs)]
+#[diesel(table_name = super::schema::llm_logs)]
 pub struct UpdateChatRsLog<'a> {
     pub message_id: Option<&'a Uuid>,
     pub request_id: Option<&'a str>,

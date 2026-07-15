@@ -1,4 +1,4 @@
-CREATE TABLE logs (
+CREATE TABLE llm_logs (
   id SERIAL PRIMARY KEY,
   kind text NOT NULL, -- chat, title, prompt, image, audio, etc.
   user_id uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -16,10 +16,10 @@ CREATE TABLE logs (
   completed_at timestamptz
 );
 
-CREATE INDEX logs_user_id_started_at_idx ON logs (user_id, started_at DESC);
+CREATE INDEX llm_logs_user_id_started_at_idx ON llm_logs (user_id, started_at DESC);
 
-CREATE INDEX logs_session_id_idx ON logs (session_id);
+CREATE INDEX llm_logs_session_id_idx ON llm_logs (session_id);
 
-CREATE INDEX logs_message_id_idx ON logs (message_id);
+CREATE INDEX llm_logs_message_id_idx ON llm_logs (message_id);
 
-CREATE INDEX logs_provider_id_started_at_idx ON logs (provider_id, started_at DESC);
+CREATE INDEX llm_logs_provider_id_started_at_idx ON llm_logs (provider_id, started_at DESC);

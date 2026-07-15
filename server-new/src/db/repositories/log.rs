@@ -9,7 +9,7 @@ use crate::{
     db::{
         DbConnection,
         models::{ChatRsLogKind, ChatRsLogStatus, NewChatRsLog, UpdateChatRsLog},
-        schema::logs,
+        schema::llm_logs,
     },
     llm::types::LlmUsage,
 };
@@ -43,9 +43,9 @@ impl<'a> LogRepository<'a> {
             status: ChatRsLogStatus::Started.as_ref(),
         };
 
-        diesel::insert_into(logs::table)
+        diesel::insert_into(llm_logs::table)
             .values(new_log)
-            .returning(logs::id)
+            .returning(llm_logs::id)
             .get_result(self.db)
             .await
     }
@@ -76,10 +76,10 @@ impl<'a> LogRepository<'a> {
             completed_at: Utc::now(),
         };
 
-        diesel::update(logs::table)
-            .filter(logs::id.eq(id))
+        diesel::update(llm_logs::table)
+            .filter(llm_logs::id.eq(id))
             .set(update_log)
-            .returning(logs::id)
+            .returning(llm_logs::id)
             .get_result(self.db)
             .await
     }
