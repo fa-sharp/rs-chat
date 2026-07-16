@@ -112,6 +112,7 @@ impl<'r> ChatService<'r> {
         };
         let log = db.logs().create(create_log).await?;
 
+        let start_time = Instant::now();
         let request = LlmChatRequest {
             messages: &[LlmMessage::User(prompt)],
             options: &options,
@@ -132,7 +133,6 @@ impl<'r> ChatService<'r> {
 
         // Spawn thread to process LLM streaming response
         let stream_key = StreamingService::prompt_key(&user_id);
-        let start_time = Instant::now();
         let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
             .create_stream(&stream_key)
             .await?;
@@ -279,13 +279,11 @@ impl<'r> ChatService<'r> {
         let log = db.logs().create(create_log).await?;
 
         let start_time = Instant::now();
-        let (response_stream, meta) = match provider
-            .stream_chat(LlmChatRequest {
-                messages: &messages::build_llm_messages(messages)?,
-                options: &params.chat_options,
-            })
-            .await
-        {
+        let request = LlmChatRequest {
+            messages: &messages::build_llm_messages(messages)?,
+            options: &params.chat_options,
+        };
+        let (response_stream, meta) = match provider.stream_chat(request).await {
             Ok(response) => response,
             Err(err) => {
                 let complete_log = LlmLogComplete {
