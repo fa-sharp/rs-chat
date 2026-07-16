@@ -34,6 +34,8 @@ pub struct LlmStreamWriter {
     errors: Option<Vec<LlmStreamChunkError>>,
     /// Accumulated usage information from the LLM provider.
     usage: Option<LlmUsage>,
+    /// Duration from request start to first token
+    first_token_in: Option<Duration>,
 }
 
 /// Internal state
@@ -64,6 +66,7 @@ impl LlmStreamWriter {
             // images: None,
             errors: None,
             usage: None,
+            first_token_in: None,
         }
     }
 
@@ -73,6 +76,7 @@ impl LlmStreamWriter {
     pub async fn process(
         &mut self,
         stream: LlmStream,
+        start_time: Instant,
         mut writer: WsWriter,
         mut reader: WsReader,
     ) -> LlmStreamOutput {
@@ -90,7 +94,7 @@ impl LlmStreamWriter {
         });
 
         tokio::select! {
-            _ = self.process_stream(stream, &mut writer) => {}
+            _ = self.process_stream(stream, start_time, &mut writer) => {}
             _ = cancel_token.cancelled() => {
                 self.errors.get_or_insert_default().push(LlmStreamChunkError::StreamCancelled);
                 cancelled = true;
@@ -110,16 +114,27 @@ impl LlmStreamWriter {
                     .map(|e| e.to_string())
                     .collect::<Vec<String>>()
             }),
+            first_token_in: self.first_token_in.take(),
             cancelled,
         }
     }
 
-    async fn process_stream(&mut self, mut stream: LlmStream, writer: &mut WsWriter) {
-        let mut last_flush_time = Instant::now();
+    async fn process_stream(
+        &mut self,
+        mut stream: LlmStream,
+        start_time: Instant,
+        writer: &mut WsWriter,
+    ) {
+        let mut last_flushed_at = Instant::now();
         loop {
             match stream.next().await {
                 Some(Ok(chunk)) => match chunk {
-                    LlmStreamChunk::Text(text) => self.process_text(&text),
+                    LlmStreamChunk::Text(text) => {
+                        if self.first_token_in.is_none() {
+                            self.first_token_in = Some(start_time.elapsed());
+                        }
+                        self.process_text(&text);
+                    }
                     // LlmStreamChunk::ToolCalls(tool_calls) => self.process_tool_calls(tool_calls),
                     // LlmStreamChunk::PendingToolCall(pending_tool_call) => {
                     //     self.process_pending_tool_call(pending_tool_call)
@@ -131,11 +146,11 @@ impl LlmStreamWriter {
                 None => break,
             }
 
-            if self.should_flush(&last_flush_time) {
+            if self.should_flush(&last_flushed_at) {
                 if let Err(err) = self.flush_chunks(writer).await {
                     self.process_error(LlmStreamChunkError::from(err));
                 }
-                last_flush_time = Instant::now();
+                last_flushed_at = Instant::now();
             }
         }
 
@@ -194,7 +209,7 @@ impl LlmStreamWriter {
         self.errors.get_or_insert_default().push(err);
     }
 
-    fn should_flush(&self, last_flush_time: &Instant) -> bool {
+    fn should_flush(&self, last_flushed_at: &Instant) -> bool {
         // if self.current_chunk.tool_calls.is_some() || self.current_chunk.error.is_some() {
         //     return true;
         // }
@@ -202,7 +217,7 @@ impl LlmStreamWriter {
             return true;
         }
         let text = self.current_chunk.text.as_ref();
-        last_flush_time.elapsed() > FLUSH_INTERVAL || text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE)
+        last_flushed_at.elapsed() > FLUSH_INTERVAL || text.is_some_and(|t| t.len() > MAX_CHUNK_SIZE)
     }
 
     /// Flushes the current chunk(s) to the Redis stream.

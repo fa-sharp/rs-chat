@@ -6,13 +6,12 @@ CREATE TABLE llm_logs (
   session_id uuid REFERENCES chat_sessions (id) ON DELETE SET NULL,
   message_id uuid REFERENCES chat_messages (id) ON DELETE SET NULL,
   model text NOT NULL,
-  request_id text, -- provider request ID
   input_tokens integer,
   output_tokens integer,
   cost numeric(12, 6),
+  ttft_ms integer, -- time to first token in milliseconds
   status text NOT NULL, -- started, completed, failed, cancelled
-  error text,
-  meta jsonb, -- max_tokens, temperature, etc.
+  meta jsonb NOT NULL DEFAULT '{}', -- max_tokens, temperature, etc.
   started_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz
 );

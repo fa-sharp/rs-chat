@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use futures::{
     StreamExt,
     stream::{SplitSink, SplitStream},
@@ -32,6 +34,7 @@ pub struct LlmStreamOutput {
     // pub images: Option<Vec<LlmImage>>,
     pub usage: Option<LlmUsage>,
     pub errors: Option<Vec<String>>,
+    pub first_token_in: Option<Duration>,
     pub cancelled: bool,
 }
 impl LlmStreamOutput {
@@ -39,7 +42,7 @@ impl LlmStreamOutput {
     pub fn status(&self) -> ChatRsLogStatus {
         if self.cancelled {
             ChatRsLogStatus::Cancelled
-        } else if self.errors.is_some() {
+        } else if self.errors.as_ref().is_some_and(|e| !e.is_empty()) {
             ChatRsLogStatus::Error
         } else {
             ChatRsLogStatus::Completed
@@ -114,11 +117,12 @@ impl<'r> StreamingService<'r> {
     /// and return the accumulated response.
     pub async fn process_stream(
         stream: LlmStream,
+        start_time: Instant,
         writer: WsWriter,
         reader: WsReader,
     ) -> LlmStreamOutput {
         writer::LlmStreamWriter::new()
-            .process(stream, writer, reader)
+            .process(stream, start_time, writer, reader)
             .await
     }
 

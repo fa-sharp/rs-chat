@@ -27,7 +27,6 @@ axum-plugin = {
   features = ["figment"]
 }
 bigdecimal = { version = "0.4.10", features = ["serde-json"] }
-bon = "3.9.3"
 chrono = {
   version = "0.4.45",
   default-features = false,

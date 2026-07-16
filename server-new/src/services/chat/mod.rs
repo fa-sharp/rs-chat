@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use tinistream_client::types::{StreamAccessResponse, StreamStatus};
 use uuid::Uuid;
@@ -8,8 +8,9 @@ use crate::{
         DbPool, DbService,
         models::{
             AssistantMeta, ChatRsLogKind, ChatRsLogStatus, ChatRsMessage, ChatRsMessageMeta,
-            ChatRsMessageRole, NewChatRsMessage, UserMeta,
+            ChatRsMessageRole, NewChatRsMessage, UpdateChatRsLog, UserMeta,
         },
+        repositories::{LlmLogComplete, LlmLogCreate},
     },
     llm::{
         interface::{LlmProvider, LlmResponseMeta},
@@ -102,15 +103,14 @@ impl<'r> ChatService<'r> {
         prompt: LlmUserMessage,
         options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let log_id = db
-            .logs()
-            .create()
-            .kind(ChatRsLogKind::Prompt)
-            .user_id(&user_id)
-            .provider_id(provider_id)
-            .llm_options(&options)
-            .build()
-            .await?;
+        let create_log = LlmLogCreate {
+            kind: ChatRsLogKind::Prompt,
+            user_id,
+            provider_id,
+            llm_options: Some(&options),
+            ..Default::default()
+        };
+        let log = db.logs().create(create_log).await?;
 
         let request = LlmChatRequest {
             messages: &[LlmMessage::User(prompt)],
@@ -119,20 +119,20 @@ impl<'r> ChatService<'r> {
         let (response_stream, response_meta) = match provider.stream_chat(request).await {
             Ok(response) => response,
             Err(err) => {
-                db.logs()
-                    .complete()
-                    .id(log_id)
-                    .status(ChatRsLogStatus::Error)
-                    .error(&err.to_string())
-                    .maybe_request_id(err.req_id())
-                    .build()
-                    .await?;
+                let complete_log = LlmLogComplete {
+                    status: ChatRsLogStatus::Error,
+                    request_id: err.req_id(),
+                    errors: Some(vec![err.to_string()]),
+                    ..Default::default()
+                };
+                db.logs().complete(log, complete_log).await?;
                 return Err(ChatError::Request(err));
             }
         };
 
         // Spawn thread to process LLM streaming response
         let stream_key = StreamingService::prompt_key(&user_id);
+        let start_time = Instant::now();
         let (stream_access, ws_writer, ws_reader) = StreamingService::new(self.tinistream)
             .create_stream(&stream_key)
             .await?;
@@ -140,18 +140,18 @@ impl<'r> ChatService<'r> {
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
             let output =
-                StreamingService::process_stream(response_stream, ws_writer, ws_reader).await;
-            if let Ok(mut db) = DbService::from_pool(&db_pool).await {
-                let _ = db
-                    .logs()
-                    .complete()
-                    .id(log_id)
-                    .status(output.status())
-                    .maybe_request_id(response_meta.request_id.as_deref())
-                    .maybe_usage(output.usage.as_ref())
-                    .maybe_error(output.errors.map(|e| e.join(", ")).as_deref())
-                    .build()
+                StreamingService::process_stream(response_stream, start_time, ws_writer, ws_reader)
                     .await;
+            if let Ok(mut db) = DbService::from_pool(&db_pool).await {
+                let complete_log = LlmLogComplete {
+                    status: output.status(),
+                    request_id: response_meta.request_id.as_deref(),
+                    usage: output.usage.as_ref(),
+                    errors: output.errors,
+                    first_token_in: output.first_token_in,
+                    ..Default::default()
+                };
+                let _ = db.logs().complete(log, complete_log).await;
             }
             let _ = StreamingService::new(&tinistream_client)
                 .end_stream(&stream_key)
@@ -269,17 +269,16 @@ impl<'r> ChatService<'r> {
             return Err(ChatError::AlreadyStreaming);
         }
 
-        let log_id = db
-            .logs()
-            .create()
-            .kind(ChatRsLogKind::Chat)
-            .user_id(&params.user_id)
-            .session_id(&params.session_id)
-            .provider_id(params.provider_id)
-            .llm_options(&params.chat_options)
-            .build()
-            .await?;
+        let create_log = LlmLogCreate {
+            kind: ChatRsLogKind::Chat,
+            user_id: params.user_id,
+            provider_id: params.provider_id,
+            llm_options: Some(&params.chat_options),
+            session_id: Some(&params.session_id),
+        };
+        let log = db.logs().create(create_log).await?;
 
+        let start_time = Instant::now();
         let (response_stream, meta) = match provider
             .stream_chat(LlmChatRequest {
                 messages: &messages::build_llm_messages(messages)?,
@@ -289,14 +288,13 @@ impl<'r> ChatService<'r> {
         {
             Ok(response) => response,
             Err(err) => {
-                db.logs()
-                    .complete()
-                    .id(log_id)
-                    .status(ChatRsLogStatus::Error)
-                    .error(&err.to_string())
-                    .maybe_request_id(err.req_id())
-                    .build()
-                    .await?;
+                let complete_log = LlmLogComplete {
+                    status: ChatRsLogStatus::Error,
+                    request_id: err.req_id(),
+                    errors: Some(vec![err.to_string()]),
+                    ..Default::default()
+                };
+                db.logs().complete(log, complete_log).await?;
                 return Err(ChatError::Request(err));
             }
         };
@@ -307,9 +305,10 @@ impl<'r> ChatService<'r> {
         let tinistream_client = self.tinistream.to_owned();
         tokio::spawn(async move {
             let output =
-                StreamingService::process_stream(response_stream, ws_writer, ws_reader).await;
+                StreamingService::process_stream(response_stream, start_time, ws_writer, ws_reader)
+                    .await;
             let stream_cancelled = output.cancelled;
-            if let Err(err) = Self::persist_response(output, params, log_id, meta, db_pool).await {
+            if let Err(err) = Self::persist_response(output, params, log, meta, db_pool).await {
                 tracing::error!("Failed to save assistant response: {err}");
             }
 
@@ -328,7 +327,7 @@ impl<'r> ChatService<'r> {
     async fn persist_response(
         output: LlmStreamOutput,
         params: ChatStreamParams,
-        log_id: i32,
+        log: UpdateChatRsLog,
         meta: LlmResponseMeta,
         db_pool: DbPool,
     ) -> Result<ChatRsMessage, ChatError> {
@@ -360,17 +359,16 @@ impl<'r> ChatService<'r> {
                 .await?;
         }
 
-        db.logs()
-            .complete()
-            .id(log_id)
-            .status(output.status())
-            .completed_at(completed_at)
-            .message_id(&new_message.id)
-            .maybe_request_id(meta.request_id.as_deref())
-            .maybe_usage(output.usage.as_ref())
-            .maybe_error(output.errors.map(|e| e.join(", ")).as_deref())
-            .build()
-            .await?;
+        let complete_log = LlmLogComplete {
+            status: output.status(),
+            message_id: Some(new_message.id),
+            request_id: meta.request_id.as_deref(),
+            usage: output.usage.as_ref(),
+            errors: output.errors,
+            first_token_in: output.first_token_in,
+            completed_at: Some(completed_at),
+        };
+        db.logs().complete(log, complete_log).await?;
 
         Ok(new_message)
     }

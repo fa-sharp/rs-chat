@@ -75,6 +75,7 @@ pub fn parse_anthropic_event(
 /// Anthropic API response content block
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(unused)]
 pub enum AnthropicResponseContentBlock {
     Text { text: String },
     ToolUse { id: String, name: String },
@@ -121,6 +122,7 @@ pub struct AnthropicStreamResponse {
 /// Anthropic streaming event types
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(unused)]
 pub enum AnthropicStreamEvent {
     MessageStart {
         message: AnthropicStreamResponse,
@@ -149,6 +151,7 @@ pub enum AnthropicStreamEvent {
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(unused)]
 pub enum AnthropicDelta {
     TextDelta { text: String },
     InputJsonDelta { partial_json: String },

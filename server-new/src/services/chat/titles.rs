@@ -6,6 +6,7 @@ use crate::{
     db::{
         DbPool, DbService,
         models::{ChatRsLogKind, ChatRsLogStatus, UpdateChatRsSession},
+        repositories::{LlmLogComplete, LlmLogCreate},
     },
     llm::{
         interface::{LlmProvider, LlmResponse},
@@ -58,16 +59,15 @@ async fn generate(
     };
 
     let mut db = DbService::from_pool(&db_pool).await?;
-    let log_id = db
-        .logs()
-        .create()
-        .user_id(&user_id)
-        .session_id(&session_id)
-        .provider_id(provider_id)
-        .kind(ChatRsLogKind::Title)
-        .llm_options(&prompt_options)
-        .build()
-        .await?;
+    let create_log = LlmLogCreate {
+        kind: ChatRsLogKind::Title,
+        user_id,
+        provider_id,
+        session_id: Some(&session_id),
+        llm_options: Some(&prompt_options),
+    };
+    let log = db.logs().create(create_log).await?;
+    drop(db);
 
     let prompt = LlmPrompt {
         text: &format!("{TITLE_PROMPT}\n\n\"{user_message}\""),
@@ -76,6 +76,8 @@ async fn generate(
     match provider.prompt(prompt).await {
         Ok(LlmResponse { text, usage, meta }) => {
             let completed_at = chrono::Utc::now();
+
+            let mut db = DbService::from_pool(&db_pool).await?;
             db.chats()
                 .update_session(
                     &user_id,
@@ -86,25 +88,24 @@ async fn generate(
                     },
                 )
                 .await?;
-            db.logs()
-                .complete()
-                .id(log_id)
-                .status(ChatRsLogStatus::Completed)
-                .completed_at(completed_at)
-                .usage(&usage)
-                .maybe_request_id(meta.request_id.as_deref())
-                .build()
-                .await?;
+
+            let complete_log = LlmLogComplete {
+                usage: Some(&usage),
+                request_id: meta.request_id.as_deref(),
+                completed_at: Some(completed_at),
+                ..Default::default()
+            };
+            db.logs().complete(log, complete_log).await?;
         }
         Err(err) => {
-            db.logs()
-                .complete()
-                .id(log_id)
-                .status(ChatRsLogStatus::Error)
-                .error(&err.to_string())
-                .maybe_request_id(err.req_id())
-                .build()
-                .await?;
+            let mut db = DbService::from_pool(&db_pool).await?;
+            let complete_log = LlmLogComplete {
+                status: ChatRsLogStatus::Error,
+                request_id: err.req_id(),
+                errors: Some(vec![err.to_string()]),
+                ..Default::default()
+            };
+            db.logs().complete(log, complete_log).await?;
         }
     }
 

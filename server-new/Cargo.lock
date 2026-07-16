@@ -2439,7 +2439,6 @@ dependencies = [
  "axum-helmet",
  "axum-plugin",
  "bigdecimal",
- "bon",
  "chrono",
  "diesel",
  "diesel-async",

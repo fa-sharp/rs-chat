@@ -9,7 +9,7 @@ use diesel_async::{
 
 pub mod models;
 pub mod queries;
-mod repositories;
+pub mod repositories;
 mod schema;
 
 /// Type of the database pool
