@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::{
     db::{
         DbConnection, UtcDateTime,
-        models::{ChatRsLogKind, ChatRsLogMeta, ChatRsLogStatus, NewChatRsLog, UpdateChatRsLog},
+        models::{
+            ChatRsLogKind, ChatRsLogMeta, ChatRsLogMetaOptions, ChatRsLogStatus, NewChatRsLog,
+            UpdateChatRsLog,
+        },
         schema::llm_logs,
     },
     llm::types::{LlmChatOptions, LlmUsage},
@@ -44,8 +47,10 @@ impl<'a> LogRepository<'a> {
                 .unwrap_or_default(),
             status: ChatRsLogStatus::Started.as_ref(),
             meta: Some(&ChatRsLogMeta {
-                temperature: llm_options.and_then(|o| o.temperature),
-                max_tokens: llm_options.and_then(|o| o.max_tokens),
+                options: Some(ChatRsLogMetaOptions {
+                    temperature: llm_options.and_then(|o| o.temperature),
+                    max_tokens: llm_options.and_then(|o| o.max_tokens),
+                }),
                 ..Default::default()
             }),
             started_at: chrono::Utc::now(),
@@ -82,8 +87,8 @@ impl<'a> LogRepository<'a> {
             completed_at: Some(completed_at.unwrap_or_else(chrono::Utc::now)),
             ttft_ms: first_token_in.and_then(|d| d.as_millis().try_into().ok()),
             meta: ChatRsLogMeta {
-                request_id: request_id.map(str::to_owned),
                 errors,
+                request_id: request_id.map(str::to_owned),
                 ..log.meta
             },
         };

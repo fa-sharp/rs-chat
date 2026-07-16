@@ -76,10 +76,18 @@ pub enum ChatRsLogStatus {
 #[derive(Debug, Default, Serialize, Deserialize, FromSqlRow, AsExpression, AsJsonb, JsonSchema)]
 #[diesel(sql_type = diesel::sql_types::Jsonb)]
 pub struct ChatRsLogMeta {
+    /// Options passed to the LLM provider
+    pub options: Option<ChatRsLogMetaOptions>,
+    /// Any errors received from the LLM provider
+    pub errors: Option<Vec<String>>,
+    /// The request ID at the LLM provider
+    pub request_id: Option<String>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
+pub struct ChatRsLogMetaOptions {
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
-    pub errors: Option<Vec<String>>,
-    pub request_id: Option<String>,
 }
 
 #[derive(Insertable)]
