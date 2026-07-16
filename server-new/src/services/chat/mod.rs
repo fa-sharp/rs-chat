@@ -332,16 +332,7 @@ impl<'r> ChatService<'r> {
         let completed_at = chrono::Utc::now();
         let mut db = DbService::from_pool(&db_pool).await?;
 
-        let assistant_meta = AssistantMeta {
-            provider_id: params.provider_id,
-            provider_options: Some(params.chat_options),
-            // tool_calls: response.tool_calls,
-            // files: image_ids,
-            usage: output.usage,
-            errors: output.errors.clone(),
-            partial: output.cancelled.then_some(true),
-            ..Default::default()
-        };
+        let assistant_meta = AssistantMeta::default();
         let new_message = db
             .chats()
             .save_message(NewChatRsMessage {

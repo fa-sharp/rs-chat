@@ -164,6 +164,7 @@ struct SessionMessage {
     /// The message
     message: ChatRsMessage,
     /// Request metadata for assistant responses
+    #[serde(skip_serializing_if = "Option::is_none")]
     llm_request: Option<ChatRsLogLlmRequest>,
 }
 

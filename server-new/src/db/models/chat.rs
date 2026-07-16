@@ -5,10 +5,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    db::models::ChatRsUser,
-    llm::types::{LlmChatOptions, LlmUsage},
-};
+use crate::db::models::ChatRsUser;
 
 #[derive(Identifiable, Associations, Queryable, Selectable, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
@@ -110,26 +107,12 @@ pub struct UserMeta {
 
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct AssistantMeta {
-    /// The ID of the LLM provider used to generate this message
-    pub provider_id: i32,
-    /// Options passed to the LLM provider
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub provider_options: Option<LlmChatOptions>,
-    /// The tool calls requested by the assistant
+    // /// The tool calls requested by the assistant
     // #[serde(skip_serializing_if = "Option::is_none")]
     // pub tool_calls: Option<Vec<ChatRsToolCall>>,
     /// IDs of generated files
     #[serde(skip_serializing_if = "Option::is_none")]
     pub files: Option<Vec<Uuid>>,
-    /// Provider usage information
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub usage: Option<LlmUsage>,
-    /// Errors encountered during message generation
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub errors: Option<Vec<String>>,
-    /// Whether this is a partial and/or interrupted message
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub partial: Option<bool>,
 }
 
 #[derive(Insertable)]

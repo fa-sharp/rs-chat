@@ -84,6 +84,7 @@ pub struct ChatRsLogMeta {
     pub request_id: Option<String>,
 }
 
+#[skip_serializing_none]
 #[derive(Debug, Default, Serialize, Deserialize, JsonSchema)]
 pub struct ChatRsLogMetaOptions {
     pub temperature: Option<f32>,
