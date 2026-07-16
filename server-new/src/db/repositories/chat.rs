@@ -5,10 +5,11 @@ use uuid::Uuid;
 use crate::db::{
     DbConnection,
     models::{
-        ChatRsMessage, ChatRsSession, NewChatRsMessage, NewChatRsSession, UpdateChatRsSession,
+        ChatRsLogKind, ChatRsLogLlmRequest, ChatRsMessage, ChatRsSession, NewChatRsMessage,
+        NewChatRsSession, UpdateChatRsSession,
     },
     queries::{FullTextSearchResult, full_text_query},
-    schema::{chat_messages, chat_sessions},
+    schema::{chat_messages, chat_sessions, llm_logs},
 };
 
 pub struct ChatRepository<'a> {
@@ -116,30 +117,37 @@ impl<'a> ChatRepository<'a> {
         Ok(session)
     }
 
-    pub async fn find_session_with_messages(
-        &mut self,
-        user_id: &Uuid,
-        session_id: &Uuid,
-    ) -> Result<(Option<ChatRsSession>, Vec<ChatRsMessage>), diesel::result::Error> {
-        let (session, messages) = futures::future::join(
-            chat_sessions::table
-                .filter(chat_sessions::user_id.eq(user_id))
-                .filter(chat_sessions::id.eq(session_id))
-                .select(ChatRsSession::as_select())
-                .first(&mut &**self.db),
-            chat_messages::table
-                .inner_join(
-                    chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)),
-                )
-                .filter(chat_sessions::user_id.eq(user_id))
-                .filter(chat_messages::session_id.eq(session_id))
-                .select(ChatRsMessage::as_select())
-                .order_by(chat_messages::created_at.asc())
-                .load(&mut &**self.db),
-        )
-        .await;
+    pub async fn list_messages(&mut self, session_id: &Uuid) -> QueryResult<Vec<ChatRsMessage>> {
+        let messages = chat_messages::table
+            .filter(chat_messages::session_id.eq(session_id))
+            .select(ChatRsMessage::as_select())
+            .order_by(chat_messages::created_at.asc())
+            .load(self.db)
+            .await?;
 
-        Ok((session.optional()?, messages?))
+        Ok(messages)
+    }
+
+    pub async fn list_messages_with_logs(
+        &mut self,
+        session_id: &Uuid,
+    ) -> QueryResult<Vec<(ChatRsMessage, Option<ChatRsLogLlmRequest>)>> {
+        let messages = chat_messages::table
+            .left_join(
+                llm_logs::table.on(llm_logs::message_id
+                    .eq(chat_messages::id.nullable())
+                    .and(llm_logs::kind.eq(ChatRsLogKind::Chat.as_ref()))),
+            )
+            .filter(chat_messages::session_id.eq(session_id))
+            .select((
+                ChatRsMessage::as_select(),
+                Option::<ChatRsLogLlmRequest>::as_select(),
+            ))
+            .order_by(chat_messages::created_at.asc())
+            .load(self.db)
+            .await?;
+
+        Ok(messages)
     }
 
     pub async fn search_sessions(

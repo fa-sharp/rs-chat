@@ -10,8 +10,9 @@ CREATE TABLE llm_logs (
   input_tokens integer,
   output_tokens integer,
   cost numeric(12, 6),
-  status text NOT NULL, -- completed, failed, cancelled
+  status text NOT NULL, -- started, completed, failed, cancelled
   error text,
+  meta jsonb, -- max_tokens, temperature, etc.
   started_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz
 );
@@ -20,6 +21,8 @@ CREATE INDEX llm_logs_user_id_started_at_idx ON llm_logs (user_id, started_at DE
 
 CREATE INDEX llm_logs_session_id_idx ON llm_logs (session_id);
 
-CREATE INDEX llm_logs_message_id_idx ON llm_logs (message_id);
+CREATE UNIQUE INDEX llm_logs_message_id_unique_idx ON llm_logs (message_id)
+WHERE
+  message_id IS NOT NULL;
 
 CREATE INDEX llm_logs_provider_id_started_at_idx ON llm_logs (provider_id, started_at DESC);

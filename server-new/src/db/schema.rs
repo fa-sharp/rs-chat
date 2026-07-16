@@ -99,6 +99,7 @@ diesel::table! {
         cost -> Nullable<Numeric>,
         status -> Text,
         error -> Nullable<Text>,
+        meta -> Nullable<Jsonb>,
         started_at -> Timestamptz,
         completed_at -> Nullable<Timestamptz>,
     }

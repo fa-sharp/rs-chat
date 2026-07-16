@@ -7,10 +7,10 @@ use uuid::Uuid;
 use crate::{
     db::{
         DbConnection, UtcDateTime,
-        models::{ChatRsLogKind, ChatRsLogStatus, NewChatRsLog, UpdateChatRsLog},
+        models::{ChatRsLogKind, ChatRsLogMeta, ChatRsLogStatus, NewChatRsLog, UpdateChatRsLog},
         schema::llm_logs,
     },
-    llm::types::LlmUsage,
+    llm::types::{LlmChatOptions, LlmUsage},
 };
 
 pub struct LogRepository<'a> {
@@ -29,7 +29,7 @@ impl<'a> LogRepository<'a> {
         &mut self,
         user_id: &Uuid,
         provider_id: i32,
-        model: &str,
+        llm_options: &LlmChatOptions,
         kind: ChatRsLogKind,
         session_id: Option<&Uuid>,
     ) -> QueryResult<i32> {
@@ -38,8 +38,12 @@ impl<'a> LogRepository<'a> {
             user_id,
             provider_id,
             session_id,
-            model,
+            model: &llm_options.model,
             status: ChatRsLogStatus::Started.as_ref(),
+            meta: Some(&ChatRsLogMeta {
+                temperature: llm_options.temperature,
+                max_tokens: llm_options.max_tokens,
+            }),
         };
 
         diesel::insert_into(llm_logs::table)

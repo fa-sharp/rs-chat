@@ -51,6 +51,12 @@ async fn generate(
     model: String,
     db_pool: DbPool,
 ) -> Result<(), ChatError> {
+    let prompt_options = LlmChatOptions {
+        model,
+        temperature: Some(TITLE_PROMPT_TEMPERATURE),
+        max_tokens: Some(TITLE_PROMPT_MAX_TOKENS),
+    };
+
     let mut db = DbService::from_pool(&db_pool).await?;
     let log_id = db
         .logs()
@@ -59,17 +65,13 @@ async fn generate(
         .session_id(&session_id)
         .provider_id(provider_id)
         .kind(ChatRsLogKind::Title)
-        .model(&model)
+        .llm_options(&prompt_options)
         .build()
         .await?;
 
     let prompt = LlmPrompt {
         text: &format!("{TITLE_PROMPT}\n\n\"{user_message}\""),
-        options: &LlmChatOptions {
-            model,
-            temperature: Some(TITLE_PROMPT_TEMPERATURE),
-            max_tokens: Some(TITLE_PROMPT_MAX_TOKENS),
-        },
+        options: &prompt_options,
     };
     match provider.prompt(prompt).await {
         Ok(LlmResponse { text, usage, meta }) => {

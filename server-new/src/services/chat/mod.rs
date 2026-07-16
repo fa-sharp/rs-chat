@@ -108,7 +108,7 @@ impl<'r> ChatService<'r> {
             .kind(ChatRsLogKind::Prompt)
             .user_id(&user_id)
             .provider_id(provider_id)
-            .model(&options.model)
+            .llm_options(&options)
             .build()
             .await?;
 
@@ -173,11 +173,12 @@ impl<'r> ChatService<'r> {
         user_message: Option<LlmUserMessage>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let (chat_session, mut messages) = db
-            .chats()
-            .find_session_with_messages(&user_id, &session_id)
-            .await?;
-        let chat_session = chat_session.ok_or(ChatError::SessionNotFound)?;
+        let mut chats = db.chats();
+        let chat_session = chats
+            .find_session(&user_id, &session_id)
+            .await?
+            .ok_or(ChatError::SessionNotFound)?;
+        let mut messages = chats.list_messages(&session_id).await?;
 
         if let Some(user_message) = user_message {
             if messages.is_empty() && chat_session.title == DEFAULT_SESSION_TITLE {
@@ -191,8 +192,7 @@ impl<'r> ChatService<'r> {
                     self.db_pool,
                 );
             }
-            let new_message = db
-                .chats()
+            let new_message = chats
                 .save_message(NewChatRsMessage {
                     content: &user_message.text,
                     session_id: &session_id,
@@ -228,11 +228,12 @@ impl<'r> ChatService<'r> {
         provider: Arc<dyn LlmProvider>,
         chat_options: LlmChatOptions,
     ) -> Result<StreamAccessResponse, ChatError> {
-        let (chat_session, mut messages) = db
-            .chats()
-            .find_session_with_messages(&user_id, &session_id)
-            .await?;
-        chat_session.ok_or(ChatError::SessionNotFound)?;
+        let mut chats = db.chats();
+        let chat_session = chats
+            .find_session(&user_id, &session_id)
+            .await?
+            .ok_or(ChatError::SessionNotFound)?;
+        let mut messages = chats.list_messages(&chat_session.id).await?;
 
         let last_message = messages.pop();
         if last_message.as_ref().is_none_or(|m| !m.role.is_assistant()) {
@@ -275,7 +276,7 @@ impl<'r> ChatService<'r> {
             .user_id(&params.user_id)
             .session_id(&params.session_id)
             .provider_id(params.provider_id)
-            .model(&params.chat_options.model)
+            .llm_options(&params.chat_options)
             .build()
             .await?;
 

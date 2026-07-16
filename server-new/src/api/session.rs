@@ -12,7 +12,10 @@ use uuid::Uuid;
 use crate::{
     api::ApiTag,
     db::{
-        models::{ChatRsMessage, ChatRsSession, NewChatRsSession, UpdateChatRsSession},
+        models::{
+            ChatRsLogLlmRequest, ChatRsMessage, ChatRsSession, NewChatRsSession,
+            UpdateChatRsSession,
+        },
         queries::FullTextSearchResult,
     },
     error::{AppError, AppResult},
@@ -62,15 +65,23 @@ async fn get_session(
     Database(mut db): Database,
     Path(session_id): Path<Uuid>,
 ) -> AppResult<Json<GetSessionResponse>> {
-    let (session, messages) = db
+    let session = db
         .chats()
-        .find_session_with_messages(&user_id, &session_id)
-        .await?;
+        .find_session(&user_id, &session_id)
+        .await?
+        .ok_or_else(|| AppError::not_found("chat session not found"))?;
+    let messages = db
+        .chats()
+        .list_messages_with_logs(&session_id)
+        .await?
+        .into_iter()
+        .map(|(message, llm_request)| SessionMessage {
+            message,
+            llm_request,
+        })
+        .collect();
 
-    match session {
-        Some(session) => Ok(Json(GetSessionResponse { session, messages })),
-        None => Err(AppError::not_found("chat session not found")),
-    }
+    Ok(Json(GetSessionResponse { session, messages }))
 }
 
 async fn search_sessions(
@@ -145,7 +156,15 @@ struct MessageIdResponse {
 #[derive(Serialize, JsonSchema)]
 struct GetSessionResponse {
     session: ChatRsSession,
-    messages: Vec<ChatRsMessage>,
+    messages: Vec<SessionMessage>,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct SessionMessage {
+    /// The message
+    message: ChatRsMessage,
+    /// Request metadata for assistant responses
+    llm_request: Option<ChatRsLogLlmRequest>,
 }
 
 #[derive(Deserialize, JsonSchema)]
