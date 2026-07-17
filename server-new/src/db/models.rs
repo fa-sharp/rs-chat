@@ -4,7 +4,7 @@ use crate::db::schema;
 
 mod api_key;
 mod chat;
-// mod file;
+mod file;
 mod log;
 mod provider;
 mod secret;
@@ -14,7 +14,7 @@ mod user;
 
 pub use api_key::*;
 pub use chat::*;
-// pub use file::*;
+pub use file::*;
 pub use log::*;
 pub use provider::*;
 pub use secret::*;

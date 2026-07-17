@@ -59,6 +59,9 @@ impl DbService {
     pub fn chats(&mut self) -> repositories::ChatRepository<'_> {
         repositories::ChatRepository::new(&mut self.cxn)
     }
+    pub fn files(&mut self) -> repositories::FileRepository<'_> {
+        repositories::FileRepository::new(&mut self.cxn)
+    }
     pub fn logs(&mut self) -> repositories::LogRepository<'_> {
         repositories::LogRepository::new(&mut self.cxn)
     }

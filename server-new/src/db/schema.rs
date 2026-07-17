@@ -105,6 +105,13 @@ diesel::table! {
 }
 
 diesel::table! {
+    message_attachments (message_id, file_id) {
+        message_id -> Uuid,
+        file_id -> Uuid,
+    }
+}
+
+diesel::table! {
     providers (id) {
         id -> Int4,
         name -> Text,
@@ -165,6 +172,8 @@ diesel::joinable!(llm_logs -> chat_messages (message_id));
 diesel::joinable!(llm_logs -> chat_sessions (session_id));
 diesel::joinable!(llm_logs -> providers (provider_id));
 diesel::joinable!(llm_logs -> users (user_id));
+diesel::joinable!(message_attachments -> chat_messages (message_id));
+diesel::joinable!(message_attachments -> files (file_id));
 diesel::joinable!(providers -> secrets (api_key_id));
 diesel::joinable!(providers -> users (user_id));
 diesel::joinable!(secrets -> users (user_id));
@@ -178,6 +187,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     external_api_tools,
     files,
     llm_logs,
+    message_attachments,
     providers,
     secrets,
     system_tools,

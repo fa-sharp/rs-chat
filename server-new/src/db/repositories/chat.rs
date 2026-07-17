@@ -63,7 +63,7 @@ impl<'a> ChatRepository<'a> {
         message_id: &Uuid,
     ) -> Result<Option<ChatRsMessage>, diesel::result::Error> {
         chat_messages::table
-            .inner_join(chat_sessions::table.on(chat_sessions::id.eq(chat_messages::session_id)))
+            .inner_join(chat_sessions::table)
             .select(ChatRsMessage::as_select())
             .filter(chat_sessions::user_id.eq(user_id))
             .filter(chat_messages::id.eq(message_id))
