@@ -24,13 +24,6 @@ impl LocalStorage {
     fn local_path(&self, file_path: &Path) -> PathBuf {
         self.base_path.join(file_path)
     }
-
-    async fn file_exists(path: &Path) -> bool {
-        match tokio::fs::metadata(&path).await {
-            Ok(meta) => meta.is_file(),
-            Err(_) => false,
-        }
-    }
 }
 
 impl StorageEngine for LocalStorage {
@@ -64,17 +57,31 @@ impl StorageEngine for LocalStorage {
     }
 
     fn exists<'r>(&'r self, file_path: &'r Path) -> BoxFuture<'r, StorageResult<bool>> {
-        async move { Ok(Self::file_exists(&self.local_path(file_path)).await) }.boxed()
+        async move { Ok(tokio::fs::try_exists(&self.local_path(file_path)).await?) }.boxed()
     }
 
     fn delete<'r>(&'r self, file_path: &'r Path) -> BoxFuture<'r, StorageResult<()>> {
         Box::pin(async move {
             let local_path = self.local_path(file_path);
-
-            match Self::file_exists(&local_path).await {
-                true => Ok(tokio::fs::remove_file(&local_path).await?),
-                false => Err(StorageError::NotFound),
+            if tokio::fs::try_exists(&local_path).await? {
+                return Err(StorageError::NotFound);
             }
+
+            tokio::fs::remove_file(&local_path).await?;
+
+            // Clean up parent directories
+            let mut parent_dir = local_path.clone();
+            while let Some(dir) = parent_dir.parent().filter(|dir| *dir != self.base_path) {
+                match tokio::fs::remove_dir(dir).await {
+                    Ok(_) => parent_dir = dir.to_path_buf(),
+                    Err(err) if err.kind() == std::io::ErrorKind::DirectoryNotEmpty => {
+                        break;
+                    }
+                    Err(err) => return Err(StorageError::Io(err)),
+                };
+            }
+
+            Ok(())
         })
     }
 }
