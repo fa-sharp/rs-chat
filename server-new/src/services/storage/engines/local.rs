@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use futures::{FutureExt, future::BoxFuture};
+use futures::future::BoxFuture;
 use tokio::{
     fs::File,
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt, BufWriter},
@@ -57,7 +57,11 @@ impl StorageEngine for LocalStorage {
     }
 
     fn exists<'r>(&'r self, file_path: &'r Path) -> BoxFuture<'r, StorageResult<bool>> {
-        async move { Ok(tokio::fs::try_exists(&self.local_path(file_path)).await?) }.boxed()
+        Box::pin(async move {
+            let exists = tokio::fs::try_exists(&self.local_path(file_path)).await?;
+
+            Ok(exists)
+        })
     }
 
     fn delete<'r>(&'r self, file_path: &'r Path) -> BoxFuture<'r, StorageResult<()>> {
