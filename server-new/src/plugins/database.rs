@@ -1,9 +1,11 @@
 use anyhow::Context;
+use diesel::connection::InstrumentationEvent;
 use diesel_async::{
-    AsyncMigrationHarness, AsyncPgConnection,
+    AsyncConnection, AsyncMigrationHarness, AsyncPgConnection,
     pooled_connection::{AsyncDieselConnectionManager, ManagerConfig, deadpool::Pool},
 };
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
+use futures::TryFutureExt;
 
 use crate::{db::DbPool, plugins::AxumPlugin};
 
@@ -18,6 +20,20 @@ pub fn plugin() -> AxumPlugin {
                     let mut config = ManagerConfig::default();
                     config.recycling_method =
                         diesel_async::pooled_connection::RecyclingMethod::Fast;
+                    config.custom_setup = Box::new(|url| {
+                        Box::pin(AsyncPgConnection::establish(url).map_ok(|mut conn| {
+                            conn.set_instrumentation(|ev: InstrumentationEvent<'_>| {
+                                if let InstrumentationEvent::FinishQuery { query, error, .. } = ev {
+                                    if let Some(err) = error {
+                                        tracing::error!(?query, ?err, "Failed to execute query");
+                                    } else {
+                                        tracing::debug!(?query);
+                                    }
+                                };
+                            });
+                            conn
+                        }))
+                    });
                     config
                 },
             );
