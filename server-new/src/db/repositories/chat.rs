@@ -86,7 +86,7 @@ impl<'a> ChatRepository<'a> {
             .optional()
     }
 
-    pub async fn get_recent_sessions(
+    pub async fn list_recent_sessions(
         &mut self,
         user_id: &Uuid,
     ) -> Result<Vec<ChatRsSession>, diesel::result::Error> {

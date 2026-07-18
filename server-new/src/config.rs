@@ -111,13 +111,15 @@ impl Default for AuthConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityConfig {
     pub body_limit: usize,
+    pub upload_limit: usize,
     pub request_timeout: u64,
 }
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            body_limit: 2097152,  // 2 MB
-            request_timeout: 120, // 2 minutes
+            body_limit: 5 * 1024 * 1024,   // 5 MB
+            upload_limit: 5 * 1024 * 1024, // 5 MB
+            request_timeout: 120,          // 2 minutes
         }
     }
 }

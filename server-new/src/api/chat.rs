@@ -19,11 +19,11 @@ api_routes! {
     state: AppState,
     tag: ApiTag::Chat.into(),
     POST "/prompt" => prompt, "Prompt";
-    GET "/sessions" => get_active_streams, "Get active chat streams";
-    GET "/sessions/{session_id}" => connect_chat_stream, "Access active chat stream";
-    POST "/sessions/{session_id}" => chat_stream, "Stream chat session response";
-    POST "/sessions/{session_id}/cancel" => cancel_chat_stream, "Cancel active chat stream";
-    POST "/sessions/{session_id}/regenerate" => regenerate_response, "Regenerate chat response";
+    GET "/session" => get_active_streams, "Get sessions with active streams";
+    GET "/session/{session_id}" => connect_chat_stream, "Access active chat stream";
+    POST "/session/{session_id}" => chat_stream, "Stream chat session response";
+    POST "/session/{session_id}/cancel" => cancel_chat_stream, "Cancel active chat stream";
+    POST "/session/{session_id}/regenerate" => regenerate_response, "Regenerate chat response";
 }
 
 async fn get_active_streams(

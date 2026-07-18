@@ -5,23 +5,26 @@ use aide::{
     openapi::{OpenApi, SecurityScheme, Server},
     swagger::Swagger,
 };
-use axum::{Extension, routing::get};
+use axum::{Extension, extract::DefaultBodyLimit, routing::get};
 use axum_plugin::AdHocPlugin;
 use strum::{Display, EnumIter, EnumMessage, IntoEnumIterator, IntoStaticStr};
 
 use crate::{config::AppConfig, state::AppState};
 
-pub mod api_key;
-pub mod auth;
-pub mod chat;
-pub mod health;
-pub mod provider;
-pub mod session;
+mod api_key;
+mod auth;
+mod chat;
+mod health;
+mod provider;
+mod session;
+mod storage;
+mod upload;
 
 const API_BASE: &str = "/api/v1";
 const API_AUTH_BASE: &str = "/api/v1/auth";
 pub const API_KEY_SCHEME: &str = "ApiKey";
 
+/// API route tags for OpenAPI docs
 #[derive(Display, IntoStaticStr, EnumMessage, EnumIter)]
 enum ApiTag {
     #[strum(message = "Manage API keys")]
@@ -32,11 +35,13 @@ enum ApiTag {
     Chat,
     #[strum(message = "AI / LLM Providers")]
     Provider,
+    #[strum(message = "Files and attachments")]
+    Storage,
 }
 
 /// Adds all API routes with OpenAPI docs to the server under `/api/v1`
 pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
-    AdHocPlugin::named("API routes").on_setup(|_app, router| {
+    AdHocPlugin::<AppState, AppConfig>::named("API routes").on_setup(|app, router| {
         let mut openapi = OpenApi::default();
         let api_routes = ApiRouter::new()
             .nest("/api_key", api_key::routes())
@@ -48,6 +53,11 @@ pub fn plugin() -> AdHocPlugin<AppState, AppConfig> {
             .nest("/health", health::routes())
             .nest("/provider", provider::routes())
             .nest("/session", session::routes())
+            .nest("/storage", storage::routes())
+            .nest(
+                "/upload",
+                upload::routes().layer(DefaultBodyLimit::max(app.config().security.upload_limit)),
+            )
             .finish_api_with(&mut openapi, build_openapi_doc)
             .route(
                 "/docs/openapi.json",

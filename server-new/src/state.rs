@@ -12,6 +12,7 @@ use crate::{
         chat::ChatService,
         model::ModelService,
         provider::ProviderService,
+        storage::StorageService,
         stream::tinistream::TinistreamClient,
     },
 };
@@ -43,6 +44,9 @@ impl AppState {
     }
     pub fn model_service(&self) -> ModelService<'_> {
         ModelService::new(&self.redis, &self.http_client)
+    }
+    pub fn storage_service(&self) -> StorageService<'_> {
+        StorageService::new(&self.config.server.data_dir, &self.db_pool)
     }
 }
 

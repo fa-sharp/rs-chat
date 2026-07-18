@@ -40,7 +40,7 @@ async fn get_recent_sessions(
     CurrentUser { user_id }: CurrentUser,
     Database(mut db): Database,
 ) -> AppResult<Json<Vec<ChatRsSession>>> {
-    let sessions = db.chats().get_recent_sessions(&user_id).await?;
+    let sessions = db.chats().list_recent_sessions(&user_id).await?;
 
     Ok(Json(sessions))
 }

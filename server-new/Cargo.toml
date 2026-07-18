@@ -10,7 +10,14 @@ aes-gcm = "0.11.0"
 aide = {
   git = "https://github.com/hniksic/aide.git",
   rev = "7246c20",
-  features = ["axum", "axum-json", "axum-query", "macros", "swagger"]
+  features = [
+    "axum",
+    "axum-json",
+    "axum-multipart",
+    "axum-query",
+    "macros",
+    "swagger"
+  ]
 }
 anyhow = "1.0.103"
 async-stream = "0.3.6"

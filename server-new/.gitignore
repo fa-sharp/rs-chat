@@ -1,3 +1,6 @@
+# Local storage files
+.local/
+
 # Rust
 /target
 .diesel_lock

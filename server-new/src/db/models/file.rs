@@ -1,5 +1,6 @@
 use diesel::prelude::*;
 use schemars::JsonSchema;
+use serde::Serialize;
 use strum::{AsRefStr, EnumString};
 use uuid::Uuid;
 
@@ -8,7 +9,7 @@ use crate::db::{
     models::{ChatRsMessage, ChatRsUser},
 };
 
-#[derive(Identifiable, Associations, Queryable, Selectable, JsonSchema, serde::Serialize)]
+#[derive(Identifiable, Associations, Queryable, Selectable, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsUser, foreign_key = user_id))]
 #[diesel(table_name = super::schema::files)]
 pub struct ChatRsFile {
@@ -26,7 +27,7 @@ pub struct ChatRsFile {
     pub updated_at: UtcDateTime,
 }
 
-#[derive(Identifiable, Selectable, Queryable, Associations)]
+#[derive(Identifiable, Selectable, Queryable, Associations, Serialize, JsonSchema)]
 #[diesel(belongs_to(ChatRsMessage, foreign_key = message_id))]
 #[diesel(belongs_to(ChatRsFile, foreign_key = file_id))]
 #[diesel(table_name = super::schema::message_attachments)]

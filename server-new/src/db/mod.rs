@@ -18,7 +18,7 @@ pub type DbPool = Pool<AsyncPgConnection>;
 pub type DbPoolError = PoolError;
 
 /// The database connection retrieved from the pool. For pipelining multiple
-/// queries in Diesel, a shared reference can be used with `&mut &**conn`.
+/// queries in Diesel, a shared reference can be used with `&mut conn.as_ref()`.
 pub struct DbConnection(Object<AsyncPgConnection>);
 impl Deref for DbConnection {
     type Target = AsyncPgConnection;
@@ -29,6 +29,11 @@ impl Deref for DbConnection {
 impl DerefMut for DbConnection {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+impl AsRef<AsyncPgConnection> for DbConnection {
+    fn as_ref(&self) -> &AsyncPgConnection {
+        &**self
     }
 }
 
