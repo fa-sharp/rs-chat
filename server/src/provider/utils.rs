@@ -12,7 +12,7 @@ use crate::provider::LlmStreamError;
 
 /// Create a data URI
 pub fn create_data_uri(content_type: &str, b64_string: &str) -> String {
-    format!("data:{};base64,{}", content_type, b64_string)
+    format!("data:{content_type};base64,{b64_string}")
 }
 
 /// Get a stream of deserialized events from a provider SSE stream.

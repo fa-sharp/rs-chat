@@ -6,10 +6,7 @@ publish = false
 
 [dependencies]
 aes-gcm = "0.10.3"
-astral-tokio-tar = "0.5.6"
 base64 = "0.22.1"
-bollard = { version = "0.19.4", features = ["ssl"] }
-bon = "3.9"
 chrono = { version = "0.4.43", features = ["serde"] }
 const_format = "0.2.35"
 diesel = { version = "2.3.6", features = [
@@ -36,12 +33,12 @@ fred = { version = "10.1.0", default-features = false, features = [
 hex = "0.4.3"
 jsonschema = { version = "0.30.0", default-features = false }
 rand = "0.9.2"
-reqwest = { version = "0.12.28", default-features = false, features = [
+reqwest = { version = "0.13.2", default-features = false, features = [
   "json",
-  "rustls-tls-native-roots",
+  "native-tls-no-alpn",
   "stream",
 ] }
-reqwest-websocket = { version = "0.5.1", features = ["json"] }
+reqwest-websocket = { version = "0.6.0", features = ["json"] }
 rocket = { version = "0.5.1", features = ["json", "uuid"] }
 rocket_flex_session = { version = "0.2.0", features = [
   "redis_fred",
@@ -54,7 +51,8 @@ serde = { version = "1.0.228" }
 serde_json = "1.0.149"
 subst = { version = "0.3.8", features = ["json"] }
 thiserror = "2.0.18"
-tinistream-client = { git = "https://github.com/fa-sharp/tinistream", rev = "c37e41d" }
+tinirun-client = { git = "https://github.com/fa-sharp/tinirun", rev = "a60644d" }
+tinistream-client = { git = "https://github.com/fa-sharp/tinistream", rev = "f25144c" }
 tokio = { version = "1.49.0" }
 tokio-stream = "0.1.18"
 tokio-util = { version = "0.7.18", features = ["io"] }

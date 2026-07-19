@@ -214,7 +214,7 @@ async fn execute_tool(
         let tool_result = match (system_tool, external_api_tool) {
             (Some(system_tool), None) => {
                 system_tool
-                    .build_executor(&mut db, &app_config, &message.session_id)
+                    .build_executor(&mut db, &app_config, &http_client, &message.session_id)
                     .validate_and_execute(
                         &tool_call.tool_name,
                         &tool_call.parameters,

@@ -1,0 +1,18 @@
+# Configuration for local development
+
+[server]
+host = "127.0.0.1"
+port = 8080
+base_url = "http://localhost:8080"
+log_level = "info"
+data_dir = ".local"
+
+[database]
+url = "postgres://postgres:postgres@localhost/postgres"
+
+[redis]
+url = "redis://localhost:6379"
+
+[services]
+streamer_url = "http://localhost:8081"
+streamer_api_key = "dev-streamer-api-key"

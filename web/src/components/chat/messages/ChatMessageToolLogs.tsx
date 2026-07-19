@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useAutoScroll } from "@/components/ui/chat/hooks/useAutoScroll";
@@ -18,6 +18,9 @@ export default function ChatMessageToolLogs({
 }) {
   const [showLogs, setShowLogs] = useState(initialOpen ?? false);
 
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { scrollRef } = useAutoScroll({ contentRef });
+
   return (
     <Collapsible open={showLogs} onOpenChange={setShowLogs}>
       <CollapsibleTrigger asChild>
@@ -28,27 +31,19 @@ export default function ChatMessageToolLogs({
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <LogsContent>
-          {logs.map((log, index) => (
-            <div
-              key={`log-${index}-${log.slice(0, 20)}`}
-              className="rounded bg-muted/30 px-2 py-1 text-xs font-mono"
-            >
-              {log}
-            </div>
-          ))}
-        </LogsContent>
+        <div ref={scrollRef} className="pt-2 max-h-32 overflow-auto">
+          <div ref={contentRef} className="space-y-0.5">
+            {logs.map((log, index) => (
+              <div
+                key={`log-${index}-${log.slice(0, 20)}`}
+                className="rounded bg-muted/30 px-2 py-1 text-xs font-mono"
+              >
+                {log}
+              </div>
+            ))}
+          </div>
+        </div>
       </CollapsibleContent>
     </Collapsible>
-  );
-}
-
-function LogsContent({ children }: { children: React.ReactNode }) {
-  const { scrollRef } = useAutoScroll();
-
-  return (
-    <div ref={scrollRef} className="space-y-0.5 pt-2 max-h-32 overflow-auto">
-      {children}
-    </div>
   );
 }

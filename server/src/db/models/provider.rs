@@ -14,6 +14,8 @@ pub struct ChatRsProvider {
     pub name: String,
     #[schemars(with = "ChatRsProviderType")]
     pub provider_type: String,
+    // #[schemars(with = "OpenaiSubtype")]
+    // pub openai_subtype: Option<String>,
     #[serde(skip)]
     pub user_id: Uuid,
     pub default_model: String,
@@ -50,6 +52,16 @@ pub enum ChatRsProviderType {
     Openai,
     Ollama,
     Lorem,
+}
+
+/// The subtype for OpenAI-compatible providers
+#[derive(JsonSchema, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenaiSubtype {
+    Openai,
+    Google,
+    OpenRouter,
+    LlmGateway,
 }
 
 impl TryFrom<&str> for ChatRsProviderType {

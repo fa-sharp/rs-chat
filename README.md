@@ -1,6 +1,6 @@
 # RsChat 🤖💬
 
-A fast, secure, self-hostable chat application built with Rust, TypeScript, and React. Chat with multiple AI providers using your own API keys, with real-time streaming built-in.
+A lightweight, secure, open-source, self-hostable chat application built with Rust, TypeScript, and React. Stream chats with multiple AI providers using your own API keys.
 
 Demo link: https://rs-chat.fly.dev/ (⚠️ This is a demo - don't expect your account/chats to be there when you come back. It may intermittently delete all data. Please also don't enter any sensitive information or confidential data)
 
@@ -11,21 +11,20 @@ Demo link: https://rs-chat.fly.dev/ (⚠️ This is a demo - don't expect your a
 - **Multiple AI Providers**: Chat with AI models from OpenAI, Anthropic, and OpenRouter
 - **Streaming**: Streams responses using SSE (Server-Sent Events)
 - **Concurrent Streaming**: Seamlessly switch between multiple AI conversations streamed at the same time
-- **Resumable Conversations**: Resume the conversation if your connection is lost or the page is refreshed
+- **Resilient Streams**: Streaming continues if your connection is lost or the page is refreshed
 - **Code Highlighting**: Beautiful syntax highlighting for code blocks using [`rehype-highlight`](https://github.com/rehypejs/rehype-highlight)
 - **Dark Mode**: Dark/light theme support
 - **Responsive Design**: Mobile-friendly layout
 - **Search Chats**: Full-text search of chat session titles and messages
 - **Fast and Memory Efficient**: Rust backend using the [Rocket framework](https://rocket.rs/)
 - **Users & Authentication**: Login via OAuth providers (Google, GitHub, etc.), custom OIDC, and SSO header authentication
-- **API Key Access and OpenAPI Docs**: API key access and documentation at `/api/docs` for developers to integrate with RsChat
+- **Documented API**: API key access and documentation at `/api/docs` for developers to integrate with RsChat
 - **Fully Type-Safe**: End-to-end type safety with auto-generated client from OpenAPI spec
 
 ### ⚡ Convenience Features
 
 - **Smart Titles**: Auto-generation of chat titles
-- **Smart Scrolling**: Auto-scroll during streaming and when opening previous chats
-- **Secure Key Storage**: Your API keys are saved and encrypted
+- **Auto Scrolling**: Auto-scroll during streaming and when opening previous chats
 
 ## 🏗️ Architecture
 
@@ -45,14 +44,17 @@ rs-chat/
 │   │   ├── auth/          # Authentication services
 │   │   ├── db/            # Database models and services
 │   │   ├── provider/      # AI provider integrations
-│   │   ├── utils/         # Utility functions
-│   │   ├── config.rs      # Reading configuration / env variables
+│   │   ├── storage/       # File storage services
+│   │   ├── stream/        # Streaming utilities
+│   │   ├── tools/         # AI chat tools
+│   │   ├── utils/         # Other utilities
+│   │   ├── config.rs      # Configuration / environment variables
 │   │   ├── lib.rs         # Server setup
 │   │   ├── main.rs        # Server entry point
 │   │   └── ...            # Other modules
 │   ├── migrations/         # Database migrations
 │   └── Cargo.toml          # Rust dependencies
-├── web/                    # Vite / React frontend
+├── web/                    # Vite / React / TanStack Router frontend
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── routes/       # TanStack Router routes
@@ -90,9 +92,9 @@ Your API keys are encrypted and stored in the database.
    cd rs-chat
    ```
 
-2. **Start development databases**
+2. **Start development services**
    ```bash
-   docker compose up -d db redis
+   docker compose up -d db redis stream
    ```
 
 3. **Set up the backend**
@@ -145,33 +147,47 @@ You'll need an environment with PostgreSQL and Redis (or Redis-compatible databa
 services:
   rschat:
     image: ghcr.io/fa-sharp/rs-chat:latest
-    # ports:
-    #   - "8080:8080"
+    ports:
+      - "8080:8080"
     environment:
       RUST_LOG: warn   # 'info' or 'debug' for more logs
       RS_CHAT_SERVER_ADDRESS: https://mydomain.com # where you're hosting the app
       RS_CHAT_DATABASE_URL: postgres://user:pass@mypostgres/mydb # Your PostgreSQL URL
       RS_CHAT_REDIS_URL: redis://myredis:6379 # Your Redis URL
       RS_CHAT_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
+      RS_CHAT_TINISTREAM_URL: http://tinistream:8081
+      RS_CHAT_TINISTREAM_API_KEY: tinistream-api-key # API key for the tinistream service
+
       ## For GitHub login: callback URL should be {your_server_address}/api/auth/login/github/callback
       # RS_CHAT_GITHUB_CLIENT_ID: your-github-client-id
       # RS_CHAT_GITHUB_CLIENT_SECRET: your-github-client-secret
       ## Similar config for other OAuth providers - see server/src/auth/oauth/ folder
       # RS_CHAT_DISCORD_CLIENT_ID: your-discord-client-id
       # ...
+
       ## For SSO header auth - see server/src/auth/sso_header.rs for all config options
       # RS_CHAT_SSO_HEADER_ENABLED: true
       # RS_CHAT_SSO_USERNAME_HEADER: X-Remote-User
       # ...
+
       ## For running code on a remote Docker host
       # DOCKER_HOST: tcp://remote-docker-host:port
       # DOCKER_TLS_VERIFY: 1
       # DOCKER_CERT_PATH: /certs
     volumes:
-      ## For running code on local Docker host
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
-      ## Certificates for remote Docker host
-      # - ./path/to/certs:/certs
+      # - /var/run/docker.sock:/var/run/docker.sock:ro  # To run code on local Docker
+      # - ./path/to/certs:/certs  # Certificates for remote Docker host
+  tinistream:
+    image: ghcr.io/fa-sharp/tinistream:latest
+    container_name: tinistream
+    ports:
+      - "8081:8081"
+    environment:
+      STREAMER_PORT: 8081
+      STREAMER_SERVER_ADDRESS: http://localhost:8081
+      STREAMER_REDIS_URL: redis://myredis:6379 # Your Redis URL
+      STREAMER_API_KEY: tinistream-api-key # should match the RS_CHAT_TINISTREAM_API_KEY above
+      STREAMER_SECRET_KEY: your-secret-key-for-encryption # 64-character hex string
 ```
 
 ## 🔒 Security & Privacy

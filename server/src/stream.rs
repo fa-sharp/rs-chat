@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod tests;
 
+mod streamer;
 mod tinistream;
 mod writer;
 
+pub use streamer::*;
 pub use tinistream::*;
 pub use writer::*;
 

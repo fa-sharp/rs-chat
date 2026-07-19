@@ -18,16 +18,23 @@ pub struct AppConfig {
     pub static_path: Option<String>,
     /// Local data directory (default: "/data")
     pub data_dir: Option<String>,
+
     /// Postgres Database URL
     pub database_url: String,
     /// Redis connection URL
     pub redis_url: String,
     /// Redis pool size (default: 4)
     pub redis_pool: Option<usize>,
+
     /// Base URL of the tinistream API
     pub tinistream_url: String,
     /// API key for the tinistream API
     pub tinistream_api_key: String,
+
+    /// Base URL of the tinirun API
+    pub tinirun_url: String,
+    /// API key for the tinirun API
+    pub tinirun_api_key: String,
 }
 
 /// Get the server configuration variables from Rocket

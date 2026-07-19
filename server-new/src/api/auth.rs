@@ -1,0 +1,121 @@
+use axum::{
+    Extension, Json,
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::Redirect,
+};
+use axum_aide_macros::api_routes;
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use crate::{
+    api::{ApiTag, RoutePrefix},
+    db::models::{ChatRsAuthSession, ChatRsUser},
+    error::AppResult,
+    extractors::{AppSession, CurrentUser, Database, PublicAuthConfig},
+    services::auth::oauth::OAuthProviderEnum,
+    state::AppState,
+};
+
+api_routes! {
+    state: AppState,
+    tag: ApiTag::Auth.into(),
+    GET "/user" => get_user, "Get current user";
+    GET "/sessions" => list_active_sessions, "List active sessions";
+    GET "/config" => get_auth_config, "Get auth config", {
+        description: "Get the current auth configuration of the server"
+    };
+    GET "/login/{provider}" => oauth_login, "OAuth login", {
+        responses: { 303: () }
+    };
+    GET "/login/{provider}/callback" => oauth_callback, "OAuth login callback", {
+        responses: { 303: () }
+    };
+    GET, POST "/logout" => logout, "Logout", {
+        responses: { 204: () }
+    };
+}
+
+async fn get_user(
+    CurrentUser { user_id }: CurrentUser,
+    Database(mut db): Database,
+    State(state): State<AppState>,
+) -> AppResult<Json<ChatRsUser>> {
+    let user = state.auth_service().get_user(&mut db, &user_id).await?;
+    Ok(Json(user))
+}
+
+async fn list_active_sessions(
+    CurrentUser { user_id }: CurrentUser,
+    Database(mut db): Database,
+) -> AppResult<Json<Vec<ChatRsAuthSession>>> {
+    let sessions = db.auth_sessions().list_active_by_user_id(&user_id).await?;
+    Ok(Json(sessions))
+}
+
+async fn get_auth_config(auth_config: PublicAuthConfig) -> Json<PublicAuthConfig> {
+    Json(auth_config)
+}
+
+fn oauth_callback_path(route_prefix: &'static str, provider: &OAuthProviderEnum) -> String {
+    format!("{route_prefix}/login/{provider}/callback")
+}
+
+async fn oauth_login(
+    Path(provider): Path<OAuthProviderEnum>,
+    Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
+    State(state): State<AppState>,
+    AppSession { session, .. }: AppSession,
+) -> AppResult<Redirect> {
+    let oauth = state.auth_service().oauth();
+    let auth_url = oauth
+        .authorize_url(&provider, &oauth_callback_path(prefix, &provider), &session)
+        .await?;
+
+    Ok(Redirect::to(auth_url.as_str()))
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct OAuthCallbackQuery {
+    code: String,
+    state: String,
+}
+
+async fn oauth_callback(
+    Path(provider): Path<OAuthProviderEnum>,
+    Query(query): Query<OAuthCallbackQuery>,
+    maybe_user: Option<CurrentUser>,
+    Extension(RoutePrefix(prefix)): Extension<RoutePrefix>,
+    AppSession { session, meta }: AppSession,
+    Database(mut db): Database,
+    State(state): State<AppState>,
+) -> AppResult<Redirect> {
+    let oauth = state.auth_service().oauth();
+    let token = oauth
+        .exchange_code(
+            &provider,
+            &oauth_callback_path(prefix, &provider),
+            &session,
+            &query.code,
+            &query.state,
+        )
+        .await?;
+    let user = oauth
+        .get_user(&mut db, &provider, &token, maybe_user)
+        .await?;
+    state
+        .auth_service()
+        .session()
+        .login(&session, &meta, &user.id)
+        .await?;
+
+    Ok(Redirect::to(&state.config.server.base_url))
+}
+
+async fn logout(
+    AppSession { session, .. }: AppSession,
+    State(state): State<AppState>,
+) -> AppResult<StatusCode> {
+    state.auth_service().session().logout(&session).await?;
+    Ok(StatusCode::NO_CONTENT)
+}

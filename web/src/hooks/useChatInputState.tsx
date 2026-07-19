@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useProviderModels } from "@/lib/api/provider";
 import type { components } from "@/lib/api/types";
 
 const DEFAULT_MAX_TOKENS = 2000;
@@ -40,17 +41,26 @@ export const useChatInputState = ({
     () => providers?.find((p) => p.id === providerId),
     [providers, providerId],
   );
+
+  const { data: models } = useProviderModels(providerId);
   const [modelId, setModel] = useState(initialOptions?.model || "");
+  const selectedModel = useMemo(
+    () => models?.find((m) => m.id === modelId),
+    [models, modelId],
+  );
+
   const [toolInput, setToolInput] = useState<
     components["schemas"]["SendChatToolInput"] | null
   >(initialTools || DEFAULT_TOOL_INPUT);
   const [files, setFiles] = useState<components["schemas"]["ChatRsFile"][]>([]);
+
   const [maxTokens, setMaxTokens] = useState<number>(
     initialOptions?.max_tokens ?? DEFAULT_MAX_TOKENS,
   );
   const [temperature, setTemperature] = useState<number>(
     initialOptions?.temperature ?? DEFAULT_TEMPERATURE,
   );
+
   const [error, setError] = useState<string>("");
 
   // Reset state when session changes
@@ -151,16 +161,18 @@ export const useChatInputState = ({
       provider_id: providerId,
       options: {
         model: modelId,
-        temperature,
+        temperature: selectedModel?.temperature ? temperature : undefined,
         max_tokens: maxTokens,
+        modalities: selectedModel?.modalities?.output,
       },
-      tools: toolInput,
+      tools: selectedModel?.tool_call ? toolInput : undefined,
       files: files.length > 0 ? files.map((file) => file.id) : undefined,
     });
     formRef.current?.reset();
   }, [
     providerId,
     selectedProvider,
+    selectedModel,
     modelId,
     toolInput,
     files,
@@ -178,14 +190,16 @@ export const useChatInputState = ({
       provider_id: providerId,
       options: {
         model: modelId,
-        temperature,
+        temperature: selectedModel?.temperature ? temperature : undefined,
         max_tokens: maxTokens,
+        modalities: selectedModel?.modalities?.output,
       },
-      tools: toolInput,
+      tools: selectedModel?.tool_call ? toolInput : undefined,
     });
   }, [
     providerId,
     modelId,
+    selectedModel,
     toolInput,
     temperature,
     maxTokens,
@@ -198,6 +212,7 @@ export const useChatInputState = ({
       providerId,
       modelId,
       sessionId,
+      selectedModel,
       toolInput,
       files,
       maxTokens,
@@ -222,6 +237,7 @@ export const useChatInputState = ({
       providerId,
       modelId,
       sessionId,
+      selectedModel,
       toolInput,
       files,
       maxTokens,

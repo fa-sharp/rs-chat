@@ -5,6 +5,7 @@ on:
     tags-ignore: ["v*"]
     paths:
       - "server/**"
+      - "server-new/**"
       - "web/**"
       - Dockerfile
   pull_request:
@@ -12,7 +13,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  RUST_VERSION: "1.90"
+  RUST_VERSION: "1.96"
   NODE_VERSION: 22
 
 jobs:
@@ -23,14 +24,14 @@ jobs:
       run:
         working-directory: ./web
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
         name: Install pnpm
         with:
           package_json_file: web/package.json
           run_install: false
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -46,35 +47,25 @@ jobs:
         run: pnpm build
 
   build-server:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    name: Build server on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Build server
+    runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./server
+        working-directory: ./server-new
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Rust toolchain
         run: rustup toolchain install ${{ env.RUST_VERSION }} --profile minimal --no-self-update && rustup default ${{ env.RUST_VERSION }}
-      - name: Setup build dependencies on macOS
-        if: startsWith(runner.os, 'macOS')
-        run: brew link --force libpq
       - name: Setup rust-cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ./server
-      # - name: Install nextest
-      #   uses: taiki-e/install-action@v2
-      #   with:
-      #     tool: nextest@0.9
+          workspaces: ./server-new
 
       - name: Run cargo check
-        run: cargo check --profile ci
+        run: cargo check
 
       - name: Run cargo build
-        run: PQ_LIB_DIR="$(brew --prefix libpq)/lib" cargo build --profile ci
+        run: cargo build
 
       # - name: Test crate
       #   run: cargo nextest run --all-features --profile ci

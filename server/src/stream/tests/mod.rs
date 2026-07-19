@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use crate::{
     provider::{
-        providers::LoremProvider, LlmApiProvider, LlmProviderOptions, LlmStream, LlmStreamChunk,
-        LlmStreamError, LlmUsage,
+        providers::LoremProvider, LlmApiProvider, LlmOutput, LlmProviderOptions, LlmStream,
+        LlmStreamChunk, LlmStreamError, LlmUsage,
     },
     stream::chat_stream_key,
 };
@@ -49,8 +49,14 @@ async fn stream_writer_basic_functionality() {
         .expect("Failed to create lorem stream");
 
     // Process the stream
-    let (text, tool_calls, usage, errors, cancelled) =
-        writer.process(stream, ws_writer, ws_reader).await;
+    let LlmOutput {
+        text,
+        tool_calls,
+        usage,
+        errors,
+        cancelled,
+        ..
+    } = writer.process(stream, ws_writer, ws_reader).await;
 
     // Verify results
     assert!(text.is_some());
@@ -90,7 +96,9 @@ async fn stream_writer_batching() {
     );
 
     let stream: LlmStream = Box::pin(chunk_stream);
-    let (text, _, _, _, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
+    let LlmOutput {
+        text, cancelled, ..
+    } = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     let text = text.unwrap();
@@ -116,7 +124,12 @@ async fn stream_writer_error_handling() {
     ]);
 
     let stream: LlmStream = Box::pin(error_stream);
-    let (text, _, _, errors, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
+    let LlmOutput {
+        text,
+        errors,
+        cancelled,
+        ..
+    } = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     let text = text.unwrap();
@@ -153,7 +166,9 @@ async fn stream_writer_cancel() {
     tini.stream_cancel(&key).await.unwrap();
 
     // process() response should show that stream was cancelled
-    let (_, _, _, errors, cancelled) = process_fut.await;
+    let LlmOutput {
+        errors, cancelled, ..
+    } = process_fut.await;
     assert!(cancelled);
     assert!(errors.unwrap().last().unwrap().contains("cancelled"));
 
@@ -188,7 +203,12 @@ async fn stream_writer_usage_tracking() {
     ]);
 
     let stream: LlmStream = Box::pin(usage_stream);
-    let (text, _, usage, _, cancelled) = writer.process(stream, ws_writer, ws_reader).await;
+    let LlmOutput {
+        text,
+        usage,
+        cancelled,
+        ..
+    } = writer.process(stream, ws_writer, ws_reader).await;
 
     assert!(text.is_some());
     assert_eq!(text.unwrap(), "Hello World");

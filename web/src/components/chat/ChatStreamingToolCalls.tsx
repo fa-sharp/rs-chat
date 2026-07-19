@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Loader2, Wrench, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 
 import { getToolIcon, getToolTypeLabel } from "@/components/ToolsManager";
@@ -201,11 +201,14 @@ function StreamingToolCall({
 }
 
 function DebugLogsContent({ children }: { children: React.ReactNode }) {
-  const { scrollRef } = useAutoScroll();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { scrollRef } = useAutoScroll({ contentRef });
 
   return (
-    <div ref={scrollRef} className="space-y-0.5 pt-1 max-h-32 overflow-auto">
-      {children}
+    <div ref={scrollRef} className="pt-1 max-h-32 overflow-auto">
+      <div ref={contentRef} className="space-y-0.5">
+        {children}
+      </div>
     </div>
   );
 }

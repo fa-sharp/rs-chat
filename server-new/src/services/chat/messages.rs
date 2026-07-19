@@ -1,0 +1,76 @@
+use crate::{
+    db::models::{ChatRsMessage, ChatRsMessageRole},
+    llm::types::{LlmAssistantMessage, LlmMessage, LlmUserMessage},
+    services::chat::error::ChatError,
+};
+
+/// Extract any attached files, then convert the database messages to the generic format
+/// for sending to LLM providers
+pub fn build_llm_messages(
+    messages: Vec<ChatRsMessage>,
+    // user_id: &Uuid,
+    // session_id: &Uuid,
+    // db: &mut DbConnection,
+    // storage: &LocalStorage,
+) -> Result<Vec<LlmMessage>, ChatError> {
+    // // Get content of any attached files in the messages
+    // let mut file_map: HashMap<Uuid, LlmFileInput> = HashMap::new();
+    // let file_ids: Vec<Uuid> = messages.iter().fold(Vec::new(), |mut acc, message| {
+    //     if let Some(file_ids) = message.meta.user.as_ref().and_then(|u| u.files.as_ref()) {
+    //         acc.extend(file_ids);
+    //     }
+    //     acc
+    // });
+    // for file_id in file_ids {
+    //     let file = FileDbService::new(db)
+    //         .find_session_file(user_id, session_id, &file_id)
+    //         .await?;
+    //     let (file_type, content) = file.read_to_string(Some(session_id), storage).await?;
+    //     file_map.insert(
+    //         file_id,
+    //         LlmFileInput {
+    //             name: file.path,
+    //             content_type: file.content_type,
+    //             file_type,
+    //             content,
+    //         },
+    //     );
+    // }
+
+    // Convert the messages
+    let llm_messages = messages
+        .into_iter()
+        .map(|message| match message.role {
+            ChatRsMessageRole::User => {
+                // let files = message.meta.user.and_then(|u| u.files).map(|file_ids| {
+                //     file_ids
+                //         .iter()
+                //         .filter_map(|id| file_map.remove(id))
+                //         .collect()
+                // });
+                Ok(LlmMessage::User(LlmUserMessage {
+                    text: message.content,
+                    files: None,
+                }))
+            }
+            ChatRsMessageRole::Assistant => Ok(LlmMessage::Assistant(LlmAssistantMessage {
+                text: message.content,
+                // tool_calls: message.meta.assistant.and_then(|a| a.tool_calls),
+            })),
+            ChatRsMessageRole::System => Ok(LlmMessage::System(message.content)),
+            ChatRsMessageRole::Tool => {
+                // if let Some(tool_call) = message.meta.tool_call {
+                //     Ok(LlmMessage::Tool(LlmToolResult {
+                //         tool_call_id: tool_call.id,
+                //         tool_name: tool_call.tool_name,
+                //         content: message.content,
+                //     }))
+                // } else {
+                Err(ChatError::Messages)
+                // }
+            }
+        })
+        .collect::<Result<Vec<LlmMessage>, ChatError>>()?;
+
+    Ok(llm_messages)
+}

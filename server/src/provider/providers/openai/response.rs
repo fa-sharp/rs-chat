@@ -2,7 +2,9 @@ use serde::Deserialize;
 
 use crate::{
     db::models::ChatRsToolCall,
-    provider::{LlmPendingToolCall, LlmStreamChunk, LlmStreamChunkResult, LlmTool, LlmUsage},
+    provider::{
+        LlmImage, LlmPendingToolCall, LlmStreamChunk, LlmStreamChunkResult, LlmTool, LlmUsage,
+    },
 };
 
 /// Parse chunks from an OpenAI SSE event
@@ -42,6 +44,16 @@ pub fn parse_openai_event(
                     tool_calls.push(tool_call_delta);
                 }
             }
+        }
+        if let Some(images) = delta.images {
+            chunks.push(Ok(LlmStreamChunk::Images(
+                images
+                    .into_iter()
+                    .map(|image| LlmImage {
+                        base64_url: image.image_url.url,
+                    })
+                    .collect(),
+            )));
         }
     }
     if let Some(usage) = event.usage {
@@ -86,6 +98,9 @@ pub struct OpenAIResponseDelta {
     // role: Option<String>,
     content: Option<String>,
     tool_calls: Option<Vec<OpenAIStreamToolCall>>,
+    /// OpenRouter images
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub images: Option<Vec<OpenRouterImage>>,
 }
 
 /// OpenAI streaming tool call
@@ -122,13 +137,30 @@ struct OpenAIStreamToolCallFunction {
     arguments: Option<String>,
 }
 
+/// OpenRouter image
+#[derive(Debug, Deserialize)]
+pub struct OpenRouterImage {
+    // #[serde(rename = "type")]
+    // pub image_type: String,
+    pub image_url: OpenRouterImageData,
+}
+
+/// OpenRouter image data
+#[derive(Debug, Deserialize)]
+pub struct OpenRouterImageData {
+    /// Base64 data URL
+    pub url: String,
+}
+
 /// OpenAI API response usage
 #[derive(Debug, Deserialize)]
 pub struct OpenAIUsage {
     prompt_tokens: Option<u32>,
     completion_tokens: Option<u32>,
+    /// OpenRouter cost
     cost: Option<f32>,
-    // total_tokens: Option<u32>,
+    /// LLM Gateway cost
+    cost_usd_total: Option<f32>,
 }
 
 impl From<OpenAIUsage> for LlmUsage {
@@ -136,7 +168,7 @@ impl From<OpenAIUsage> for LlmUsage {
         LlmUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
-            cost: usage.cost,
+            cost: usage.cost.or(usage.cost_usd_total),
         }
     }
 }

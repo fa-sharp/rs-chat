@@ -1,6 +1,7 @@
 use diesel::prelude::*;
 use diesel::result::Error;
 use diesel_async::RunQueryDsl;
+use rocket::futures;
 use uuid::Uuid;
 
 use crate::db::{
@@ -25,16 +26,17 @@ impl<'a> ToolDbService<'a> {
         &mut self,
         user_id: &Uuid,
     ) -> Result<(Vec<ChatRsSystemTool>, Vec<ChatRsExternalApiTool>), Error> {
-        let system_tools = system_tools::table
-            .filter(system_tools::user_id.eq(user_id))
-            .select(ChatRsSystemTool::as_select())
-            .load(self.db)
-            .await?;
-        let external_api_tools = external_api_tools::table
-            .filter(external_api_tools::user_id.eq(user_id))
-            .select(ChatRsExternalApiTool::as_select())
-            .load(self.db)
-            .await?;
+        let (system_tools, external_api_tools) = futures::future::try_join(
+            system_tools::table
+                .filter(system_tools::user_id.eq(user_id))
+                .select(ChatRsSystemTool::as_select())
+                .load(self.db),
+            external_api_tools::table
+                .filter(external_api_tools::user_id.eq(user_id))
+                .select(ChatRsExternalApiTool::as_select())
+                .load(self.db),
+        )
+        .await?;
 
         Ok((system_tools, external_api_tools))
     }

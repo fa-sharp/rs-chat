@@ -86,6 +86,19 @@ export default function ChatMessage({
                 onExecute={(id) => onExecuteToolCall(message.id, id)}
               />
             )}
+            {message.meta.assistant?.files?.map((fileId) => (
+              <div key={fileId} className="flex items-center gap-1">
+                <Paperclip className="size-4" />
+                <a
+                  className="text-secondary-foreground"
+                  href={`${API_URL}/storage/${message.session_id}/${fileId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {files?.find((file) => file.id === fileId)?.path || "File"}
+                </a>
+              </div>
+            ))}
             <div className="flex items-end justify-between">
               <div className="flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100">
                 <InfoButton meta={message.meta} providers={providers} />

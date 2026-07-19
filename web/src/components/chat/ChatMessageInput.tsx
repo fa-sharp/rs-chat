@@ -1,7 +1,7 @@
 import { CornerDownLeft, Paperclip, Upload, X } from "lucide-react";
 import {
-  type FormEventHandler,
   memo,
+  type SubmitEventHandler,
   useCallback,
   useMemo,
   useState,
@@ -35,9 +35,10 @@ export default memo(function ChatMessageInput({
   const isMobile = useIsMobile();
 
   const {
+    sessionId,
     providerId,
     modelId,
-    sessionId,
+    selectedModel,
     toolInput,
     files,
     maxTokens,
@@ -84,7 +85,7 @@ export default memo(function ChatMessageInput({
     [enterKeyShouldSubmit, onSubmitUserMessage],
   );
 
-  const handleFormSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+  const handleFormSubmit: SubmitEventHandler<HTMLFormElement> = useCallback(
     (ev) => {
       ev.preventDefault();
       onSubmitUserMessage();
@@ -197,13 +198,16 @@ export default memo(function ChatMessageInput({
                   currentTemperature={temperature}
                   onSelectMaxTokens={setMaxTokens}
                   onSelectTemperature={setTemperature}
+                  showTemperature={selectedModel?.temperature}
                 />
-                <ChatToolSelect
-                  tools={tools}
-                  toolInput={toolInput}
-                  onSetSystemTool={onSetSystemTool}
-                  onToggleExternalApiTool={onToggleExternalApiTool}
-                />
+                {(!selectedModel || selectedModel.tool_call) && (
+                  <ChatToolSelect
+                    tools={tools}
+                    toolInput={toolInput}
+                    onSetSystemTool={onSetSystemTool}
+                    onToggleExternalApiTool={onToggleExternalApiTool}
+                  />
+                )}
                 <ChatFileSelect
                   sessionId={sessionId}
                   selectedFiles={files}

@@ -12,7 +12,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
-    image: valkey/valkey:7-alpine
+    image: valkey/valkey:8-alpine
     container_name: redis
     ports:
       - "6379:6379"
@@ -20,40 +20,57 @@ services:
       - redis_data:/data
 
   stream:
-    image: ghcr.io/fa-sharp/tinistream:0.1.9
-    platform: linux/amd64
+    image: tinistream
     container_name: tinistream
     ports:
       - "8081:8081"
     environment:
       STREAMER_PORT: 8081
-      STREAMER_SERVER_ADDRESS: http://localhost:8081
+      STREAMER_API_KEY: dev-streamer-api-key
+      STREAMER_BASE_URL: http://localhost:8081
       STREAMER_REDIS_URL: redis://redis:6379
-      STREAMER_TTL: 360
-    env_file: server/.env
+      STREAMER_KEY_PREFIX: "rs-chat:"
+    env_file: server-new/.env
     depends_on:
       - redis
 
-  rschat:
-    build:
-      context: .
-    ports:
-      - "8080:8080"
-    environment:
-      RUST_LOG: info
-      RS_CHAT_SERVER_ADDRESS: http://localhost:8080
-      RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
-      RS_CHAT_REDIS_URL: redis://redis:6379
-      RS_CHAT_DATA_DIR: /data
-      RS_CHAT_TINISTREAM_URL: http://tinistream:8081
-    env_file: server/.env
-    volumes:
-      - ./.docker:/certs
-      - rschat_data:/data
-    depends_on:
-      - db
-      - redis
-      - stream
+  # runner:
+  #   image: ghcr.io/fa-sharp/tinirun:0.1.1
+  #   container_name: tinirun
+  #   ports:
+  #     - "8082:8082"
+  #   environment:
+  #     RUNNER_HOST: 0.0.0.0
+  #     RUNNER_PORT: 8082
+  #     RUNNER_LOG_LEVEL: info
+  #     RUNNER_REDIS_URL: redis://redis:6379
+  #   env_file: server/.env
+  #   depends_on:
+  #     - redis
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+
+  # rschat:
+  #   build:
+  #     context: .
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     RUST_LOG: info
+  #     RS_CHAT_SERVER_ADDRESS: http://localhost:8080
+  #     RS_CHAT_DATABASE_URL: postgres://postgres:postgres@postgres/postgres
+  #     RS_CHAT_REDIS_URL: redis://redis:6379
+  #     RS_CHAT_DATA_DIR: /data
+  #     RS_CHAT_TINISTREAM_URL: http://tinistream:8081
+  #     RS_CHAT_TINIRUN_URL: http://tinirun:8082
+  #   env_file: server/.env
+  #   volumes:
+  #     - rschat_data:/data
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - stream
+  #     - runner
 
 volumes:
   postgres_data:

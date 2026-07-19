@@ -1,4 +1,4 @@
-use reqwest_websocket::{RequestBuilderExt, WebSocket};
+use reqwest_websocket::{Upgrade, WebSocket};
 use tinistream_client::{types::*, Client, ClientEventsExt, ClientInfo, ClientStreamExt, Error};
 
 /// A client for interacting with the tinistream API.
@@ -115,7 +115,7 @@ impl TinistreamClient {
         Ok(res.into_inner().status)
     }
 
-    /// End a stream
+    /// Signal the end of a stream
     pub async fn stream_end(&self, key: &str) -> TiniResult<StreamStatus> {
         let res = self
             .client

@@ -83,7 +83,7 @@ export function AppSidebar({
   );
 
   const onLogout = React.useCallback(async () => {
-    await fetch(`${import.meta.env.VITE_API_URL || ""}/api/auth/logout`, {
+    await fetch(`${import.meta.env.VITE_API_URL || "/api/v1"}/auth/logout`, {
       method: "POST",
     });
     queryClient.invalidateQueries({ queryKey: ["user"] });

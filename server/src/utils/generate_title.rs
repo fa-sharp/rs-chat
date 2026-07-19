@@ -47,6 +47,7 @@ async fn generate(
         model,
         temperature: Some(DEFAULT_TEMPERATURE),
         max_tokens: Some(TITLE_TOKENS),
+        ..Default::default()
     };
     let message = format!("{}: \"{}\"", TITLE_PROMPT, user_message);
     let title = provider.prompt(&message, &provider_options).await?;

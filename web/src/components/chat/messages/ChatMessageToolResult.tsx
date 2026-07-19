@@ -23,7 +23,7 @@ export default function ChatMessageToolResult({
   message: components["schemas"]["ChatRsMessage"];
   tools?: components["schemas"]["GetAllToolsResponse"];
 }) {
-  const [showOutput, setShowOutput] = useState(false);
+  const [showOutput, setShowOutput] = useState(true);
 
   const tool = useMemo(() => {
     if (!message.meta.tool_call) return null;

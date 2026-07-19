@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::{
     db::models::ChatRsFileType,
-    provider::{utils::create_data_uri, LlmMessage, LlmTool},
+    provider::{models::ModalityType, utils::create_data_uri, LlmMessage, LlmTool},
 };
 
 pub fn build_openai_messages<'a>(messages: &'a [LlmMessage]) -> Vec<OpenAIMessage<'a>> {
@@ -115,6 +115,8 @@ pub struct OpenAIRequest<'a> {
     pub stream_options: Option<OpenAIStreamOptions>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<OpenAITool<'a>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modalities: Option<&'a Vec<ModalityType>>,
 }
 
 /// OpenAI API request stream options

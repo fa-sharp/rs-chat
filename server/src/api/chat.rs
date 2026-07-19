@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use rocket::{futures::StreamExt, get, post, serde::json::Json, Route, State};
+use rocket::{get, post, serde::json::Json, Route, State};
 use rocket_okapi::{
     okapi::openapi3::OpenApi, openapi, openapi_get_routes_spec, settings::OpenApiSettings,
 };
@@ -151,7 +151,7 @@ pub async fn send_chat_stream(
                 &session_id,
                 &user_message,
                 &provider_api,
-                &input.options.model,
+                &provider.default_model,
                 db_pool,
             );
         }
@@ -169,50 +169,24 @@ pub async fn send_chat_stream(
         messages.push(message);
     }
 
-    // Convert the messages, and get the provider's response
+    // Build the messages and get the initial stream response from the provider
     let llm_messages =
         build_llm_messages(messages, &user_id, &session_id, &mut db, &storage).await?;
     let stream = provider_api
         .chat_stream(llm_messages, tools, &input.options)
         .await?;
 
-    // Create the Redis stream and get a WebSocket connection for writing to it
-    let stream_access = tinistream.stream_start(&stream_key).await?;
-    let (ws_writer, ws_reader) = tinistream.stream_writer_ws(&stream_key).await?.split();
-
-    // Spawn a task to stream and save the response
-    let tinistream = tinistream.inner().to_owned();
-    let provider_id = input.provider_id.clone();
-    let provider_options = input.options.clone();
-    tokio::spawn(async move {
-        let mut stream_writer = LlmStreamWriter::new();
-        let (text, tool_calls, usage, errors, cancelled) =
-            stream_writer.process(stream, ws_writer, ws_reader).await;
-
-        let assistant_meta = AssistantMeta {
-            provider_id,
-            provider_options: Some(provider_options),
-            tool_calls,
-            usage,
-            errors,
-            partial: cancelled.then_some(true),
-        };
-        let db_result = ChatDbService::new(&mut db)
-            .save_message(NewChatRsMessage {
-                session_id: &session_id,
-                role: ChatRsMessageRole::Assistant,
-                content: &text.unwrap_or_default(),
-                meta: ChatRsMessageMeta::new_assistant(assistant_meta),
-            })
-            .await;
-        if let Err(err) = db_result {
-            rocket::error!("Failed to save assistant message: {}", err);
-        }
-
-        if !cancelled {
-            tinistream.stream_end(&stream_key).await.ok();
-        }
-    });
+    // Start the client stream and get the access URL / token
+    let stream_access = LlmClientStreamer::new(db, tinistream, storage)
+        .start(
+            stream,
+            stream_key,
+            user_id.clone(),
+            session_id,
+            input.provider_id,
+            input.into_inner().options,
+        )
+        .await?;
 
     Ok(Json(StreamAccess {
         url: stream_access.sse_url,
@@ -230,11 +204,11 @@ pub async fn connect_to_chat_stream(
     tinistream: &State<TinistreamClient>,
 ) -> Result<Json<StreamAccess>, ApiError> {
     let key = chat_stream_key(&user_id, &session_id);
-    let connect = tinistream.stream_connect(&key).await?;
+    let stream_access = tinistream.stream_connect(&key).await?;
 
     Ok(Json(StreamAccess {
-        url: connect.sse_url,
-        token: connect.token,
+        url: stream_access.sse_url,
+        token: stream_access.token,
     }))
 }
 

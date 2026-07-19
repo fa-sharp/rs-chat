@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     db::models::{ChatRsFileType, ChatRsToolCall},
-    provider::models::LlmModel,
+    provider::models::{LlmModel, ModalityType},
 };
 
 /// Unified API for LLM providers
@@ -42,6 +42,7 @@ pub enum LlmStreamChunk {
     Text(String),
     ToolCalls(Vec<ChatRsToolCall>),
     PendingToolCall(LlmPendingToolCall),
+    Images(Vec<LlmImage>),
     Usage(LlmUsage),
 }
 
@@ -103,6 +104,12 @@ pub struct LlmPendingToolCall {
     pub tool_name: String,
 }
 
+/// A generated image from the LLM provider
+#[derive(Debug, Clone)]
+pub struct LlmImage {
+    pub base64_url: String,
+}
+
 /// Usage stats from the LLM provider
 #[derive(Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LlmUsage {
@@ -113,12 +120,25 @@ pub struct LlmUsage {
     pub cost: Option<f32>,
 }
 
+/// Complete processed response from the LLM provider
+pub struct LlmOutput {
+    pub text: Option<String>,
+    pub tool_calls: Option<Vec<ChatRsToolCall>>,
+    pub images: Option<Vec<LlmImage>>,
+    pub usage: Option<LlmUsage>,
+    pub errors: Option<Vec<String>>,
+    pub cancelled: bool,
+}
+
 /// Configuration for LLM provider requests
 #[derive(Clone, Debug, Default, JsonSchema, serde::Serialize, serde::Deserialize)]
 pub struct LlmProviderOptions {
     pub model: String,
     pub temperature: Option<f32>,
     pub max_tokens: Option<u32>,
+    /// Only supported for OpenRouter
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modalities: Option<Vec<ModalityType>>,
 }
 
 /// Generic message type to send to LLM providers

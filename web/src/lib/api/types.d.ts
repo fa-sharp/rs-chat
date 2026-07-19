@@ -781,6 +781,8 @@ export interface components {
             provider_options?: components["schemas"]["LlmProviderOptions"] | null;
             /** @description The tool calls requested by the assistant */
             tool_calls?: components["schemas"]["ChatRsToolCall"][] | null;
+            /** @description IDs of generated files */
+            files?: string[] | null;
             /** @description Provider usage information */
             usage?: components["schemas"]["LlmUsage"] | null;
             /** @description Errors encountered during message generation */
@@ -795,6 +797,8 @@ export interface components {
             temperature?: number | null;
             /** Format: uint32 */
             max_tokens?: number | null;
+            /** @description Only supported for OpenRouter */
+            modalities?: components["schemas"]["ModalityType"][] | null;
         };
         /** @description A tool call requested by the provider */
         ChatRsToolCall: {

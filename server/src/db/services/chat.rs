@@ -1,5 +1,6 @@
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use rocket::futures;
 use uuid::Uuid;
 
 use crate::{
@@ -121,17 +122,19 @@ impl<'a> ChatDbService<'a> {
         user_id: &Uuid,
         session_id: &Uuid,
     ) -> Result<(ChatRsSession, Vec<ChatRsMessage>), diesel::result::Error> {
-        let session = chat_sessions::table
-            .filter(chat_sessions::user_id.eq(user_id))
-            .filter(chat_sessions::id.eq(session_id))
-            .select(ChatRsSession::as_select())
-            .first(self.db)
-            .await?;
-        let messages = ChatRsMessage::belonging_to(&session)
-            .select(ChatRsMessage::as_select())
-            .order_by(chat_messages::created_at.asc())
-            .load(self.db)
-            .await?;
+        let (session, messages) = futures::future::try_join(
+            chat_sessions::table
+                .filter(chat_sessions::user_id.eq(user_id))
+                .filter(chat_sessions::id.eq(session_id))
+                .select(ChatRsSession::as_select())
+                .first(self.db),
+            chat_messages::table
+                .filter(chat_messages::session_id.eq(session_id))
+                .select(ChatRsMessage::as_select())
+                .order_by(chat_messages::created_at.asc())
+                .load(self.db),
+        )
+        .await?;
 
         Ok((session, messages))
     }
