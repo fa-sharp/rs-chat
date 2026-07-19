@@ -46,7 +46,12 @@ impl AppState {
         ModelService::new(&self.redis, &self.http_client)
     }
     pub fn storage_service(&self) -> StorageService<'_> {
-        StorageService::new(&self.config.server.data_dir, &self.db_pool)
+        StorageService::new(
+            &self.config.server.data_dir,
+            &self.db_pool,
+            &self.http_client,
+            &self.config.storage,
+        )
     }
 }
 

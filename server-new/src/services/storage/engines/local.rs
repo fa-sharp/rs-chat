@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use futures::future::BoxFuture;
+use futures::{future::BoxFuture, stream::BoxStream};
 use tokio::{
     fs::File,
-    io::{AsyncRead, AsyncReadExt, AsyncWriteExt, BufWriter},
+    io::{AsyncReadExt, AsyncWriteExt, BufWriter},
 };
+use tokio_util::io::StreamReader;
 
 use crate::services::storage::{
     StorageEngine,
@@ -30,7 +31,9 @@ impl StorageEngine for LocalStorage {
     fn create<'r>(
         &'r self,
         file_path: &'r Path,
-        reader: &'r mut (dyn AsyncRead + Unpin + Send),
+        _size: usize,
+        _content_type: &'r str,
+        stream: BoxStream<'static, Result<axum::body::Bytes, std::io::Error>>,
     ) -> BoxFuture<'r, StorageResult<usize>> {
         Box::pin(async move {
             let local_path = self.local_path(file_path);
@@ -39,6 +42,7 @@ impl StorageEngine for LocalStorage {
 
             let mut file = File::create_new(&local_path).await?;
             let mut file_writer = BufWriter::new(&mut file);
+            let mut reader = StreamReader::new(stream);
             let mut read_buffer = [0; 8192];
             let mut total_bytes: usize = 0;
 

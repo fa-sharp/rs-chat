@@ -1,21 +1,21 @@
 use std::path::{Path, PathBuf};
 
 use futures::Stream;
-use tokio_util::io::StreamReader;
 use uuid::Uuid;
 
 use crate::{
+    config::StorageConfig,
     db::{
         DbPool, DbService,
         models::{ChatRsFile, ChatRsFileType, NewChatRsFile},
     },
     services::storage::{
-        engines::LocalStorage,
+        engines::{LocalStorage, S3Storage},
         error::{StorageError, StorageResult},
     },
 };
 
-mod engines;
+pub mod engines;
 mod error;
 mod interface;
 
@@ -31,11 +31,23 @@ pub const SESSION_FOLDER: &str = "session";
 pub struct StorageService<'r> {
     data_dir: &'r Path,
     db_pool: &'r DbPool,
+    config: &'r StorageConfig,
+    http_client: &'r reqwest::Client,
 }
 
 impl<'r> StorageService<'r> {
-    pub fn new(data_dir: &'r Path, db_pool: &'r DbPool) -> Self {
-        Self { data_dir, db_pool }
+    pub fn new(
+        data_dir: &'r Path,
+        db_pool: &'r DbPool,
+        http_client: &'r reqwest::Client,
+        config: &'r StorageConfig,
+    ) -> Self {
+        Self {
+            data_dir,
+            db_pool,
+            config,
+            http_client,
+        }
     }
 
     pub async fn create_file(
@@ -43,21 +55,27 @@ impl<'r> StorageService<'r> {
         user_id: &Uuid,
         session_id: Option<&Uuid>,
         path: &str,
-        content_type: Option<&str>,
-        stream: impl Stream<Item = Result<axum::body::Bytes, std::io::Error>> + Send + Unpin,
+        size: usize,
+        content_type: &str,
+        stream: impl Stream<Item = Result<axum::body::Bytes, std::io::Error>> + Send + 'static,
     ) -> StorageResult<ChatRsFile> {
         let file_path = self.build_file_path(user_id, session_id, &path)?;
-        let content_type = content_type.ok_or(StorageError::MissingContentType)?;
         let file_type = self.validate_file_type(content_type)?;
 
-        let storage = self.storage_engine();
+        let storage = self.storage_engine()?;
         if storage.exists(&file_path).await? {
             return Err(StorageError::AlreadyExists);
         }
 
-        let mut reader = StreamReader::new(stream);
-        let file_size = match storage.create(&file_path, &mut reader).await {
-            Ok(num_bytes) => num_bytes,
+        match storage
+            .create(&file_path, size, content_type, Box::pin(stream))
+            .await
+        {
+            Ok(bytes_written) if bytes_written == size => {}
+            Ok(wrong_size) => {
+                let _ = storage.delete(&file_path).await;
+                return Err(StorageError::WrongSize(wrong_size));
+            }
             Err(err) => {
                 let _ = storage.delete(&file_path).await;
                 return Err(err);
@@ -71,7 +89,7 @@ impl<'r> StorageService<'r> {
             path,
             file_type: file_type.as_ref(),
             content_type,
-            size: file_size.try_into().unwrap_or_default(),
+            size: size.try_into().unwrap_or_default(),
         };
         let db_file = db.files().create_file(new_file).await?;
 
@@ -95,7 +113,7 @@ impl<'r> StorageService<'r> {
         }
         .ok_or(StorageError::NotFound)?;
 
-        let storage = self.storage_engine();
+        let storage = self.storage_engine()?;
         let file_path = self.build_file_path(user_id, session_id, &db_file.path)?;
         if let Err(err) = storage.delete(&file_path).await {
             tracing::warn!("error deleting file {file_id} with path {file_path:?}: {err}");
@@ -113,8 +131,15 @@ impl<'r> StorageService<'r> {
         Ok(deleted_file_id)
     }
 
-    fn storage_engine(&self) -> Box<dyn StorageEngine> {
-        Box::new(LocalStorage::new(self.data_dir.join(STORAGE_FOLDER)))
+    fn storage_engine(&self) -> StorageResult<Box<dyn StorageEngine + 'r>> {
+        Ok(match self.config {
+            StorageConfig::Local => Box::new(LocalStorage::new(self.data_dir.join(STORAGE_FOLDER))),
+            StorageConfig::S3(config) => Box::new(S3Storage::new(
+                STORAGE_FOLDER.into(),
+                config,
+                self.http_client,
+            )?),
+        })
     }
 
     fn build_file_path(
@@ -149,6 +174,7 @@ impl<'r> StorageService<'r> {
         match content_type {
             "image/jpeg" | "image/png" | "image/webp" => Ok(ChatRsFileType::Image),
             "application/pdf" => Ok(ChatRsFileType::Pdf),
+            "application/json" | "application/xml" => Ok(ChatRsFileType::Text),
             text if text.starts_with("text/") => Ok(ChatRsFileType::Text),
             unsupported => Err(StorageError::UnsupportedContentType(unsupported.into())),
         }

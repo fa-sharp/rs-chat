@@ -1,8 +1,8 @@
 use std::time::Duration;
 
-use axum::http::StatusCode;
+use axum::{extract::DefaultBodyLimit, http::StatusCode};
 use tower::ServiceBuilder;
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
+use tower_http::timeout::TimeoutLayer;
 
 use crate::plugins::AxumPlugin;
 
@@ -19,7 +19,7 @@ pub fn plugin() -> AxumPlugin {
             .into_layer()?;
 
         let service = ServiceBuilder::new()
-            .layer(RequestBodyLimitLayer::new(app.config().security.body_limit))
+            .layer(DefaultBodyLimit::max(app.config().security.body_limit))
             .layer(TimeoutLayer::with_status_code(
                 StatusCode::REQUEST_TIMEOUT,
                 Duration::from_secs(app.config().security.request_timeout),

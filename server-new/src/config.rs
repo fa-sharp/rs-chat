@@ -6,9 +6,12 @@ use axum_plugin::figment::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::services::auth::{
-    oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
-    proxy::ProxyHeaderConfig,
+use crate::services::{
+    auth::{
+        oauth::{DiscordOAuthConfig, GitHubOAuthConfig, GoogleOAuthConfig, OidcConfig},
+        proxy::ProxyHeaderConfig,
+    },
+    storage::engines::S3Config,
 };
 
 /// Extract configuration from defaults, local `config.toml`, then `RS_CHAT_` environment variables split by `__`.
@@ -28,6 +31,7 @@ pub struct AppConfig {
     pub services: ServiceConfig,
     pub security: SecurityConfig,
     pub redis: RedisConfig,
+    pub storage: StorageConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,7 +121,7 @@ pub struct SecurityConfig {
 impl Default for SecurityConfig {
     fn default() -> Self {
         Self {
-            body_limit: 5 * 1024 * 1024,   // 5 MB
+            body_limit: 1 * 1024 * 1024,   // 1 MB
             upload_limit: 5 * 1024 * 1024, // 5 MB
             request_timeout: 120,          // 2 minutes
         }
@@ -138,4 +142,12 @@ impl Default for RedisConfig {
             timeout: 10, // 10 seconds
         }
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(tag = "engine", rename_all = "lowercase")]
+pub enum StorageConfig {
+    #[default]
+    Local,
+    S3(S3Config),
 }

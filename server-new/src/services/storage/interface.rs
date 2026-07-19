@@ -2,8 +2,7 @@
 
 use std::path::Path;
 
-use futures::future::BoxFuture;
-use tokio::io::AsyncRead;
+use futures::{future::BoxFuture, stream::BoxStream};
 
 use super::error::StorageResult;
 
@@ -12,7 +11,9 @@ pub trait StorageEngine: Send + Sync {
     fn create<'r>(
         &'r self,
         path: &'r Path,
-        reader: &'r mut (dyn AsyncRead + Unpin + Send),
+        size: usize,
+        content_type: &'r str,
+        stream: BoxStream<'static, Result<axum::body::Bytes, std::io::Error>>,
     ) -> BoxFuture<'r, StorageResult<usize>>;
     fn exists<'r>(&'r self, path: &'r Path) -> BoxFuture<'r, StorageResult<bool>>;
     fn delete<'r>(&'r self, path: &'r Path) -> BoxFuture<'r, StorageResult<()>>;
